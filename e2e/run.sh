@@ -93,7 +93,7 @@ write_prefs() {
     <string name="contacts">$SELF_NUMBER</string>
     <string name="owner_name">E2E</string>
     <boolean name="onboarded" value="true" />
-    <int name="grace_seconds" value="8" />
+    <int name="grace_seconds" value="15" />
     <boolean name="fake_shutdown" value="$fake_shutdown" />
 </map>
 EOF
@@ -104,13 +104,15 @@ EOF
   enable_accessibility
 }
 
-# Toggled off and on so the system rebinds the service (force-stop unbinds it).
+# Accessibility must be on before the service is listed, or Android never binds it. Toggled so
+# the system rebinds after a force-stop, then wait until the service reports it's connected.
 enable_accessibility() {
-  sh settings put secure enabled_accessibility_services null
-  sleep 0.5
-  sh settings put secure enabled_accessibility_services "$PKG/$PKG.PowerMenuWatcher"
+  reset_log
   sh settings put secure accessibility_enabled 1
-  sleep 1.5
+  sh settings put secure enabled_accessibility_services null
+  sleep 1
+  sh settings put secure enabled_accessibility_services "$PKG/$PKG.PowerMenuWatcher"
+  expect_log "power-off protection connected" 15 "accessibility service connected"
 }
 
 arm() {
@@ -150,7 +152,7 @@ calm_down
 reset_log
 pull_out
 expect_phase WARNING 5 "pulled out while locked starts the warning"
-expect_phase SIREN 12 "no unlock within grace starts the siren"
+expect_phase SIREN 19 "no unlock within grace starts the siren"
 expect_log "alert FIRST" 6 "first alert goes out immediately"
 expect_log "sms sent" 25 "network accepted the alert SMS"
 expect_log "intruder photos saved: [12]" 15 "front camera photographed the intruder"

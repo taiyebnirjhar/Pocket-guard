@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -43,6 +44,7 @@ class PowerMenuWatcher : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        Log.i(GuardService.TAG, "power-off protection connected")
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
