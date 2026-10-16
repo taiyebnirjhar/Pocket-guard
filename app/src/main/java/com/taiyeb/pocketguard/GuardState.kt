@@ -8,17 +8,14 @@ enum class Phase {
     IN_POCKET,
     WARNING,
     SIREN,
-    /** Fake shutdown: the phone pretends to be off while it keeps tracking. */
-    STEALTH,
     ;
 
-    val isAlarm get() = this == WARNING || this == SIREN || this == STEALTH
+    val isAlarm get() = this == WARNING || this == SIREN
 }
 
 /** What caused an alarm. */
 enum class Trigger {
     POCKET_REMOVAL,
-    POWER_MENU,
     AIRPLANE_MODE,
     CHARGER_UNPLUGGED,
     EARBUDS_DISCONNECTED,

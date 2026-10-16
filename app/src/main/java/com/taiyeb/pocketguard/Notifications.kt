@@ -12,9 +12,9 @@ object Notifications {
     const val STATUS_ID = 1
     private const val ALARM_ID = 2
     private const val INFO_ID = 3
+    private const val LOCK_WARNING_ID = 4
     private const val STATUS_CHANNEL = "guard_status"
     private const val ALARM_CHANNEL = "guard_alarm"
-    private const val STEALTH_CHANNEL = "guard_stealth"
 
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -27,15 +27,6 @@ object Notifications {
                 enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setBypassDnd(true)
-            },
-        )
-        manager.createNotificationChannel(
-            NotificationChannel(
-                STEALTH_CHANNEL, context.getString(R.string.channel_stealth), NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                setSound(null, null)
-                enableVibration(false)
-                setShowBadge(false)
             },
         )
     }
@@ -52,13 +43,8 @@ object Notifications {
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        if (phase == Phase.STEALTH) {
-            // Nothing on the lock screen may hint that the "shut down" phone is still running.
-            builder.setVisibility(NotificationCompat.VISIBILITY_SECRET)
-        } else {
-            builder.setContentText(context.getString(phase.hintRes()))
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        }
+        builder.setContentText(context.getString(phase.hintRes()))
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         return builder.build()
     }
 
@@ -72,6 +58,21 @@ object Notifications {
         ))
     }
 
+    /** The phone didn't lock when the screen went off: a pocketed phone would be open to a thief. */
+    fun showLockWarning(context: Context) {
+        val settings = Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        notifyInfo(
+            context,
+            R.string.notify_lock_not_instant,
+            PendingIntent.getActivity(context, 4, settings, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+            LOCK_WARNING_ID,
+        )
+    }
+
+    fun cancelLockWarning(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(LOCK_WARNING_ID)
+    }
+
     fun showInfo(context: Context, text: Int) {
         notifyInfo(context, text, PendingIntent.getActivity(
             context, 3, Intent(context, MainActivity::class.java),
@@ -79,7 +80,7 @@ object Notifications {
         ))
     }
 
-    private fun notifyInfo(context: Context, text: Int, tap: PendingIntent) {
+    private fun notifyInfo(context: Context, text: Int, tap: PendingIntent, id: Int = INFO_ID) {
         createChannels(context)
         val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
             .setSmallIcon(R.drawable.ic_shield)
@@ -89,34 +90,26 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(tap)
             .build()
-        context.getSystemService(NotificationManager::class.java).notify(INFO_ID, notification)
+        context.getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
-    /**
-     * Shows [activity] over the lock screen. A full-screen notification is the reliable path; the
-     * direct start also works when the accessibility service is bound (it exempts the app from
-     * Android's background activity start limits).
-     */
-    fun showFullScreen(context: Context, activity: Class<*>, stealth: Boolean) {
+    /** Shows the alarm screen over the lock screen; a full-screen notification is the reliable path. */
+    fun showAlarm(context: Context) {
+        val activity = AlarmActivity::class.java
         val intent = Intent(context, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pending = PendingIntent.getActivity(
             context, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val builder = NotificationCompat.Builder(context, if (stealth) STEALTH_CHANNEL else ALARM_CHANNEL)
+        val builder = NotificationCompat.Builder(context, ALARM_CHANNEL)
             .setSmallIcon(R.drawable.ic_shield)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(true)
             .setFullScreenIntent(pending, true)
             .setContentIntent(pending)
-        if (stealth) {
-            builder.setContentTitle(context.getString(R.string.phase_stealth))
-                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-        } else {
-            builder.setContentTitle(context.getString(R.string.phase_siren))
-                .setContentText(context.getString(R.string.phase_siren_hint))
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        }
+        builder.setContentTitle(context.getString(R.string.phase_siren))
+            .setContentText(context.getString(R.string.phase_siren_hint))
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         context.getSystemService(NotificationManager::class.java).notify(ALARM_ID, builder.build())
         try {
             context.startActivity(intent)

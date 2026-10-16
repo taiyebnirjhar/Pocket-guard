@@ -2,10 +2,10 @@
 
 Android anti-pickpocket alarm. Arm it before you get into a crowd. If the phone leaves your
 pocket or bag without your unlock, it beeps (in your earbuds if connected), then sounds a
-full-volume siren the thief can't silence. Your emergency contacts get an SMS with the phone's
-location and the front camera photographs whoever is holding it.
+full-volume siren the thief can't silence, and the front camera photographs whoever is holding it.
 
-English and Bangla. Android 8.0+ (minSdk 26). Built and tested entirely in CI.
+English and Bangla. Android 8.0+ (minSdk 26). No SMS, location or accessibility permissions, so
+it can be installed outside the Play Store without the strictest Play Protect checks.
 
 ## How it works
 
@@ -21,24 +21,37 @@ English and Bangla. Android 8.0+ (minSdk 26). Built and tested entirely in CI.
    Late readings still count for 2.5 s. A motion-only warning cancels itself if the sensor is
    covered again within 1 s (pocket fabric). A light-confirmed one doesn't, since that's a
    thief's hand.
-4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s; 0 skips the warning and sirens at once) and
-   nothing else happens.
+4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s; 0 skips
+   the warning and sirens at once) and nothing else happens.
 5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
    Disturb when allowed), volume buttons locked, torch strobe, "THIS PHONE IS STOLEN" over the lock
-   screen, SMS to contacts, intruder photos.
-6. **Unlock** with PIN, pattern, password, fingerprint or face: everything stops, contacts get an
-   "all clear" if they were alerted, and the guard re-arms by itself.
+   screen, intruder photos.
+6. **Unlock** with PIN, pattern, password, fingerprint or face: everything stops and the guard
+   re-arms by itself.
 
 Unlocking only counts as the owner if the phone was credential-locked when the alarm began. If
-Smart Lock or the screen-lock delay kept it unlocked, the alarm screen says to tap DISARM in the
+Smart Lock or a screen-lock delay kept it unlocked, the alarm screen says to tap DISARM in the
 app instead. The app refuses to arm without a PIN, pattern or password.
+
+## Setup requirement: the phone must lock immediately
+
+A phone pocketed with the screen just turned off, but not yet locked, would let a thief pass as
+the owner. So the phone's own settings must lock it at once:
+
+- **Lock after screen timeout**: Immediately
+- **Power button instantly locks**: on
+- **Password needed to power off**: on, if the phone has it (Xiaomi, Realme, Oppo, newer Samsung).
+  This replaces a power-off alarm.
+
+Android hides those settings from apps, so Pocket Guard tests them. Every time the screen turns
+off while armed, it checks 1.5 s later that the phone is locked. If not, it shows a warning
+notification and marks the checklist row red until a later check passes.
 
 ## Triggers
 
 | Trigger | What happens | Default | Needs |
 |---|---|---|---|
 | Taken out of pocket or bag while locked | Warning, then siren | Always on | Proximity sensor |
-| Power menu opened while locked | Menu closed, siren at once (or fake shutdown) | On | Accessibility service |
 | Airplane mode turned on while locked | Siren at once | On | |
 | Charger unplugged while locked (wired, still unplugged after 2 s) | Warning, then siren | On | |
 | Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in pocket: buzz only) | Off | Nearby devices permission |
@@ -46,32 +59,24 @@ app instead. The app refuses to arm without a PIN, pattern or password.
 
 **Auto-arm** (both off by default) when chosen earbuds or a watch connect, or when Google
 activity detection sees you board a bus, train or car. Auto-armed sessions turn off after 4 hours.
-Car stereos and speakers never count as earbuds. You can also pick the exact devices that count.
+Car stereos and speakers never count as earbuds, and you can pick the exact devices that count.
 
 Calls are ignored while the audio is at the earpiece, because the ear covers and uncovers the
-proximity sensor. A phone pocketed unlocked is locked automatically, and so is one whose screen
-turns off while armed (both need the accessibility service).
+proximity sensor.
 
 ## Evidence
 
-- **Emergency SMS** from the phone's own SIM (works without mobile data) to up to 3 contacts.
-  The first alert goes out immediately with the last known location, then fresh fixes follow,
-  with an update every 5 minutes (6 updates). Delivery is confirmed per message. Failed sends retry
-  every minute, and at once when airplane mode turns off. At most 3 alerts an hour. Old locations
-  are labelled with their age.
 - **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
-  Skipped in fake shutdown, because the camera privacy dot would give it away.
-- **Theft history**: trigger, outcome, SMS count, last location (opens in maps) and photos.
-  Stored only on the phone. Warning-only entries are kept 7 days, alarms 90 days.
-- **Fake shutdown** (optional): opening the power menu shows "Shutting down…", then a black
-  screen while location keeps going out. The owner holds the screen for 3 s to get the unlock
-  prompt.
+- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90.
+
+Both stay on the phone, for when it's recovered. An internet alert to another device is the
+planned replacement for the SMS alerts of earlier builds.
 
 ## Test mode
 
-Test mode plays a quiet siren and marks SMS as `[TEST]`. It is off by default and switches itself
-off after an hour, so a forgotten test mode can't weaken a real alarm. The in-app "How to test"
-list walks through every trigger.
+Test mode plays a quiet siren. It is off by default and switches itself off after an hour, so a
+forgotten test mode can't weaken a real alarm. The in-app "How to test" list walks through every
+trigger.
 
 ## Install
 
@@ -81,23 +86,19 @@ download the APK and allow installs from your browser. Builds share one signing 
 build installs over the old one and keeps your settings.
 
 After installing, work through the in-app setup checklist: notifications, battery optimization,
-lock-screen alarms, screen lock, power-off protection (accessibility), Do Not Disturb access and
-autostart (Xiaomi, Realme, Oppo, Vivo).
-
-On Android 13+, the accessibility switch is greyed out for sideloaded apps until you open App
-info, tap ⋮ and choose "Allow restricted settings".
+lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access and autostart
+(Xiaomi, Realme, Oppo, Vivo).
 
 ## Architecture
 
 | File | Role |
 |---|---|
 | `GuardEngine.kt` | Every decision as a pure state machine (no Android types). Unit tested. |
-| `GuardService.kt` | Foreground service: feeds sensors and system broadcasts to the engine and carries out its side effects. Direct-boot aware. |
+| `GuardService.kt` | Foreground service: feeds sensors and system broadcasts to the engine, carries out its side effects, runs the lock check. Direct-boot aware. |
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
-| `IncidentRecorder.kt`, `Sms.kt`, `Locator.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: SMS with delivery tracking, fused location, CameraX, JSON history. |
-| `PowerMenuWatcher.kt` | Accessibility service: power-menu detection, screen locking. |
+| `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit auto-arm; boot and update re-arm. |
-| `AlarmActivity.kt`, `FakeOffActivity.kt` | Screens shown over the lock screen. |
+| `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
 | `MainScreen.kt`, `OnboardingScreen.kt`, `HistoryScreen.kt` | Compose UI. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
 
@@ -105,22 +106,19 @@ info, tap ⋮ and choose "Allow restricted settings".
 
 `.github/workflows/pocket-guard.yml`:
 
-1. **Unit tests**: 47 `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
-   a light sensor that freezes with the screen off, late readings, flicker recovery, calls and
-   restarts.
+1. **Unit tests**: `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
+   a light sensor that freezes with the screen off, late readings, flicker recovery, calls,
+   no-delay mode and restarts.
 2. **Android lint** with `abortOnError`. The full report is printed on failure.
-3. **Emulator end-to-end test** (`e2e/run.sh`, API 34, 46 checks). It sets a PIN, writes the
-   app's settings with `run-as` (an emergency contact pointing at the emulator's own number), enables
-   the accessibility service, and fakes GPS, the cameras, and the proximity, light and motion
-   sensors. It then checks the app log, stored history, photo files and screen state for:
-   - pickpocket: siren, SMS accepted by the network, location in the alert, intruder photos,
-     history entry, all-clear after unlock
+3. **Emulator end-to-end test** (`e2e/run.sh`, API 34). It sets a PIN, writes the app's settings
+   with `run-as`, and fakes the cameras and the proximity, light and motion sensors. It then
+   checks the app log, stored history, photo files, notifications and screen state for:
+   - pickpocket: siren, intruder photos, history entry
    - pull-out with a frozen light sensor
    - the owner's own pull-out and unlock within grace
    - sensor flicker and walking ignored
-   - power menu, airplane mode and charger triggers
-   - auto-lock of a phone pocketed unlocked
-   - fake shutdown
+   - airplane mode and charger triggers
+   - the lock check, both failing with a lock delay and passing once fixed
    - the alarm resuming after a reboot, before the first unlock
    - monkey crash fuzzing
 
@@ -129,15 +127,10 @@ info, tap ⋮ and choose "Allow restricted settings".
 
 ## Known limits
 
-- No app can block power-off or a forced restart (power + volume). The power-menu alarm catches
-  the normal attempt. After a forced restart the guard re-arms and resumes the alarm, but the
-  seconds before the reboot can't be covered.
-- A Faraday bag or removing the SIM stops SMS and location. The siren still plays.
+- No app can block power-off or a forced restart (power + volume). After a forced restart the
+  guard re-arms and resumes the alarm; use the phone's own "password to power off" where it exists,
+  and a 0 s grace period to give a thief no time.
+- The photos and history stay on the stolen phone; nobody is notified remotely yet.
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
-- Power-menu detection depends on the phone maker's labels (English and Bangla are matched).
-- The Play Store restricts accessibility services, so these test builds are sideloaded. Play
-  Protect may block the install outright ("App blocked to protect your device") because the app
-  requests accessibility and SMS. Turn off "Scan apps with Play Protect" in the Play Store's
-  Play Protect settings for the install, then turn it back on.
 - iPhone isn't possible: iOS gives apps no background sensor access.

@@ -23,7 +23,7 @@ data class SetupStatus(
     val fullScreen: Boolean,
     val secureLock: Boolean,
     val proximity: Boolean,
-    val accessibility: Boolean,
+    val lockCheck: Prefs.LockCheck,
     val doNotDisturb: Boolean,
     val bluetoothPermission: Boolean,
     val activityPermission: Boolean,
@@ -39,7 +39,7 @@ data class SetupStatus(
                 secureLock = context.getSystemService(KeyguardManager::class.java).isDeviceSecure,
                 proximity = context.getSystemService(SensorManager::class.java)
                     .getDefaultSensor(Sensor.TYPE_PROXIMITY) != null,
-                accessibility = PowerMenuWatcher.isEnabled(context),
+                lockCheck = Prefs.lockCheck(context),
                 doNotDisturb = notifications.isNotificationPolicyAccessGranted,
                 bluetoothPermission = Build.VERSION.SDK_INT < 31 ||
                     granted(context, Manifest.permission.BLUETOOTH_CONNECT),
@@ -77,15 +77,6 @@ object SetupActions {
     /** Lets the siren lift "Total silence" Do Not Disturb while it plays. */
     fun doNotDisturb(context: Context) {
         open(context, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-    }
-
-    fun accessibility(context: Context) {
-        open(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-    }
-
-    /** Android 13+ blocks accessibility for sideloaded apps until "Allow restricted settings" is tapped here. */
-    fun appInfo(context: Context) {
-        open(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri(context)))
     }
 
     fun secureLock(context: Context) {

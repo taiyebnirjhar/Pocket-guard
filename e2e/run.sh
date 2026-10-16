@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# End-to-end test on an emulator. Fakes the proximity, light and motion sensors, GPS and system
-# events with adb, then checks what the app logs ("PocketGuard: ..."), what it stores (history,
-# photos) and what is on screen. Every user-facing feature that an emulator can exercise is covered.
+# End-to-end test on an emulator. Fakes the proximity, light and motion sensors and system events
+# with adb, then checks what the app logs ("PocketGuard: ..."), what it stores (history, photos)
+# and what is on screen. Every user-facing feature an emulator can exercise is covered.
 set -uo pipefail
 
 APK="$1"
 PKG=com.taiyeb.pocketguard
 PIN=1234
-SELF_NUMBER=+15555215554 # The emulator's own number: SMS to it loop back.
 FAILED=0
 PASSED=0
 OUT=e2e-output
@@ -80,50 +79,24 @@ uncovered() { emu sensor set proximity 10; }
 covered() { emu sensor set proximity 0; }
 pocket() { emu sensor set light 0; covered; }
 jolt() { emu sensor set acceleration 6:6:18; sleep 0.4; still; }
-pull_out() { jolt & covered_off_with_light; wait; }
 covered_off_with_light() { uncovered; emu sensor set light 400; }
+pull_out() { jolt & covered_off_with_light; wait; }
 calm_down() { still; sleep 3.5; } # let the motion window (3 s) expire
 
 # Settings are written straight into the app's device-protected storage (debug build: run-as).
+# Grace is 15 s so the scripted PIN entry (several seconds on CI) fits inside it.
 write_prefs() {
-  local fake_shutdown="$1"
   cat >"$OUT/prefs.xml" <<EOF
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
-    <string name="contacts">$SELF_NUMBER</string>
-    <string name="owner_name">E2E</string>
     <boolean name="onboarded" value="true" />
     <int name="grace_seconds" value="15" />
-    <boolean name="fake_shutdown" value="$fake_shutdown" />
 </map>
 EOF
   sh am force-stop $PKG
   adb push "$OUT/prefs.xml" /data/local/tmp/pg-prefs.xml >/dev/null
   sh chmod 644 /data/local/tmp/pg-prefs.xml
   adb shell "run-as $PKG sh -c 'mkdir -p /data/user_de/0/$PKG/shared_prefs && cp /data/local/tmp/pg-prefs.xml /data/user_de/0/$PKG/shared_prefs/pocket_guard.xml'"
-  enable_accessibility
-}
-
-# Accessibility must be on before the service is listed, or Android never binds it. Toggled so
-# the system rebinds after a force-stop, then wait until the service reports it's connected.
-enable_accessibility() {
-  reset_log
-  sh settings put secure accessibility_enabled 1
-  sh settings put secure enabled_accessibility_services null
-  sleep 1
-  sh settings put secure enabled_accessibility_services "$PKG/$PKG.PowerMenuWatcher"
-  expect_log "power-off protection connected" 15 "accessibility service connected"
-}
-
-accessibility_state() { sh settings get secure enabled_accessibility_services | tr -d '\r'; }
-
-# The emulator clears the accessibility setting a few minutes after adb enables it (seen in CI;
-# the app never writes it). Re-enable when needed, and record when it was found cleared.
-ensure_accessibility() {
-  local state
-  state=$(accessibility_state)
-  log "  accessibility setting: ${state:-<empty>}"
-  if ! grep -q PowerMenuWatcher <<<"$state"; then enable_accessibility; fi
 }
 
 arm() {
@@ -133,30 +106,27 @@ arm() {
 
 # --- Device setup -------------------------------------------------------------------------------
 
-log "Setup: PIN lock that locks instantly, power menu on long press, location on, fake GPS"
+log "Setup: PIN lock that locks instantly"
 sh locksettings set-pin "$PIN" >/dev/null
 sh settings put secure lock_screen_lock_after_timeout 0
 sh settings put system screen_off_timeout 600000
-sh settings put global power_button_long_press 1
-sh cmd location set-location-enabled true >/dev/null 2>&1 || true
 sh cmd connectivity airplane-mode disable >/dev/null 2>&1 || true
-emu geo fix 90.4125 23.8103
 
 log "Installing"
 adb install -r -g "$APK" || exit 1
 sh dumpsys deviceidle whitelist +$PKG >/dev/null
-write_prefs false
+write_prefs
 still
 uncovered
 emu sensor set light 400
 
 # --- 1. Pickpocket with evidence ------------------------------------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 1: pickpocket, SMS with location, intruder photos, history, all-clear"
+log "Scenario 1: pickpocket, intruder photos, history"
 reset_log
 arm "arming from the app"
 screen_off
+expect_log "lock check: locked=true" 6 "lock check passes with an instant lock"
 reset_log
 pocket
 expect_phase IN_POCKET 6 "pocketed phone becomes protected"
@@ -165,14 +135,10 @@ reset_log
 pull_out
 expect_phase WARNING 5 "pulled out while locked starts the warning"
 expect_phase SIREN 19 "no unlock within grace starts the siren"
-expect_log "alert FIRST" 6 "first alert goes out immediately"
-expect_log "sms sent" 25 "network accepted the alert SMS"
 expect_log "intruder photos saved: [12]" 15 "front camera photographed the intruder"
-expect_log "location=23\\.81" 40 "alert carries the phone's location"
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "owner unlock stops the siren and re-arms"
-expect_log "sms sent" 25 "all-clear SMS after the owner unlocked"
 HISTORY=$(adb shell run-as $PKG cat files/incidents.json 2>/dev/null)
 expect_true 'grep -q "\"escalated\":true" <<<"$HISTORY"' "history records the alarm"
 expect_true 'grep -q "\"ownerStopped\":true" <<<"$HISTORY"' "history records the owner's unlock"
@@ -183,7 +149,6 @@ sleep 2
 
 # --- 2. The field bug: light sensor asleep with the screen off ------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 2: light sensor frozen (no readings while pocketed), motion must still catch it"
 screen_off
 reset_log
@@ -202,7 +167,6 @@ sleep 2
 
 # --- 3. False alarms ------------------------------------------------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 3: owner pulls it out and unlocks in time"
 screen_off
 reset_log
@@ -216,7 +180,6 @@ unlock
 expect_phase WAITING_FOR_POCKET 4 "owner's unlock within grace stops it"
 expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
 
-log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 4: sensor uncovered without movement or light"
 screen_off
 reset_log
@@ -227,7 +190,6 @@ reset_log
 uncovered
 expect_no_phase WARNING 3 "uncovering without movement or light is ignored"
 
-log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
 covered
 sleep 2
@@ -241,24 +203,11 @@ expect_no_phase WARNING 4 "brief flicker while walking is ignored"
 
 # --- 4. Tamper triggers ----------------------------------------------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 6: power menu opened on the lock screen"
-ensure_accessibility
+log "Scenario 6: airplane mode while locked"
 uncovered
 emu sensor set light 400
 sleep 1.5
 unlock # clears the warning the uncover above starts
-screen_off
-sh input keyevent KEYCODE_WAKEUP; sleep 1
-reset_log
-sh input keyevent --longpress KEYCODE_POWER
-expect_log "phase=SIREN .*trigger=POWER_MENU" 8 "power menu on the lock screen sirens"
-reset_log
-unlock
-expect_phase WAITING_FOR_POCKET 6 "unlock after the power-menu alarm"
-
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 7: airplane mode while locked"
 screen_off
 reset_log
 sh cmd connectivity airplane-mode enable
@@ -268,8 +217,7 @@ reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the airplane alarm"
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 8: charger unplugged while locked"
+log "Scenario 7: charger unplugged while locked"
 sh dumpsys battery set ac 1
 sleep 2
 screen_off
@@ -281,49 +229,27 @@ unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the charger warning"
 sh dumpsys battery reset
 
-# --- 5. Accessibility helpers ---------------------------------------------------------------------
+# --- 5. Setup requirement: the phone must lock immediately ----------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 9: phone pocketed while unlocked gets locked"
-ensure_accessibility
-uncovered
+log "Scenario 8: lock check catches a lock delay, then clears once fixed"
+sh settings put secure lock_screen_lock_after_timeout 30000
 sleep 1
 reset_log
-pocket
-expect_log "locking screen" 8 "auto-lock requested"
-sleep 1.5
-expect_true keyguard_showing "lock screen is showing"
-uncovered
-emu sensor set light 400
-reset_log
-unlock
-sleep 1
-
-# --- 6. Fake shutdown -------------------------------------------------------------------------------
-
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 10: fake shutdown instead of siren"
-write_prefs true
-reset_log
-arm "re-arming with fake shutdown on"
 screen_off
+expect_log "lock check: locked=false" 6 "a 30 s lock delay is detected"
+expect_true 'sh dumpsys notification --noredact | grep -qE "pkg=com\.taiyeb\.pocketguard .*id=4 "' "lock warning notification is shown"
 sh input keyevent KEYCODE_WAKEUP; sleep 1
+sh wm dismiss-keyguard; sleep 1
+sh settings put secure lock_screen_lock_after_timeout 0
+sleep 1
 reset_log
-sh input keyevent --longpress KEYCODE_POWER
-expect_log "phase=STEALTH .*trigger=POWER_MENU" 8 "power menu starts the fake shutdown"
-sleep 3
-expect_true 'sh dumpsys window | grep "mCurrentFocus" | grep -q FakeOffActivity' "fake shutdown screen is showing"
-expect_log "alert FIRST" 6 "fake shutdown still alerts the contacts"
-reset_log
+screen_off
+expect_log "lock check: locked=true" 6 "immediate lock passes the check again"
 unlock
-expect_phase WAITING_FOR_POCKET 8 "unlock ends the fake shutdown"
-write_prefs false
-arm "re-arming without fake shutdown"
 
-# --- 7. Forced restart during an alarm --------------------------------------------------------------
+# --- 6. Forced restart during an alarm --------------------------------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 11: phone restarted during an alarm"
+log "Scenario 9: phone restarted during an alarm"
 screen_off
 reset_log
 sh cmd connectivity airplane-mode enable
@@ -343,10 +269,9 @@ reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
 
-# --- 8. UI ------------------------------------------------------------------------------------------
+# --- 7. UI ------------------------------------------------------------------------------------------
 
-log "  accessibility setting now: $(accessibility_state)"
-log "Scenario 12: UI screens and monkey fuzzing for crashes"
+log "Scenario 10: UI screens and monkey fuzzing for crashes"
 sh am force-stop $PKG
 sleep 1
 sh am start -W -n $PKG/.MainActivity >/dev/null

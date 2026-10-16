@@ -11,8 +11,6 @@ import android.os.UserManager
 object Prefs {
     private const val NAME = "pocket_guard"
     private const val TEST_MODE_MS = 60 * 60_000L
-    private const val ALERT_WINDOW_MS = 60 * 60_000L
-    private const val MAX_ALERTS_PER_WINDOW = 3
 
     @Volatile
     private var migrated = false
@@ -60,19 +58,20 @@ object Prefs {
     fun alarmActive(context: Context) = get(context, "alarm_active", false)
     fun setAlarmActive(context: Context, value: Boolean) = put(context, "alarm_active", value)
 
-    /** Caps theft alerts at 3 an hour so false alarms can't spam the contacts. Records the alert if allowed. */
-    fun allowAlert(context: Context): Boolean {
-        val now = System.currentTimeMillis()
-        val recent = prefs(context).getString("alert_times", "").orEmpty()
-            .split(',').mapNotNull { it.toLongOrNull() }.filter { now - it < ALERT_WINDOW_MS }
-        if (recent.size >= MAX_ALERTS_PER_WINDOW) return false
-        prefs(context).edit().putString("alert_times", (recent + now).joinToString(",")).apply()
-        return true
-    }
+    /** Siren the moment airplane mode is turned on while the phone is locked. */
+    fun airplaneAlarm(context: Context) = get(context, "tamper_alarm", true)
+    fun setAirplaneAlarm(context: Context, value: Boolean) = put(context, "tamper_alarm", value)
 
-    /** Siren the moment the power menu or airplane mode is used while the phone is locked. */
-    fun tamperAlarm(context: Context) = get(context, "tamper_alarm", true)
-    fun setTamperAlarm(context: Context, value: Boolean) = put(context, "tamper_alarm", value)
+    enum class LockCheck { UNTESTED, PASSED, FAILED }
+
+    /**
+     * Result of the last screen-off test: did the phone lock immediately? Without that, a phone
+     * pocketed with the screen just off is still unlocked, and a thief would look like the owner.
+     */
+    fun lockCheck(context: Context): LockCheck =
+        LockCheck.entries.firstOrNull { it.name == prefs(context).getString("lock_check", null) } ?: LockCheck.UNTESTED
+    fun setLockCheck(context: Context, value: LockCheck) =
+        prefs(context).edit().putString("lock_check", value.name).apply()
 
     fun chargerAlarm(context: Context) = get(context, "charger_alarm", true)
     fun setChargerAlarm(context: Context, value: Boolean) = put(context, "charger_alarm", value)
@@ -86,31 +85,11 @@ object Prefs {
     fun autoArmTransit(context: Context) = get(context, "auto_arm_transit", false)
     fun setAutoArmTransit(context: Context, value: Boolean) = put(context, "auto_arm_transit", value)
 
-    fun fakeShutdown(context: Context) = get(context, "fake_shutdown", false)
-    fun setFakeShutdown(context: Context, value: Boolean) = put(context, "fake_shutdown", value)
-
     fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
     fun setIntruderPhotos(context: Context, value: Boolean) = put(context, "intruder_photos", value)
 
     fun onboarded(context: Context) = get(context, "onboarded", false)
     fun setOnboarded(context: Context, value: Boolean) = put(context, "onboarded", value)
-
-    /** Raw text as typed; [contacts] parses it. */
-    fun contactsText(context: Context) = prefs(context).getString("contacts", "").orEmpty()
-    fun setContactsText(context: Context, value: String) =
-        prefs(context).edit().putString("contacts", value).apply()
-
-    /** Up to 3 numbers, separated by commas, semicolons or new lines. */
-    fun contacts(context: Context): List<String> = contactsText(context)
-        .split(',', ';', '\n')
-        .map { number -> number.filter { it.isDigit() || it == '+' } }
-        .filter { it.length >= 3 }
-        .distinct()
-        .take(3)
-
-    fun ownerName(context: Context) = prefs(context).getString("owner_name", "").orEmpty()
-    fun setOwnerName(context: Context, value: String) =
-        prefs(context).edit().putString("owner_name", value).apply()
 
     /** Bluetooth addresses that count for earbud triggers. Empty means any earbuds, headphones or watch. */
     fun trustedDevices(context: Context): Set<String> =

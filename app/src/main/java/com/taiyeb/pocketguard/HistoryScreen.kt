@@ -1,10 +1,8 @@
 package com.taiyeb.pocketguard
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -85,7 +83,6 @@ private fun IncidentCard(incident: Incident) {
     val context = LocalContext.current
     val format = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     val level = when {
-        incident.stealth -> stringResource(R.string.history_level_stealth)
         incident.escalated -> stringResource(R.string.history_level_siren)
         else -> stringResource(R.string.history_level_warning)
     }
@@ -113,27 +110,6 @@ private fun IncidentCard(incident: Incident) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text("$level · $outcome", color = if (incident.escalated) Red else Amber, fontSize = 14.sp)
-            if (incident.alertsSent > 0) {
-                Text(stringResource(R.string.history_sms_sent, incident.alertsSent), color = Muted, fontSize = 13.sp)
-            }
-            incident.locations.lastOrNull()?.let { fix ->
-                TextButton(onClick = {
-                    val uri = Uri.parse("geo:${fix.lat},${fix.lng}?q=${fix.lat},${fix.lng}")
-                    try {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                    } catch (e: Exception) {
-                        try {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=${fix.lat},${fix.lng}")),
-                            )
-                        } catch (noBrowser: Exception) {
-                            // No maps app and no browser.
-                        }
-                    }
-                }) {
-                    Text(stringResource(R.string.history_open_map, fix.accuracy.toInt()))
-                }
-            }
             if (incident.photos.isNotEmpty()) {
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()),

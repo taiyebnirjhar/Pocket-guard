@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,8 +38,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,7 +58,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,7 +68,7 @@ private val Phase.color
         Phase.OFF -> Muted
         Phase.WAITING_FOR_POCKET, Phase.WARNING -> Amber
         Phase.IN_POCKET -> Green
-        Phase.SIREN, Phase.STEALTH -> Red
+        Phase.SIREN -> Red
     }
 
 private val Phase.emoji
@@ -82,7 +78,6 @@ private val Phase.emoji
         Phase.IN_POCKET -> "🛡️"
         Phase.WARNING -> "⚠️"
         Phase.SIREN -> "🚨"
-        Phase.STEALTH -> "🕶️"
     }
 
 private fun granted(context: Context, permission: String) =
@@ -141,14 +136,14 @@ fun MainScreen(refreshKey: Int, onOpenHistory: () -> Unit, onOpenGuide: () -> Un
             Prefs.setTestMode(context, it)
         }
         TriggersSection(setup)
-        EmergencySection(refreshKey)
+        PhotosSection()
         LanguageSection()
         SetupSection(setup)
         SensorCheck()
         Section(stringResource(R.string.test_title)) {
             listOf(
                 R.string.test_1, R.string.test_2, R.string.test_3, R.string.test_4, R.string.test_5,
-                R.string.test_6, R.string.test_7, R.string.test_8, R.string.test_9,
+                R.string.test_6, R.string.test_7, R.string.test_8,
             ).forEachIndexed { i, step ->
                 Text("${i + 1}. ${stringResource(step)}", color = Color.White, fontSize = 14.sp)
             }
@@ -185,8 +180,7 @@ private fun SettingsSection(testMode: Boolean, onTestMode: (Boolean) -> Unit) {
 @Composable
 private fun TriggersSection(setup: SetupStatus) {
     val context = LocalContext.current
-    var tamper by remember { mutableStateOf(Prefs.tamperAlarm(context)) }
-    var fakeShutdown by remember { mutableStateOf(Prefs.fakeShutdown(context)) }
+    var airplane by remember { mutableStateOf(Prefs.airplaneAlarm(context)) }
     var charger by remember { mutableStateOf(Prefs.chargerAlarm(context)) }
     var earbuds by remember { mutableStateOf(Prefs.earbudsAlarm(context)) }
     var autoEarbuds by remember { mutableStateOf(Prefs.autoArmEarbuds(context)) }
@@ -203,19 +197,9 @@ private fun TriggersSection(setup: SetupStatus) {
     }
 
     Section(stringResource(R.string.triggers_title)) {
-        ToggleRow(stringResource(R.string.triggers_tamper), stringResource(R.string.triggers_tamper_sub), tamper) {
-            tamper = it
-            Prefs.setTamperAlarm(context, it)
-        }
-        if (tamper) {
-            ToggleRow(
-                stringResource(R.string.triggers_fake_shutdown),
-                stringResource(R.string.triggers_fake_shutdown_sub),
-                fakeShutdown,
-            ) {
-                fakeShutdown = it
-                Prefs.setFakeShutdown(context, it)
-            }
+        ToggleRow(stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
+            airplane = it
+            Prefs.setAirplaneAlarm(context, it)
         }
         ToggleRow(stringResource(R.string.triggers_charger), stringResource(R.string.triggers_charger_sub), charger) {
             charger = it
@@ -290,97 +274,23 @@ private fun DevicePicker() {
 }
 
 @Composable
-private fun EmergencySection(refreshKey: Int) {
+private fun PhotosSection() {
     val context = LocalContext.current
-    var contacts by remember { mutableStateOf(Prefs.contactsText(context)) }
-    var name by remember { mutableStateOf(Prefs.ownerName(context)) }
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
-    // Re-read permissions on resume and after a request.
-    var permissionTick by remember { mutableIntStateOf(0) }
-    val key = refreshKey + permissionTick
-    val sms = remember(key) { granted(context, Manifest.permission.SEND_SMS) }
-    val location = remember(key) { Locator.hasPermission(context) }
-    val camera = remember(key) { granted(context, Manifest.permission.CAMERA) }
-    val background = remember(key) {
-        Build.VERSION.SDK_INT < 29 || granted(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-    }
-    val requestMain = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        permissionTick++
-    }
-    val requestBackground = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        permissionTick++
-    }
-
-    Section(stringResource(R.string.emergency_title)) {
-        Text(stringResource(R.string.emergency_sub), color = Muted, fontSize = 13.sp)
-        OutlinedTextField(
-            value = contacts,
-            onValueChange = {
-                contacts = it
-                Prefs.setContactsText(context, it)
-            },
-            label = { Text(stringResource(R.string.emergency_numbers)) },
-            placeholder = { Text("+8801XXXXXXXXX, +8801XXXXXXXXX") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = name,
-            onValueChange = {
-                name = it
-                Prefs.setOwnerName(context, it)
-            },
-            label = { Text(stringResource(R.string.emergency_name)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+    var camera by remember { mutableStateOf(granted(context, Manifest.permission.CAMERA)) }
+    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { camera = it }
+    Section(stringResource(R.string.photos_title)) {
         ToggleRow(stringResource(R.string.emergency_photos), stringResource(R.string.emergency_photos_sub), photos) {
             photos = it
             Prefs.setIntruderPhotos(context, it)
+            if (it && !camera) request.launch(Manifest.permission.CAMERA)
         }
-        SetupRow(stringResource(R.string.emergency_perm_sms), sms, fixLabel = null) {}
-        SetupRow(stringResource(R.string.emergency_perm_location), location, fixLabel = null) {}
-        SetupRow(stringResource(R.string.emergency_perm_camera), camera, fixLabel = null) {}
-        if (!sms || !location || !camera) {
-            OutlinedButton(
-                onClick = {
-                    requestMain.launch(
-                        arrayOf(
-                            Manifest.permission.SEND_SMS,
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.CAMERA,
-                        ),
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.emergency_allow)) }
+        if (photos && !camera) {
+            PermissionWarning(stringResource(R.string.permission_camera)) { request.launch(Manifest.permission.CAMERA) }
         }
-        if (location && !background && Build.VERSION.SDK_INT >= 29) {
-            PermissionWarning(stringResource(R.string.emergency_background)) {
-                requestBackground.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            }
-        }
-        OutlinedButton(
-            onClick = {
-                val numbers = Prefs.contacts(context)
-                val text = context.getString(
-                    R.string.sms_test_message,
-                    Prefs.ownerName(context).ifBlank { context.getString(R.string.sms_owner_default) },
-                )
-                val message = when {
-                    numbers.isEmpty() -> context.getString(R.string.emergency_no_numbers)
-                    !sms -> context.getString(R.string.emergency_no_sms_permission)
-                    else -> context.getString(R.string.emergency_test_sent, Sms.send(context, numbers, text))
-                }
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.emergency_test)) }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LanguageSection() {
     if (!Language.supported) return
@@ -412,20 +322,27 @@ private fun SetupSection(setup: SetupStatus) {
         SetupRow(stringResource(R.string.setup_battery), setup.battery) { SetupActions.battery(context) }
         SetupRow(stringResource(R.string.setup_full_screen), setup.fullScreen) { SetupActions.fullScreen(context) }
         SetupRow(stringResource(R.string.setup_lock), setup.secureLock) { SetupActions.secureLock(context) }
+        SetupRow(
+            stringResource(R.string.setup_lock_instant),
+            when (setup.lockCheck) {
+                Prefs.LockCheck.PASSED -> true
+                Prefs.LockCheck.FAILED -> false
+                Prefs.LockCheck.UNTESTED -> null
+            },
+            fixLabel = stringResource(R.string.action_fix),
+        ) { SetupActions.secureLock(context) }
+        Text(
+            stringResource(
+                if (setup.lockCheck == Prefs.LockCheck.UNTESTED) R.string.setup_lock_instant_untested else R.string.setup_lock_instant_hint,
+            ),
+            color = if (setup.lockCheck == Prefs.LockCheck.FAILED) Amber else Muted,
+            fontSize = 13.sp,
+        )
+        SetupRow(stringResource(R.string.setup_power_off_password), ok = null, fixLabel = stringResource(R.string.action_open)) {
+            SetupActions.secureLock(context)
+        }
         Text(stringResource(R.string.setup_smart_lock), color = Muted, fontSize = 13.sp)
         SetupRow(stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
-        SetupRow(stringResource(R.string.setup_accessibility), setup.accessibility) { SetupActions.accessibility(context) }
-        if (!setup.accessibility) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.setup_restricted),
-                    color = Muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = { SetupActions.appInfo(context) }) { Text(stringResource(R.string.setup_app_info)) }
-            }
-        }
         SetupRow(stringResource(R.string.setup_autostart), ok = null, fixLabel = stringResource(R.string.action_open)) {
             SetupActions.autostart(context)
         }

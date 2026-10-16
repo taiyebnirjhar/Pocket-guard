@@ -14,13 +14,12 @@ class GuardEngineTest {
         var locked = true
         var call = false
         var config = GuardEngine.Config(
-            graceMs = 3000, tamperAlarm = true, chargerAlarm = true, earbudsAlarm = true, fakeShutdown = false,
+            graceMs = 3000, airplaneAlarm = true, chargerAlarm = true, earbudsAlarm = true,
         )
         val timers = mutableMapOf<Timer, Long>()
         val transitions = mutableListOf<Triple<Phase, Phase, Trigger?>>()
         var confirmBuzzes = 0
         var noticeBuzzes = 0
-        var screenLocks = 0
         lateinit var engine: GuardEngine
 
         override fun now() = time
@@ -41,9 +40,6 @@ class GuardEngineTest {
         }
         override fun noticeBuzz() {
             noticeBuzzes++
-        }
-        override fun lockScreen() {
-            screenLocks++
         }
 
         /** Moves the clock forward, firing due timers in order, like the real Handler would. */
@@ -213,61 +209,8 @@ class GuardEngineTest {
     }
 
     @Test
-    fun pocketedUnlockedGetsLockedAfterDelay() {
-        host.locked = false
-        pocket()
-        assertEquals(0, host.screenLocks)
-        host.advance(GuardEngine.AUTO_LOCK_DELAY_MS + 10)
-        assertEquals(1, host.screenLocks)
-    }
-
-    @Test
-    fun pocketedLockedIsNotLockedAgain() {
-        pocket()
-        host.advance(5000)
-        assertEquals(0, host.screenLocks)
-    }
-
-    @Test
-    fun powerMenuSirensImmediately() {
-        pocket()
-        engine.onPowerMenu()
-        assertEquals(Phase.SIREN, engine.phase)
-        assertEquals(Trigger.POWER_MENU, host.transitions.last().third)
-    }
-
-    @Test
-    fun powerMenuWithFakeShutdownGoesStealth() {
-        host.config = host.config.copy(fakeShutdown = true)
-        engine.onPowerMenu()
-        assertEquals(Phase.STEALTH, engine.phase)
-        engine.onOwnerUnlocked()
-        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
-    }
-
-    @Test
-    fun fakeShutdownDoesNotReplaceARunningSiren() {
-        host.config = host.config.copy(fakeShutdown = true)
-        pocket()
-        pullOut()
-        host.advance(3000)
-        engine.onPowerMenu()
-        assertEquals(Phase.SIREN, engine.phase)
-    }
-
-    @Test
-    fun powerMenuDuringWarningEscalates() {
-        pocket()
-        pullOut()
-        engine.onPowerMenu()
-        assertEquals(Phase.SIREN, engine.phase)
-        assertTrue(host.timers.isEmpty())
-    }
-
-    @Test
-    fun tamperAlarmOffIgnoresPowerMenuAndAirplane() {
-        host.config = host.config.copy(tamperAlarm = false)
-        engine.onPowerMenu()
+    fun airplaneAlarmOffIsIgnored() {
+        host.config = host.config.copy(airplaneAlarm = false)
         engine.onAirplaneModeOn()
         assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
     }
@@ -387,7 +330,6 @@ class GuardEngineTest {
     @Test
     fun nothingHappensWhileOff() {
         engine.disarm()
-        engine.onPowerMenu()
         engine.onAirplaneModeOn()
         engine.onChargerUnplugged()
         engine.onEarbudsDisconnected()

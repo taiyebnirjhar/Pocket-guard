@@ -5,7 +5,7 @@ package com.taiyeb.pocketguard
  * [GuardService] feeds it sensor readings and events, and carries out what it asks for via [Host].
  *
  * Ladder: WAITING_FOR_POCKET -> IN_POCKET -> (pulled out while locked) WARNING -> (no unlock) SIREN.
- * Tampering jumps straight to SIREN, or to STEALTH when fake shutdown is on.
+ * Airplane mode on the lock screen jumps straight to SIREN.
  * Unlocking at any point returns to WAITING_FOR_POCKET, so it re-arms by itself.
  */
 class GuardEngine(
@@ -15,13 +15,12 @@ class GuardEngine(
 ) {
     data class Config(
         val graceMs: Long,
-        val tamperAlarm: Boolean,
+        val airplaneAlarm: Boolean,
         val chargerAlarm: Boolean,
         val earbudsAlarm: Boolean,
-        val fakeShutdown: Boolean,
     )
 
-    enum class Timer { CONFIRM_POCKET, AUTO_LOCK, CHECK_REMOVAL, SIREN }
+    enum class Timer { CONFIRM_POCKET, CHECK_REMOVAL, SIREN }
 
     interface Host {
         fun now(): Long
@@ -35,15 +34,11 @@ class GuardEngine(
         fun onTransition(from: Phase, to: Phase, trigger: Trigger?)
         fun confirmBuzz()
         fun noticeBuzz()
-        fun lockScreen()
     }
 
     companion object {
         /** Proximity must stay covered this long before the phone counts as pocketed. */
         const val POCKET_CONFIRM_MS = 1500L
-
-        /** Extra wait before locking a phone pocketed unlocked, so a thumb over the sensor doesn't lock it. */
-        const val AUTO_LOCK_DELAY_MS = 1500L
 
         /** Proximity must stay uncovered this long, which filters out fabric shifting in the pocket. */
         const val REMOVAL_CONFIRM_MS = 800L
@@ -114,7 +109,6 @@ class GuardEngine(
         if (isNear) coveredLux = null else uncoveredLux = null
         host.cancel(Timer.CONFIRM_POCKET)
         host.cancel(Timer.CHECK_REMOVAL)
-        host.cancel(Timer.AUTO_LOCK)
         when (phase) {
             Phase.WAITING_FOR_POCKET -> if (isNear) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
             Phase.IN_POCKET -> if (!isNear) host.schedule(Timer.CHECK_REMOVAL, REMOVAL_CONFIRM_MS)
@@ -148,7 +142,6 @@ class GuardEngine(
     fun onTimer(timer: Timer) {
         when (timer) {
             Timer.CONFIRM_POCKET -> confirmPocket()
-            Timer.AUTO_LOCK -> if (phase == Phase.IN_POCKET && near == true && !host.isLocked()) host.lockScreen()
             Timer.CHECK_REMOVAL -> checkRemoval()
             Timer.SIREN -> if (phase == Phase.WARNING) siren(null)
         }
@@ -167,14 +160,8 @@ class GuardEngine(
         siren(Trigger.RESTARTED)
     }
 
-    fun onPowerMenu() {
-        val config = host.config()
-        if (phase == Phase.OFF || !config.tamperAlarm) return
-        if (config.fakeShutdown) stealth(Trigger.POWER_MENU) else siren(Trigger.POWER_MENU)
-    }
-
     fun onAirplaneModeOn() {
-        if (phase != Phase.OFF && host.config().tamperAlarm && host.isLocked()) siren(Trigger.AIRPLANE_MODE)
+        if (phase != Phase.OFF && host.config().airplaneAlarm && host.isLocked()) siren(Trigger.AIRPLANE_MODE)
     }
 
     /** Someone unplugged the phone while it was locked, e.g. charging at a café or station. */
@@ -203,7 +190,6 @@ class GuardEngine(
         }
         go(Phase.IN_POCKET)
         host.confirmBuzz()
-        if (!host.isLocked()) host.schedule(Timer.AUTO_LOCK, AUTO_LOCK_DELAY_MS)
     }
 
     private fun checkRemoval() {
@@ -279,16 +265,9 @@ class GuardEngine(
     }
 
     private fun siren(cause: Trigger?) {
-        if (phase == Phase.OFF || phase == Phase.SIREN || phase == Phase.STEALTH) return
+        if (phase == Phase.OFF || phase == Phase.SIREN) return
         cancelAll()
         go(Phase.SIREN, cause)
-    }
-
-    /** Once the siren has revealed the alarm, pretending to shut down is pointless, so only from quiet phases. */
-    private fun stealth(cause: Trigger) {
-        if (phase == Phase.OFF || phase == Phase.SIREN || phase == Phase.STEALTH) return
-        cancelAll()
-        go(Phase.STEALTH, cause)
     }
 
     private fun go(to: Phase, cause: Trigger? = null) {

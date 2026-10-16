@@ -36,6 +36,7 @@ import androidx.lifecycle.LifecycleService
  * which makes every decision, and carries out the side effects it asks for.
  * A LifecycleService so the intruder camera can bind to it. Direct-boot aware, so it re-arms
  * (and resumes a running alarm) even before the first unlock after a forced restart.
+ * Also tests, at every screen-off, that the phone locks immediately (a setup requirement).
  */
 class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
@@ -47,6 +48,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         private const val WAKE_LOCK_RENEW_MS = 60 * 60_000L
         private const val AUTO_DISARM_MS = 4 * 60 * 60_000L
         private const val CHARGER_DEBOUNCE_MS = 2_000L
+        private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
         private var instance: GuardService? = null
@@ -78,10 +80,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             }
         }
 
-        /** Called by [PowerMenuWatcher] when the power menu opens on the lock screen. */
-        fun onPowerMenu() {
-            instance?.engine?.onPowerMenu()
-        }
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -91,7 +89,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     private lateinit var keyguardManager: KeyguardManager
     private lateinit var audioManager: AudioManager
     private lateinit var alarm: AlarmPlayer
-    private lateinit var sms: SmsSender
     private lateinit var recorder: IncidentRecorder
 
     private var proximitySensor: Sensor? = null
@@ -153,6 +150,15 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         }
     }
 
+    /** Screen just went off: is the phone locked now, or does the lock-delay setting leave it open? */
+    private val lockCheck = Runnable {
+        if (engine == null || powerManager.isInteractive) return@Runnable
+        val locked = keyguardManager.isDeviceLocked
+        Log.i(TAG, "lock check: locked=$locked")
+        Prefs.setLockCheck(this, if (locked) Prefs.LockCheck.PASSED else Prefs.LockCheck.FAILED)
+        if (locked) Notifications.cancelLockWarning(this) else Notifications.showLockWarning(this)
+    }
+
     private val chargerCheck = Runnable {
         // Still unplugged after the debounce: a wobble on a dock or car mount reconnects within it.
         if (plugType() == 0) engine?.onChargerUnplugged()
@@ -166,7 +172,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                     Log.i(TAG, "user present")
                     onUnlocked(engine)
                 }
-                Intent.ACTION_SCREEN_OFF -> lockIfNeeded()
+                Intent.ACTION_SCREEN_OFF -> {
+                    handler.removeCallbacks(lockCheck)
+                    handler.postDelayed(lockCheck, LOCK_CHECK_DELAY_MS)
+                }
                 Intent.ACTION_POWER_CONNECTED -> handler.postDelayed({ lastPlugType = plugType() }, 1000)
                 Intent.ACTION_POWER_DISCONNECTED -> {
                     // Lifting a phone off a wireless pad is the owner picking it up, not a theft.
@@ -178,7 +187,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 }
                 Intent.ACTION_AIRPLANE_MODE_CHANGED -> {
                     val on = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
-                    if (on) engine.onAirplaneModeOn() else recorder.retryAlerts()
+                    if (on) engine.onAirplaneModeOn()
                 }
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     val device = IntentCompat.getParcelableExtra(
@@ -198,8 +207,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         keyguardManager = getSystemService(KeyguardManager::class.java)
         audioManager = getSystemService(AudioManager::class.java)
         alarm = AlarmPlayer(this)
-        sms = SmsSender(this)
-        recorder = IncidentRecorder(this, this, sms) {
+        recorder = IncidentRecorder(this, this) {
             if (engine?.phase == Phase.SIREN) alarm.startTorch()
         }
         Notifications.createChannels(this)
@@ -240,28 +248,24 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     }
 
     /**
-     * Location and camera types let the service fetch a fix and take intruder photos while the
-     * screen is off. Android only grants each one when its permission is held and, on 14+, when
-     * the service starts from the foreground, so drop them one at a time until it's accepted.
+     * The camera type lets the service take intruder photos while the screen is off. Android only
+     * grants it with the permission held and, on 14+, when started from the foreground (never from
+     * boot on 15+), so fall back to the plain type when refused.
      */
     private fun goForeground(): Boolean {
         val shown = if (GuardState.phase.value == Phase.OFF) Phase.WAITING_FOR_POCKET else GuardState.phase.value
         val notification = Notifications.status(this, shown)
         val base = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
-        var withLocation = base
-        if (Build.VERSION.SDK_INT >= 29 && Locator.hasPermission(this)) {
-            withLocation = withLocation or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
-        }
-        var withCamera = withLocation
+        var withCamera = base
         if (Build.VERSION.SDK_INT >= 30 && granted(Manifest.permission.CAMERA)) {
             withCamera = withCamera or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
         }
-        for (types in listOf(withCamera, withLocation, base).distinct()) {
+        for (types in listOf(withCamera, base).distinct()) {
             try {
                 ServiceCompat.startForeground(this, Notifications.STATUS_ID, notification, types)
                 return true
             } catch (e: Exception) {
-                // Android 15 refuses camera/location types from boot: drop to the next, smaller set.
+                // Android 15 refuses the camera type from boot: drop to the plain type.
                 val notAllowed = Build.VERSION.SDK_INT >= 31 && e is ForegroundServiceStartNotAllowedException
                 Log.w(TAG, "Foreground service types $types refused (notAllowed=$notAllowed)", e)
                 if (types == base) return false
@@ -272,7 +276,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun onDestroy() {
         stopMonitoring()
-        sms.release()
         GuardState.phase.value = Phase.OFF
         refreshTile()
         if (instance === this) instance = null
@@ -330,6 +333,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         handler.removeCallbacks(renewWakeLock)
         handler.removeCallbacks(autoDisarm)
         handler.removeCallbacks(chargerCheck)
+        handler.removeCallbacks(lockCheck)
         handler.removeCallbacks(lockWatch)
         handler.removeCallbacks(unlockPoll)
         alarm.stop()
@@ -351,11 +355,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             return
         }
         engine.onOwnerUnlocked()
-    }
-
-    /** Closes the "screen off but not locked yet" window, where a thief would get an unlocked phone. */
-    private fun lockIfNeeded() {
-        if (engine?.phase != Phase.OFF && !keyguardManager.isDeviceLocked) PowerMenuWatcher.lockScreen()
     }
 
     private fun plugType(): Int {
@@ -390,10 +389,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun config() = GuardEngine.Config(
         graceMs = Prefs.graceSeconds(this) * 1000L,
-        tamperAlarm = Prefs.tamperAlarm(this),
+        airplaneAlarm = Prefs.airplaneAlarm(this),
         chargerAlarm = Prefs.chargerAlarm(this),
         earbudsAlarm = Prefs.earbudsAlarm(this),
-        fakeShutdown = Prefs.fakeShutdown(this),
     )
 
     override fun schedule(timer: GuardEngine.Timer, delayMs: Long) {
@@ -429,14 +427,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Phase.SIREN -> {
                 Prefs.setAlarmActive(this, true)
                 alarm.startSiren(quiet = Prefs.testMode(this))
-                Notifications.showFullScreen(this, AlarmActivity::class.java, stealth = false)
-                trigger?.let { recorder.escalate(it, stealth = false) }
-            }
-            Phase.STEALTH -> {
-                Prefs.setAlarmActive(this, true)
-                alarm.stop()
-                Notifications.showFullScreen(this, FakeOffActivity::class.java, stealth = true)
-                trigger?.let { recorder.escalate(it, stealth = true) }
+                Notifications.showAlarm(this)
+                trigger?.let(recorder::escalate)
             }
             Phase.OFF, Phase.WAITING_FOR_POCKET, Phase.IN_POCKET -> if (from.isAlarm) {
                 Prefs.setAlarmActive(this, false)
@@ -458,11 +450,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     override fun confirmBuzz() = alarm.tick()
 
     override fun noticeBuzz() = alarm.notice()
-
-    override fun lockScreen() {
-        Log.i(TAG, "locking screen (pocketed unlocked)")
-        PowerMenuWatcher.lockScreen()
-    }
 
     private fun granted(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
