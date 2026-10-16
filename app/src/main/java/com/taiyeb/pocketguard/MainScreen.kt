@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -91,7 +93,8 @@ fun MainScreen(refreshKey: Int, onOpenHistory: () -> Unit, onOpenGuide: () -> Un
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val setup = remember(refreshKey, phase) { SetupStatus.read(context) }
-    var testMode by remember { mutableStateOf(Prefs.testMode(context)) }
+    // Re-read on resume: test mode switches itself off after an hour.
+    var testMode by remember(refreshKey) { mutableStateOf(Prefs.testMode(context)) }
 
     Column(
         modifier = Modifier
@@ -102,23 +105,25 @@ fun MainScreen(refreshKey: Int, onOpenHistory: () -> Unit, onOpenGuide: () -> Un
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.app_name),
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onOpenGuide) { Text(stringResource(R.string.main_guide)) }
-            TextButton(onClick = onOpenHistory) { Text(stringResource(R.string.main_history)) }
+        Column {
+            Text(stringResource(R.string.app_name), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Row {
+                TextButton(onClick = onOpenHistory) { Text(stringResource(R.string.main_history)) }
+                TextButton(onClick = onOpenGuide) { Text(stringResource(R.string.main_guide)) }
+            }
         }
 
         StatusCard(phase, testMode)
 
         val off = phase == Phase.OFF
         Button(
-            onClick = { if (off) GuardService.arm(context) else GuardService.disarm(context) },
+            onClick = {
+                if (!off) {
+                    GuardService.disarm(context)
+                } else if (!GuardService.arm(context)) {
+                    Toast.makeText(context, R.string.main_need_lock, Toast.LENGTH_LONG).show()
+                }
+            },
             modifier = Modifier.fillMaxWidth().height(64.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = if (off) Green else Red),
@@ -164,8 +169,8 @@ private fun SettingsSection(testMode: Boolean, onTestMode: (Boolean) -> Unit) {
                 grace = it.roundToInt()
                 Prefs.setGraceSeconds(context, grace)
             },
-            valueRange = 1f..5f,
-            steps = 3,
+            valueRange = 1f..15f,
+            steps = 13,
         )
         ToggleRow(stringResource(R.string.settings_test), stringResource(R.string.settings_test_sub), testMode, onTestMode)
     }
@@ -369,13 +374,14 @@ private fun EmergencySection(refreshKey: Int) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LanguageSection() {
     if (!Language.supported) return
     val context = LocalContext.current
     val current = remember { Language.current(context) }
     Section(stringResource(R.string.language_title)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 null to stringResource(R.string.language_system),
                 "en" to "English",
@@ -400,6 +406,8 @@ private fun SetupSection(setup: SetupStatus) {
         SetupRow(stringResource(R.string.setup_battery), setup.battery) { SetupActions.battery(context) }
         SetupRow(stringResource(R.string.setup_full_screen), setup.fullScreen) { SetupActions.fullScreen(context) }
         SetupRow(stringResource(R.string.setup_lock), setup.secureLock) { SetupActions.secureLock(context) }
+        Text(stringResource(R.string.setup_smart_lock), color = Muted, fontSize = 13.sp)
+        SetupRow(stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
         SetupRow(stringResource(R.string.setup_accessibility), setup.accessibility) { SetupActions.accessibility(context) }
         if (!setup.accessibility) {
             Row(verticalAlignment = Alignment.CenterVertically) {

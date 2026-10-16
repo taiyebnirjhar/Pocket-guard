@@ -46,11 +46,22 @@ class GuardEngine(
         const val AUTO_LOCK_DELAY_MS = 1500L
 
         /** Proximity must stay uncovered this long, which filters out fabric shifting in the pocket. */
-        const val REMOVAL_CONFIRM_MS = 400L
+        const val REMOVAL_CONFIRM_MS = 800L
 
-        /** A removal needs movement within this window, or a jump in light. */
-        const val MOTION_WINDOW_MS = 2000L
-        const val MOTION_SPIKE = 1.5f
+        /** Covered and dark again this soon after a pocket warning: it was fabric, not a hand. */
+        const val FLICKER_RECOVERY_MS = 1000L
+
+        /** Below this both pocket and outside are dark (night), so light can't confirm a removal. */
+        const val DARK_LUX = 5f
+
+        /** In the dark, a removal needs a strong yank within this window... */
+        const val MOTION_WINDOW_MS = 3000L
+
+        /** ...above walking level (walking peaks around 2-4 m/s² of linear acceleration)... */
+        const val MOTION_SPIKE = 5f
+
+        /** ...and the sensor must stay uncovered this long, since fabric flickers but returns. */
+        const val DARK_CONFIRM_MS = 2000L
     }
 
     var phase = Phase.OFF
@@ -60,6 +71,8 @@ class GuardEngine(
     private var lux: Float? = null
     private var pocketLux: Float? = null
     private var lastMotionAt: Long? = null
+    private var warningAt: Long? = null
+    private var uncoveredAt: Long? = null
 
     fun arm() {
         if (phase != Phase.OFF) return
@@ -78,14 +91,24 @@ class GuardEngine(
     fun onProximity(isNear: Boolean) {
         if (isNear == near) return
         near = isNear
+        uncoveredAt = if (isNear) null else host.now()
         host.cancel(Timer.CONFIRM_POCKET)
         host.cancel(Timer.CHECK_REMOVAL)
         host.cancel(Timer.AUTO_LOCK)
         when (phase) {
             Phase.WAITING_FOR_POCKET -> if (isNear) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
             Phase.IN_POCKET -> if (!isNear) host.schedule(Timer.CHECK_REMOVAL, REMOVAL_CONFIRM_MS)
+            Phase.WARNING -> if (isNear) recoverFromFlicker()
             else -> Unit
         }
+    }
+
+    /** Re-covered within a second of a pocket warning: the pocket shifted, the phone never left. */
+    private fun recoverFromFlicker() {
+        val startedAt = warningAt ?: return
+        if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
+        cancelAll()
+        go(Phase.IN_POCKET)
     }
 
     fun onLight(value: Float) {
@@ -113,6 +136,12 @@ class GuardEngine(
         cancelAll()
         if (phase != Phase.WAITING_FOR_POCKET) go(Phase.WAITING_FOR_POCKET)
         if (near == true) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
+    }
+
+    /** Restores an alarm that was running when the phone restarted or the app was killed. */
+    fun resumeAlarm() {
+        if (phase == Phase.OFF) return
+        siren(Trigger.RESTARTED)
     }
 
     fun onPowerMenu() {
@@ -154,28 +183,53 @@ class GuardEngine(
     private fun checkRemoval() {
         if (phase != Phase.IN_POCKET || near != false) return
         // Unlocked means the owner is using it; calls cover and uncover the sensor at the ear.
-        if (host.isLocked() && !host.inCall() && hasRemovalEvidence()) {
-            warn(Trigger.POCKET_REMOVAL)
-        } else {
+        if (!host.isLocked() || host.inCall()) {
             go(Phase.WAITING_FOR_POCKET)
+            return
+        }
+        when (val evidence = removalEvidence()) {
+            Evidence.Confirmed -> warn(Trigger.POCKET_REMOVAL)
+            Evidence.None -> go(Phase.WAITING_FOR_POCKET)
+            is Evidence.WaitLonger -> host.schedule(Timer.CHECK_REMOVAL, evidence.ms)
         }
     }
 
-    /** A real removal moves the phone or exposes it to light; a sensor flicker does neither. */
-    private fun hasRemovalEvidence(): Boolean {
-        if (!hasMotionSensor && !hasLightSensor) return true
-        val motionAt = lastMotionAt
-        val moved = hasMotionSensor && motionAt != null && host.now() - motionAt < MOTION_WINDOW_MS
-        val dark = pocketLux
+    private sealed interface Evidence {
+        data object Confirmed : Evidence
+        data object None : Evidence
+        data class WaitLonger(val ms: Long) : Evidence
+    }
+
+    /**
+     * A real removal exposes the phone to light. Walking constantly produces motion and fabric
+     * flickers over the sensor, so in the dark (or without a light sensor) it takes a strong yank
+     * plus the sensor staying uncovered for [DARK_CONFIRM_MS].
+     */
+    private fun removalEvidence(): Evidence {
+        if (!hasMotionSensor && !hasLightSensor) return Evidence.Confirmed
+        val now = host.now()
         val current = lux
-        val brighter = hasLightSensor && dark != null && current != null &&
-            current > maxOf(dark * 3f, dark + 10f)
-        return moved || brighter
+        if (hasLightSensor && current != null) {
+            val dark = pocketLux ?: 0f
+            if (current > maxOf(dark * 3f, dark + 10f)) return Evidence.Confirmed
+            // Light outside, yet no brighter than the pocket: the phone is still covered by something.
+            if (current >= DARK_LUX) return Evidence.None
+        }
+        val motionAt = lastMotionAt
+        val yanked = motionAt != null && now - motionAt < MOTION_WINDOW_MS
+        if (hasMotionSensor && !yanked) return Evidence.None
+        val uncoveredFor = now - (uncoveredAt ?: now)
+        return if (uncoveredFor >= DARK_CONFIRM_MS) {
+            Evidence.Confirmed
+        } else {
+            Evidence.WaitLonger(DARK_CONFIRM_MS - uncoveredFor)
+        }
     }
 
     private fun warn(cause: Trigger) {
         if (phase != Phase.WAITING_FOR_POCKET && phase != Phase.IN_POCKET) return
         cancelAll()
+        warningAt = host.now()
         go(Phase.WARNING, cause)
         host.schedule(Timer.SIREN, host.config().graceMs)
     }

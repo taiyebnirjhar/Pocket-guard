@@ -29,4 +29,5 @@ fun Trigger.labelRes() = when (this) {
     Trigger.AIRPLANE_MODE -> R.string.trigger_airplane
     Trigger.CHARGER_UNPLUGGED -> R.string.trigger_charger
     Trigger.EARBUDS_DISCONNECTED -> R.string.trigger_earbuds
+    Trigger.RESTARTED -> R.string.trigger_restarted
 }

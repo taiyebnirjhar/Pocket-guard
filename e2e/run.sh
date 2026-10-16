@@ -5,6 +5,7 @@ set -uo pipefail
 
 APK="$1"
 PKG=com.taiyeb.pocketguard
+PIN=1234
 FAILED=0
 PASSED=0
 
@@ -16,7 +17,7 @@ sh() { adb shell "$@"; }
 expect_phase() {
   local phase="$1" timeout="$2" name="$3"
   for _ in $(seq 1 $((timeout * 4))); do
-    if adb logcat -d -s PocketGuard:I | grep -q "phase=$phase "; then
+    if grep -q "phase=$phase " <<<"$(adb logcat -d -s PocketGuard:I)"; then
       log "PASS: $name"
       PASSED=$((PASSED + 1))
       return 0
@@ -33,7 +34,7 @@ expect_phase() {
 expect_no_phase() {
   local phase="$1" seconds="$2" name="$3"
   sleep "$seconds"
-  if adb logcat -d -s PocketGuard:I | grep -q "phase=$phase "; then
+  if grep -q "phase=$phase " <<<"$(adb logcat -d -s PocketGuard:I)"; then
     log "FAIL: $name (unexpected phase=$phase)"
     adb logcat -d -s PocketGuard:I | tail -n 10
     FAILED=$((FAILED + 1))
@@ -45,11 +46,21 @@ expect_no_phase() {
 
 reset_log() { adb logcat -c; }
 screen_off() { sh input keyevent KEYCODE_SLEEP; sleep 1; }
-unlock() { sh input keyevent KEYCODE_WAKEUP; sleep 0.5; sh wm dismiss-keyguard; sleep 1; }
+# The guard requires a PIN (anyone can swipe away a lock screen without one).
+unlock() {
+  sh input keyevent KEYCODE_WAKEUP; sleep 0.7
+  sh wm dismiss-keyguard; sleep 0.7
+  sh input text "$PIN"; sh input keyevent KEYCODE_ENTER; sleep 1.5
+}
 still() { emu sensor set acceleration 0:9.81:0; }
 pocket() { emu sensor set light 0; emu sensor set proximity 0; }
 pull_out() { emu sensor set acceleration 6:6:18; emu sensor set proximity 10; emu sensor set light 400; sleep 0.3; still; }
 calm_down() { still; sleep 2.5; } # let the motion window (2 s) expire
+
+log "Setting a PIN lock that locks instantly"
+sh locksettings set-pin "$PIN" >/dev/null
+sh settings put secure lock_screen_lock_after_timeout 0
+sh settings put system screen_off_timeout 600000
 
 log "Installing"
 adb install -r -g "$APK" || exit 1
@@ -133,7 +144,7 @@ adb logcat -c
 sh monkey -p $PKG --throttle 150 --pct-syskeys 0 --pct-appswitch 0 --ignore-security-exceptions -v 400 >/tmp/monkey.txt 2>&1 || true
 sleep 2
 CRASHES=$(adb logcat -d -b crash 2>/dev/null; adb logcat -d | grep -A 30 "FATAL EXCEPTION" || true)
-if echo "$CRASHES" | grep -q "$PKG"; then
+if grep -q "$PKG" <<<"$CRASHES"; then
   log "FAIL: app crashed"
   echo "$CRASHES" | grep -B 2 -A 30 "$PKG" | head -n 80
   FAILED=$((FAILED + 1))

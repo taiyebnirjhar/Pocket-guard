@@ -67,9 +67,26 @@ class TransitReceiver : BroadcastReceiver() {
     }
 }
 
-/** Activity recognition registrations are lost on reboot and app update; restore them. */
+/**
+ * After a restart or app update: re-arm if the guard was on (a thief force-restarting the phone
+ * must not switch it off; with an alarm running it resumes) and restore activity recognition.
+ * Direct-boot aware, so it runs before the first unlock too.
+ */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (Prefs.autoArmTransit(context)) TransitRecognition.enable(context)
+        when (intent.action) {
+            Intent.ACTION_LOCKED_BOOT_COMPLETED, Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> Unit
+            else -> return
+        }
+        if (Prefs.armed(context) && GuardState.phase.value == Phase.OFF) {
+            try {
+                GuardService.arm(context)
+            } catch (e: Exception) {
+                Notifications.showRearm(context)
+            }
+        }
+        if (intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED && Prefs.autoArmTransit(context)) {
+            TransitRecognition.enable(context)
+        }
     }
 }

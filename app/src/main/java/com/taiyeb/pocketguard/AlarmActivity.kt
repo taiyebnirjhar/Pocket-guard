@@ -95,6 +95,11 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             fontSize = 20.sp,
             textAlign = TextAlign.Center,
         )
+        val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
+        if (!unlockStops) {
+            Spacer(Modifier.height(16.dp))
+            Text(stringResource(R.string.alarm_open_app), color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
+        }
         Spacer(Modifier.height(48.dp))
         OutlinedButton(onClick = onOwner) {
             Text(stringResource(R.string.alarm_owner_unlock), color = Color.White)

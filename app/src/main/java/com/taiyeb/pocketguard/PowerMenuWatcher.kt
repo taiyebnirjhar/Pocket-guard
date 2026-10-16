@@ -21,7 +21,11 @@ class PowerMenuWatcher : AccessibilityService() {
         @Volatile
         private var instance: PowerMenuWatcher? = null
 
-        private val POWER_WORDS = listOf("power off", "restart", "reboot", "shut down", "switch off")
+        /** English and Bangla labels; a real power menu shows at least two of these (off and restart). */
+        private val POWER_WORDS = listOf(
+            "power off", "restart", "reboot", "shut down", "switch off", "emergency",
+            "বন্ধ করুন", "রিস্টার্ট", "আবার চালু", "জরুরি",
+        )
 
         fun lockScreen() {
             if (Build.VERSION.SDK_INT >= 28) instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
@@ -73,6 +77,7 @@ class PowerMenuWatcher : AccessibilityService() {
         }
         if (!packageName.contains("systemui", ignoreCase = true)) return false
         val text = (event.text.joinToString(" ") + " " + (event.contentDescription ?: "")).lowercase()
-        return POWER_WORDS.any { text.contains(it) }
+        // One word alone (e.g. a "Restart now" update prompt) is not the power menu.
+        return POWER_WORDS.count { text.contains(it) } >= 2
     }
 }

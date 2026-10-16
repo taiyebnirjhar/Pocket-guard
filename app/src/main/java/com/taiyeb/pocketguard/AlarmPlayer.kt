@@ -1,5 +1,6 @@
 package com.taiyeb.pocketguard
 
+import android.app.NotificationManager
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -27,7 +28,9 @@ class AlarmPlayer(context: Context) {
         @Suppress("DEPRECATION")
         context.getSystemService(Vibrator::class.java)
     }
+    private val notifications = context.getSystemService(NotificationManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
+    private var savedInterruptionFilter: Int? = null
 
     private var track: AudioTrack? = null
     private var savedMusicVolume: Int? = null
@@ -49,13 +52,14 @@ class AlarmPlayer(context: Context) {
     private val torchBlink = object : Runnable {
         override fun run() {
             val id = torchId ?: return
-            torchOn = !torchOn
             try {
-                camera.setTorchMode(id, torchOn)
+                camera.setTorchMode(id, !torchOn)
+                torchOn = !torchOn
+                handler.postDelayed(this, 250)
             } catch (e: Exception) {
-                return
+                // Camera still closing after the intruder photo, or busy: keep trying.
+                handler.postDelayed(this, 500)
             }
-            handler.postDelayed(this, 250)
         }
     }
 
@@ -68,7 +72,7 @@ class AlarmPlayer(context: Context) {
     /** Stage 1: beeps on the media stream (which goes to the earbuds when connected) plus vibration. */
     fun startWarning() {
         stop()
-        if (headphonesConnected()) {
+        if (Audio.headsetConnected(audio)) {
             val current = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
             val target = (audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 0.6f).roundToInt()
             if (current < target) {
@@ -83,6 +87,7 @@ class AlarmPlayer(context: Context) {
     /** Stage 2: siren on the alarm stream (plays through silent mode) and strong vibration. */
     fun startSiren(quiet: Boolean) {
         stop()
+        overrideDoNotDisturb()
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
@@ -123,6 +128,27 @@ class AlarmPlayer(context: Context) {
         savedMusicVolume = null
         savedAlarmVolume?.let { setVolume(AudioManager.STREAM_ALARM, it) }
         savedAlarmVolume = null
+        savedInterruptionFilter?.let {
+            try {
+                notifications.setInterruptionFilter(it)
+            } catch (e: SecurityException) {
+                // Access revoked meanwhile.
+            }
+        }
+        savedInterruptionFilter = null
+    }
+
+    /** "Total silence" Do Not Disturb mutes even alarms; lift it while the siren plays, if allowed. */
+    private fun overrideDoNotDisturb() {
+        if (!notifications.isNotificationPolicyAccessGranted) return
+        val filter = notifications.currentInterruptionFilter
+        if (filter == NotificationManager.INTERRUPTION_FILTER_ALL) return
+        try {
+            notifications.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+            savedInterruptionFilter = filter
+        } catch (e: SecurityException) {
+            // No access.
+        }
     }
 
     private fun play(samples: ShortArray, usage: Int) {
@@ -151,17 +177,6 @@ class AlarmPlayer(context: Context) {
         }
     }
 
-    private fun headphonesConnected(): Boolean {
-        val types = mutableSetOf(
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_WIRED_HEADSET,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-        )
-        if (Build.VERSION.SDK_INT >= 31) types += AudioDeviceInfo.TYPE_BLE_HEADSET
-        return audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in types }
-    }
-
     private fun findTorch(): String? = try {
         camera.cameraIdList.firstOrNull {
             camera.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
@@ -186,5 +201,34 @@ class AlarmPlayer(context: Context) {
         } else {
             vibrator.vibrate(effect)
         }
+    }
+}
+
+object Audio {
+    fun headsetConnected(audio: AudioManager): Boolean {
+        val types = mutableSetOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+        )
+        if (Build.VERSION.SDK_INT >= 31) types += AudioDeviceInfo.TYPE_BLE_HEADSET
+        return audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in types }
+    }
+
+    /** True only when call audio comes out of the earpiece, i.e. the phone is held at the ear. */
+    fun callAtEar(audio: AudioManager): Boolean {
+        val mode = audio.mode
+        val inCall = mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION ||
+            mode == AudioManager.MODE_RINGTONE
+        if (!inCall) return false
+        if (mode == AudioManager.MODE_RINGTONE) return true // Ringing: the owner is about to answer.
+        if (Build.VERSION.SDK_INT >= 31) {
+            return audio.communicationDevice?.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+        }
+        @Suppress("DEPRECATION")
+        val speaker = audio.isSpeakerphoneOn
+        return !headsetConnected(audio) && !speaker
     }
 }

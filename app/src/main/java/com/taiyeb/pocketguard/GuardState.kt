@@ -22,8 +22,16 @@ enum class Trigger {
     AIRPLANE_MODE,
     CHARGER_UNPLUGGED,
     EARBUDS_DISCONNECTED,
+    /** The phone was restarted (or the app killed) while an alarm was running. */
+    RESTARTED,
 }
 
 object GuardState {
     val phase = MutableStateFlow(Phase.OFF)
+
+    /**
+     * False when the alarm started while the phone wasn't locked with a PIN/pattern (screen-lock
+     * delay, Smart Lock): then unlocking proves nothing and only DISARM in the app stops it.
+     */
+    val unlockStopsAlarm = MutableStateFlow(true)
 }

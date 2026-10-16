@@ -16,8 +16,17 @@ class BluetoothReceiver : BroadcastReceiver() {
         /** Earbuds, headphones, speakers and watches: the things you carry next to your phone. */
         @SuppressLint("MissingPermission")
         fun isListeningDevice(device: BluetoothDevice): Boolean = try {
-            when (device.bluetoothClass?.majorDeviceClass) {
-                BluetoothClass.Device.Major.AUDIO_VIDEO, BluetoothClass.Device.Major.WEARABLE -> true
+            val type = device.bluetoothClass
+            when {
+                type == null -> false
+                type.majorDeviceClass == BluetoothClass.Device.Major.WEARABLE -> true
+                // Car stereos and speakers stay behind when you walk off: they must not count.
+                type.majorDeviceClass == BluetoothClass.Device.Major.AUDIO_VIDEO -> type.deviceClass in setOf(
+                    BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES,
+                    BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET,
+                    BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE,
+                    BluetoothClass.Device.AUDIO_VIDEO_UNCATEGORIZED,
+                )
                 else -> false
             }
         } catch (e: SecurityException) {

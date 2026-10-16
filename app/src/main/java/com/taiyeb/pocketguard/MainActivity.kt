@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -34,10 +35,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         // Only on first creation: a rotation re-delivers the same intent and would re-arm after a disarm.
         if (savedInstanceState == null && intent?.getBooleanExtra(EXTRA_ARM, false) == true) {
-            GuardService.arm(this)
+            if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
         }
         if (Prefs.autoArmTransit(this)) TransitRecognition.enable(this)
-        if (Build.VERSION.SDK_INT >= 33 &&
+        if (savedInstanceState == null && Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -47,10 +48,14 @@ class MainActivity : ComponentActivity() {
             PocketGuardTheme {
                 var screen by rememberSaveable { mutableStateOf(firstScreen) }
                 when (screen) {
-                    Screen.ONBOARDING -> OnboardingScreen(onDone = {
-                        Prefs.setOnboarded(this@MainActivity, true)
-                        screen = Screen.MAIN
-                    })
+                    Screen.ONBOARDING -> {
+                        // Reopened as the guide: Back returns to the app instead of leaving it.
+                        BackHandler(Prefs.onboarded(this@MainActivity)) { screen = Screen.MAIN }
+                        OnboardingScreen(onDone = {
+                            Prefs.setOnboarded(this@MainActivity, true)
+                            screen = Screen.MAIN
+                        })
+                    }
                     Screen.MAIN -> MainScreen(
                         refreshKey = refreshKey.intValue,
                         onOpenHistory = { screen = Screen.HISTORY },

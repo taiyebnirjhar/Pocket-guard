@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 object Notifications {
     const val STATUS_ID = 1
     private const val ALARM_ID = 2
+    private const val INFO_ID = 3
     private const val STATUS_CHANNEL = "guard_status"
     private const val ALARM_CHANNEL = "guard_alarm"
     private const val STEALTH_CHANNEL = "guard_stealth"
@@ -44,16 +45,51 @@ object Notifications {
             context, 0, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return NotificationCompat.Builder(context, STATUS_CHANNEL)
+        val builder = NotificationCompat.Builder(context, STATUS_CHANNEL)
             .setSmallIcon(R.drawable.ic_shield)
             .setContentTitle(context.getString(phase.titleRes()))
-            .setContentText(context.getString(phase.hintRes()))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        if (phase == Phase.STEALTH) {
+            // Nothing on the lock screen may hint that the "shut down" phone is still running.
+            builder.setVisibility(NotificationCompat.VISIBILITY_SECRET)
+        } else {
+            builder.setContentText(context.getString(phase.hintRes()))
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        }
+        return builder.build()
+    }
+
+    /** Android stopped the guard (e.g. background restart refused): one tap arms it again. */
+    fun showRearm(context: Context) {
+        val intent = Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_ARM, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        notifyInfo(context, R.string.notify_rearm, PendingIntent.getActivity(
+            context, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ))
+    }
+
+    fun showInfo(context: Context, text: Int) {
+        notifyInfo(context, text, PendingIntent.getActivity(
+            context, 3, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ))
+    }
+
+    private fun notifyInfo(context: Context, text: Int, tap: PendingIntent) {
+        createChannels(context)
+        val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
+            .setSmallIcon(R.drawable.ic_shield)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.getString(text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(text)))
+            .setAutoCancel(true)
+            .setContentIntent(tap)
             .build()
+        context.getSystemService(NotificationManager::class.java).notify(INFO_ID, notification)
     }
 
     /**

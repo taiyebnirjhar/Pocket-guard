@@ -1,5 +1,6 @@
 package com.taiyeb.pocketguard
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -18,7 +19,7 @@ class GuardTileService : TileService() {
         super.onClick()
         if (GuardState.phase.value == Phase.OFF) {
             try {
-                GuardService.arm(this)
+                if (!GuardService.arm(this)) openApp() // No secure lock screen: the app explains.
             } catch (e: Exception) {
                 // Some Android versions refuse to start a foreground service from a tile; arm via the app.
                 openApp()
@@ -38,6 +39,7 @@ class GuardTileService : TileService() {
         tile.updateTile()
     }
 
+    @SuppressLint("StartActivityAndCollapseDeprecated") // The Intent overload only runs below API 34.
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_ARM, true)

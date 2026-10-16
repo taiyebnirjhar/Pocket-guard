@@ -84,7 +84,7 @@ class GuardEngineTest {
 
     /** A hand pulling the phone out: movement, then light and an uncovered sensor. */
     private fun pullOut() {
-        engine.onMotion(5f)
+        engine.onMotion(8f)
         engine.onProximity(false)
         engine.onLight(300f)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
@@ -171,7 +171,7 @@ class GuardEngineTest {
     @Test
     fun oldMotionDoesNotCount() {
         pocket()
-        engine.onMotion(5f)
+        engine.onMotion(8f)
         host.advance(GuardEngine.MOTION_WINDOW_MS + 100)
         engine.onProximity(false)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
@@ -181,7 +181,7 @@ class GuardEngineTest {
     @Test
     fun shortUncoverInsidePocketIsIgnored() {
         pocket()
-        engine.onMotion(5f)
+        engine.onMotion(8f)
         engine.onProximity(false)
         host.advance(200)
         engine.onProximity(true)
@@ -348,7 +348,7 @@ class GuardEngineTest {
     fun unlockReArmsWhenStillCovered() {
         pocket()
         engine.onProximity(false)
-        engine.onMotion(5f)
+        engine.onMotion(8f)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         engine.onProximity(true)
         engine.onOwnerUnlocked()
@@ -377,6 +377,85 @@ class GuardEngineTest {
         engine.onProximity(true)
         host.advance(5000)
         assertEquals(Phase.OFF, engine.phase)
+    }
+
+    @Test
+    fun darkRemovalWaitsForSustainedUncover() {
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        host.advance(GuardEngine.DARK_CONFIRM_MS)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun darkFlickerWithYankThatRecoversIsIgnored() {
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(1200)
+        engine.onProximity(true)
+        host.advance(10_000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+    }
+
+    @Test
+    fun walkingMotionInDarkPocketIsIgnored() {
+        pocket()
+        engine.onMotion(3f) // a step
+        engine.onProximity(false)
+        host.advance(5000)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+    }
+
+    @Test
+    fun litOutsideButNotBrighterIsNotARemoval() {
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        engine.onLight(7f)
+        host.advance(5000)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+    }
+
+    @Test
+    fun recoveredFlickerCancelsPocketWarning() {
+        pocket()
+        pullOut()
+        assertEquals(Phase.WARNING, engine.phase)
+        engine.onProximity(true)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        host.advance(10_000)
+        assertFalse(host.transitions.any { it.second == Phase.SIREN })
+        assertEquals(Triple(Phase.WARNING, Phase.IN_POCKET, Trigger.POCKET_REMOVAL), host.transitions.last())
+    }
+
+    @Test
+    fun coveringAgainLaterDoesNotCancelWarning() {
+        pocket()
+        pullOut()
+        host.advance(GuardEngine.FLICKER_RECOVERY_MS + 100)
+        engine.onProximity(true)
+        host.advance(3000)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun coveringDoesNotCancelOtherWarnings() {
+        engine.onChargerUnplugged()
+        engine.onProximity(true)
+        host.advance(3000)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun resumedAlarmSirensWithRestartCause() {
+        engine.resumeAlarm()
+        assertEquals(Phase.SIREN, engine.phase)
+        assertEquals(Trigger.RESTARTED, host.transitions.last().third)
     }
 
     @Test

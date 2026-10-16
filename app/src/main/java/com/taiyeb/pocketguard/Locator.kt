@@ -39,6 +39,22 @@ object Locator {
         }
     }
 
+    /** Last known fix, fast (no GPS warm-up), possibly old; null if none. */
+    @SuppressLint("MissingPermission")
+    fun last(context: Context, onResult: (Location?) -> Unit) {
+        if (!hasPermission(context)) {
+            onResult(null)
+            return
+        }
+        try {
+            LocationServices.getFusedLocationProviderClient(context).lastLocation
+                .addOnSuccessListener { onResult(it) }
+                .addOnFailureListener { onResult(null) }
+        } catch (e: Exception) {
+            onResult(null)
+        }
+    }
+
     private fun granted(context: Context, permission: String) =
         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 }

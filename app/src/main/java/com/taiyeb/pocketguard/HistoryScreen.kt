@@ -90,6 +90,7 @@ private fun IncidentCard(incident: Incident) {
     val ended = incident.endedAt
     val outcome = when {
         ended == null -> stringResource(R.string.history_ongoing)
+        incident.flicker -> stringResource(R.string.history_flicker)
         incident.ownerStopped -> stringResource(
             R.string.history_owner_stopped, ((ended - incident.startedAt) / 1000).toInt(),
         )
@@ -119,9 +120,13 @@ private fun IncidentCard(incident: Incident) {
                     try {
                         context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                     } catch (e: Exception) {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=${fix.lat},${fix.lng}")),
-                        )
+                        try {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=${fix.lat},${fix.lng}")),
+                            )
+                        } catch (noBrowser: Exception) {
+                            // No maps app and no browser.
+                        }
                     }
                 }) {
                     Text(stringResource(R.string.history_open_map, fix.accuracy.toInt()))

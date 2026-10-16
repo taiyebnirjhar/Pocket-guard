@@ -39,7 +39,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_grace">Time to unlock before the siren: %1$d s</string>
     <string name="settings_test">Test mode</string>
-    <string name="settings_test_sub">Quiet siren, for trying it at home</string>
+    <string name="settings_test_sub">Quiet siren and SMS marked [TEST]. Turns itself off after 1 hour.</string>
     <string name="triggers_title">Triggers</string>
     <string name="triggers_tamper">Power-off &amp; airplane mode alarm</string>
     <string name="triggers_tamper_sub">Alarm if someone opens the power menu or turns on airplane mode while it\'s locked. Power menu needs power-off protection in the setup checklist.</string>
@@ -90,7 +90,7 @@
     <string name="setup_full_screen">Alarm can show on lock screen</string>
     <string name="setup_lock">Screen lock (PIN / fingerprint) set</string>
     <string name="setup_accessibility">Power-off protection (Accessibility)</string>
-    <string name="setup_restricted">Switch greyed out? Open App info, tap ⋮ and \"Allow restricted settings\", then try again.</string>
+    <string name="setup_restricted">Switch greyed out? Open App info, tap ⋮ and \"Allow restricted settings\" (the wording may be translated), then try again.</string>
     <string name="setup_app_info">App info</string>
     <string name="setup_autostart">Autostart (Xiaomi, Realme, Oppo, Vivo…)</string>
     <string name="sensor_title">Sensor check</string>
@@ -106,11 +106,11 @@
     <string name="sensor_wake_yes">yes (wake-up sensor)</string>
     <string name="sensor_wake_maybe">maybe (test in pocket)</string>
     <string name="test_title">How to test</string>
-    <string name="test_1">Keep Test mode on. Tap ARM, lock the phone.</string>
+    <string name="test_1">Turn on Test mode. Tap ARM, lock the phone.</string>
     <string name="test_2">Put it in your pocket. A short buzz means it\'s protected.</string>
     <string name="test_3">Pull it out without unlocking: beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
-    <string name="test_5">Unlock with your fingerprint: everything stops and it re-arms.</string>
+    <string name="test_5">Unlock with your fingerprint or PIN: everything stops and it re-arms.</string>
     <string name="test_6">Volume buttons during the siren shouldn\'t silence it.</string>
     <string name="test_7">Power-off protection on: arm, lock, hold power. The menu closes and the alarm starts.</string>
     <string name="test_8">Charging: arm, lock, unplug. Beeps, then the siren.</string>
@@ -125,7 +125,7 @@
     <string name="onboarding_3_title">If someone takes it</string>
     <string name="onboarding_3_body">Beeps in your earbuds, then a siren they can\'t silence. Your contacts get its location by SMS and the front camera photographs the thief.</string>
     <string name="onboarding_4_title">Set it up, then test it</string>
-    <string name="onboarding_4_body">Go through the setup checklist so your phone never stops the guard. Test mode keeps the siren quiet while you try it.</string>
+    <string name="onboarding_4_body">Go through the setup checklist so your phone never stops the guard. Turn on Test mode to try it with a quiet siren.</string>
     <string name="fake_shutting_down">Shutting down…</string>
     <string name="history_title">Theft history</string>
     <string name="history_back">← Back</string>
@@ -140,4 +140,14 @@
     <string name="history_sms_sent">%1$d SMS alert(s) sent</string>
     <string name="history_open_map">Open last location (±%1$d m)</string>
     <string name="history_photo">Intruder photo</string>
+    <string name="trigger_restarted">Phone restarted during an alarm</string>
+    <string name="notify_auto_off">Pocket Guard turned itself off after 4 hours armed automatically.</string>
+    <string name="notify_need_lock">Pocket Guard needs a screen lock (PIN, pattern or password) to tell you from a thief.</string>
+    <string name="notify_rearm">Android stopped Pocket Guard. Tap to arm it again, and allow it in battery settings.</string>
+    <string name="main_need_lock">Set a screen lock (PIN, pattern or password) first</string>
+    <string name="sms_age_minutes">%1$d min ago</string>
+    <string name="history_flicker">cancelled: the pocket shifted</string>
+    <string name="alarm_open_app">The phone wasn\'t PIN-locked, so unlocking won\'t stop this. Open Pocket Guard and tap DISARM.</string>
+    <string name="setup_dnd">Siren can override Do Not Disturb</string>
+    <string name="setup_smart_lock">Turn off Smart Lock / Extend Unlock: while it keeps the phone unlocked, unlocking can\'t prove it\'s you.</string>
 </resources>

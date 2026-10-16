@@ -24,6 +24,7 @@ data class SetupStatus(
     val secureLock: Boolean,
     val proximity: Boolean,
     val accessibility: Boolean,
+    val doNotDisturb: Boolean,
     val bluetoothPermission: Boolean,
     val activityPermission: Boolean,
 ) {
@@ -39,6 +40,7 @@ data class SetupStatus(
                 proximity = context.getSystemService(SensorManager::class.java)
                     .getDefaultSensor(Sensor.TYPE_PROXIMITY) != null,
                 accessibility = PowerMenuWatcher.isEnabled(context),
+                doNotDisturb = notifications.isNotificationPolicyAccessGranted,
                 bluetoothPermission = Build.VERSION.SDK_INT < 31 ||
                     granted(context, Manifest.permission.BLUETOOTH_CONNECT),
                 activityPermission = Build.VERSION.SDK_INT < 29 ||
@@ -70,6 +72,11 @@ object SetupActions {
         if (Build.VERSION.SDK_INT >= 34) {
             open(context, Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri(context)))
         }
+    }
+
+    /** Lets the siren lift "Total silence" Do Not Disturb while it plays. */
+    fun doNotDisturb(context: Context) {
+        open(context, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
     }
 
     fun accessibility(context: Context) {
