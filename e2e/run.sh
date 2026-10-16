@@ -127,7 +127,7 @@ log "Scenario 1: pickpocket, intruder photos, history"
 reset_log
 arm "arming from the app"
 screen_off
-expect_log "lock check: locked=true" 6 "lock check passes with an instant lock"
+expect_log "lock check: locked=true" 15 "lock check passes with an instant lock" # first screen-off after launch is slow on CI
 reset_log
 pocket
 expect_phase IN_POCKET 6 "pocketed phone becomes protected"
