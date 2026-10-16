@@ -11,10 +11,16 @@ English and Bangla. Android 8.0+ (minSdk 26). Built and tested entirely in CI.
 
 1. **Armed**: waiting for the phone to go into a pocket (proximity sensor covered for 1.5 s).
 2. **Protected**: a short buzz confirms it.
-3. **Taken out while locked**: proximity uncovered for 0.8 s, plus a jump in light. In the dark
-   it needs a strong yank (over 5 m/s²) and the sensor staying uncovered for 2 s, so walking and
-   fabric shifting don't trigger it. Re-covered within 1 s of the warning means the pocket
-   shifted, and the warning cancels itself.
+3. **Taken out while locked**: proximity uncovered for 0.8 s, plus evidence that it really left
+   the pocket:
+   - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
+     is brighter.
+   - **Motion** otherwise: a jolt over 2.5 m/s² plus the sensor staying uncovered for 1.5 s.
+     Many phones stop reporting light while the screen is off, so this is the usual path.
+
+   Late readings still count for 2.5 s. A motion-only warning cancels itself if the sensor is
+   covered again within 1 s (pocket fabric). A light-confirmed one doesn't, since that's a
+   thief's hand.
 4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 1-15 s) and
    nothing else happens.
 5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
@@ -99,14 +105,26 @@ info, tap ⋮ and choose "Allow restricted settings".
 
 `.github/workflows/pocket-guard.yml`:
 
-1. **Unit tests**: 40 `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
-   flicker recovery, calls and restarts.
+1. **Unit tests**: 47 `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
+   a light sensor that freezes with the screen off, late readings, flicker recovery, calls and
+   restarts.
 2. **Android lint** with `abortOnError`. The full report is printed on failure.
-3. **Emulator end-to-end test** (`e2e/run.sh`, API 34). It sets a PIN, fakes the proximity, light
-   and motion sensors through the emulator console, and checks the logged phase transitions for:
-   the pickpocket flow, owner unlock, owner removal with unlock, sensor flicker, airplane mode, and
-   charger unplug. It then runs monkey fuzzing for crashes. Screenshots, the app log and keyguard
-   state are uploaded for each failure.
+3. **Emulator end-to-end test** (`e2e/run.sh`, API 34, 46 checks). It sets a PIN, writes the
+   app's settings with `run-as` (an emergency contact pointing at the emulator's own number), enables
+   the accessibility service, and fakes GPS, the cameras, and the proximity, light and motion
+   sensors. It then checks the app log, stored history, photo files and screen state for:
+   - pickpocket: siren, SMS accepted by the network, location in the alert, intruder photos,
+     history entry, all-clear after unlock
+   - pull-out with a frozen light sensor
+   - the owner's own pull-out and unlock within grace
+   - sensor flicker and walking ignored
+   - power menu, airplane mode and charger triggers
+   - auto-lock of a phone pocketed unlocked
+   - fake shutdown
+   - the alarm resuming after a reboot, before the first unlock
+   - monkey crash fuzzing
+
+   Screenshots, the app log and keyguard state are uploaded for each failure.
 4. **Release**: only after all of the above pass.
 
 ## Known limits
@@ -118,5 +136,8 @@ info, tap ⋮ and choose "Allow restricted settings".
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
 - Power-menu detection depends on the phone maker's labels (English and Bangla are matched).
-- The Play Store restricts accessibility services, so these test builds are sideloaded.
+- The Play Store restricts accessibility services, so these test builds are sideloaded. Play
+  Protect may block the install outright ("App blocked to protect your device") because the app
+  requests accessibility and SMS. Turn off "Scan apps with Play Protect" in the Play Store's
+  Play Protect settings for the install, then turn it back on.
 - iPhone isn't possible: iOS gives apps no background sensor access.
