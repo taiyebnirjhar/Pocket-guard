@@ -1,5 +1,7 @@
 # Pocket Guard
 
+https://github.com/user-attachments/assets/5b038718-6057-4d9d-8a62-5170a73fcfbd
+
 Android anti-pickpocket alarm. Arm it before you get into a crowd. If the phone leaves your
 pocket or bag without your unlock, it beeps (in your earbuds if connected), then sounds a
 full-volume siren the thief can't silence, and the front camera photographs whoever is holding it.
