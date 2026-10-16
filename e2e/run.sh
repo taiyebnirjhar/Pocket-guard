@@ -115,6 +115,17 @@ enable_accessibility() {
   expect_log "power-off protection connected" 15 "accessibility service connected"
 }
 
+accessibility_state() { sh settings get secure enabled_accessibility_services | tr -d '\r'; }
+
+# The emulator clears the accessibility setting a few minutes after adb enables it (seen in CI;
+# the app never writes it). Re-enable when needed, and record when it was found cleared.
+ensure_accessibility() {
+  local state
+  state=$(accessibility_state)
+  log "  accessibility setting: ${state:-<empty>}"
+  if ! grep -q PowerMenuWatcher <<<"$state"; then enable_accessibility; fi
+}
+
 arm() {
   sh am start -W -n $PKG/.MainActivity --ez arm true >/dev/null
   expect_phase WAITING_FOR_POCKET 10 "$1"
@@ -141,6 +152,7 @@ emu sensor set light 400
 
 # --- 1. Pickpocket with evidence ------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 1: pickpocket, SMS with location, intruder photos, history, all-clear"
 reset_log
 arm "arming from the app"
@@ -171,6 +183,7 @@ sleep 2
 
 # --- 2. The field bug: light sensor asleep with the screen off ------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 2: light sensor frozen (no readings while pocketed), motion must still catch it"
 screen_off
 reset_log
@@ -189,6 +202,7 @@ sleep 2
 
 # --- 3. False alarms ------------------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 3: owner pulls it out and unlocks in time"
 screen_off
 reset_log
@@ -202,6 +216,7 @@ unlock
 expect_phase WAITING_FOR_POCKET 4 "owner's unlock within grace stops it"
 expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 4: sensor uncovered without movement or light"
 screen_off
 reset_log
@@ -212,6 +227,7 @@ reset_log
 uncovered
 expect_no_phase WARNING 3 "uncovering without movement or light is ignored"
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
 covered
 sleep 2
@@ -225,8 +241,9 @@ expect_no_phase WARNING 4 "brief flicker while walking is ignored"
 
 # --- 4. Tamper triggers ----------------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 6: power menu opened on the lock screen"
-log "  accessibility state: $(sh dumpsys accessibility | grep -oE 'Bound services:\{[^}]*\}|Enabled services:\{[^}]*\}' | tr '\n' ' ')"
+ensure_accessibility
 uncovered
 emu sensor set light 400
 sleep 1.5
@@ -240,6 +257,7 @@ reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the power-menu alarm"
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 7: airplane mode while locked"
 screen_off
 reset_log
@@ -250,6 +268,7 @@ reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the airplane alarm"
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 8: charger unplugged while locked"
 sh dumpsys battery set ac 1
 sleep 2
@@ -264,8 +283,9 @@ sh dumpsys battery reset
 
 # --- 5. Accessibility helpers ---------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 9: phone pocketed while unlocked gets locked"
-log "  accessibility state: $(sh dumpsys accessibility | grep -oE 'Bound services:\{[^}]*\}|Enabled services:\{[^}]*\}' | tr '\n' ' ')"
+ensure_accessibility
 uncovered
 sleep 1
 reset_log
@@ -281,6 +301,7 @@ sleep 1
 
 # --- 6. Fake shutdown -------------------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 10: fake shutdown instead of siren"
 write_prefs true
 reset_log
@@ -301,6 +322,7 @@ arm "re-arming without fake shutdown"
 
 # --- 7. Forced restart during an alarm --------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 11: phone restarted during an alarm"
 screen_off
 reset_log
@@ -323,6 +345,7 @@ expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
 
 # --- 8. UI ------------------------------------------------------------------------------------------
 
+log "  accessibility setting now: $(accessibility_state)"
 log "Scenario 12: UI screens and monkey fuzzing for crashes"
 sh am force-stop $PKG
 sleep 1
