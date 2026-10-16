@@ -140,7 +140,10 @@ expect_log "intruder photos saved: [12]" 15 "front camera photographed the intru
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "owner unlock stops the siren and re-arms"
-HISTORY=$(adb shell run-as $PKG cat files/incidents.json 2>/dev/null)
+# The phase is logged before the history is saved, so give the write a moment.
+history() { adb shell run-as $PKG cat files/incidents.json 2>/dev/null; }
+for _ in $(seq 1 20); do grep -q '"ownerStopped":true' <<<"$(history)" && break; sleep 0.25; done
+HISTORY=$(history)
 expect_true 'grep -q "\"escalated\":true" <<<"$HISTORY"' "history records the alarm"
 expect_true 'grep -q "\"ownerStopped\":true" <<<"$HISTORY"' "history records the owner's unlock"
 expect_true 'grep -q "\.jpg" <<<"$HISTORY"' "history links the intruder photos"
