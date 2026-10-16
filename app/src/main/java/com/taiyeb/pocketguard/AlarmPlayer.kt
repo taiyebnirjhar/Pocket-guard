@@ -11,6 +11,7 @@ import android.media.AudioTrack
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -60,6 +61,9 @@ class AlarmPlayer(context: Context) {
 
     /** Short buzz confirming the phone is now protected. */
     fun tick() = vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+
+    /** Double buzz for "something changed" (auto-armed, earbuds disconnected). */
+    fun notice() = vibrate(VibrationEffect.createWaveform(longArrayOf(0, 80, 120, 80), -1))
 
     /** Stage 1: beeps on the media stream (which goes to the earbuds when connected) plus vibration. */
     fun startWarning() {
@@ -168,7 +172,13 @@ class AlarmPlayer(context: Context) {
         }
     }
 
+    /** Alarm usage, because Android 13+ may drop vibrations from apps that aren't on screen. */
     private fun vibrate(effect: VibrationEffect) {
-        if (vibrator.hasVibrator()) vibrator.vibrate(effect)
+        if (!vibrator.hasVibrator()) return
+        if (Build.VERSION.SDK_INT >= 33) {
+            vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
+        } else {
+            vibrator.vibrate(effect)
+        }
     }
 }

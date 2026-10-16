@@ -14,6 +14,20 @@ connected), then starts a full-volume siren that the volume buttons can't silenc
    full-screen "THIS PHONE IS STOLEN" over the lock screen, volume locked at max.
 5. **Unlock** (fingerprint, face, PIN) at any point stops everything and re-arms automatically.
 
+## Triggers (v0.2)
+
+| Trigger | What happens | Needs |
+|---|---|---|
+| Power menu opened while locked | Menu closed, siren immediately | Accessibility service |
+| Airplane mode turned on while locked | Siren immediately | — |
+| Charger unplugged while locked | Warning, then siren | — |
+| Earbuds/watch disconnect while out of pocket and locked | Warning, then siren (in pocket: buzz only) | Nearby devices permission |
+| Earbuds/watch connect | Auto-arm | Nearby devices permission |
+| Getting on a bus, train or car | Auto-arm | Physical activity permission, Play services |
+
+Also: calls (phone and VoIP) are ignored so moving the phone from your ear doesn't trigger it,
+and a phone pocketed unlocked is locked automatically when the accessibility service is on.
+
 ## Install
 
 Every push builds an APK with GitHub Actions and publishes it under
@@ -21,9 +35,11 @@ Every push builds an APK with GitHub Actions and publishes it under
 the APK, and allow installing from your browser when Android asks. Builds share one
 signing key, so new builds install over old ones.
 
-## Known limits (v0.1)
+## Known limits
 
-- No app can block power-off or a forced restart. Power-menu detection is planned for v0.2.
+- No app can block power-off or a forced restart (holding power + volume). The power-menu
+  alarm catches the normal attempt; a forced restart can't be detected.
+- Android 13+ greys out accessibility for sideloaded apps: App info → ⋮ → Allow restricted settings.
 - Some phones only deliver proximity readings while the screen is on. Use the
   in-app **Sensor check** with the screen off in a pocket to find out.
 - Xiaomi, Realme, Oppo and Vivo kill background apps: complete the setup checklist.

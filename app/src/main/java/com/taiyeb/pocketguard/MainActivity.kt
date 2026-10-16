@@ -25,7 +25,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (intent?.getBooleanExtra(EXTRA_ARM, false) == true) GuardService.arm(this)
+        // Only on first creation: a rotation re-delivers the same intent and would re-arm after a disarm.
+        if (savedInstanceState == null && intent?.getBooleanExtra(EXTRA_ARM, false) == true) {
+            GuardService.arm(this)
+        }
+        if (Prefs.autoArmTransit(this)) TransitRecognition.enable(this)
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {

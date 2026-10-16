@@ -1,11 +1,13 @@
 package com.taiyeb.pocketguard
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.net.Uri
@@ -21,6 +23,9 @@ data class SetupStatus(
     val fullScreen: Boolean,
     val secureLock: Boolean,
     val proximity: Boolean,
+    val accessibility: Boolean,
+    val bluetoothPermission: Boolean,
+    val activityPermission: Boolean,
 ) {
     companion object {
         fun read(context: Context): SetupStatus {
@@ -33,8 +38,16 @@ data class SetupStatus(
                 secureLock = context.getSystemService(KeyguardManager::class.java).isDeviceSecure,
                 proximity = context.getSystemService(SensorManager::class.java)
                     .getDefaultSensor(Sensor.TYPE_PROXIMITY) != null,
+                accessibility = PowerMenuWatcher.isEnabled(context),
+                bluetoothPermission = Build.VERSION.SDK_INT < 31 ||
+                    granted(context, Manifest.permission.BLUETOOTH_CONNECT),
+                activityPermission = Build.VERSION.SDK_INT < 29 ||
+                    granted(context, Manifest.permission.ACTIVITY_RECOGNITION),
             )
         }
+
+        private fun granted(context: Context, permission: String) =
+            context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
     }
 }
 
@@ -57,6 +70,15 @@ object SetupActions {
         if (Build.VERSION.SDK_INT >= 34) {
             open(context, Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri(context)))
         }
+    }
+
+    fun accessibility(context: Context) {
+        open(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    /** Android 13+ blocks accessibility for sideloaded apps until "Allow restricted settings" is tapped here. */
+    fun appInfo(context: Context) {
+        open(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri(context)))
     }
 
     fun secureLock(context: Context) {

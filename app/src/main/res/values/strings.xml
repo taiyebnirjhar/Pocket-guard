@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Pocket Guard</string>
+    <string name="accessibility_label">Pocket Guard power-off protection</string>
+    <string name="accessibility_description">While Pocket Guard is armed and your phone is locked, this detects the power menu opening, closes it and sounds the theft alarm. It also locks your screen when you pocket the phone unlocked. It reads nothing else.</string>
 </resources>
