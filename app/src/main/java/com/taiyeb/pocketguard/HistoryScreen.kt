@@ -3,36 +3,27 @@ package com.taiyeb.pocketguard
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -49,33 +40,53 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun HistoryScreen(onBack: () -> Unit) {
+fun HistoryScreen() {
     val context = LocalContext.current
     val version by History.version.collectAsState()
     val incidents = remember(version) { History.load(context) }
+    var confirmClear by remember { mutableStateOf(false) }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Background)
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Row(Modifier.fillMaxWidth()) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.history_back)) }
-            Spacer(Modifier.weight(1f))
+    TabPage(
+        stringResource(R.string.history_title),
+        action = {
             if (incidents.isNotEmpty()) {
-                TextButton(onClick = { History.clear(context) }) { Text(stringResource(R.string.history_clear), color = Red) }
+                CircleIconButton(R.drawable.ic_delete, stringResource(R.string.history_clear)) { confirmClear = true }
             }
-        }
-        Text(stringResource(R.string.history_title), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        },
+    ) {
         if (incidents.isEmpty()) {
-            Text(stringResource(R.string.history_empty), color = Muted)
+            EmptyCard(R.drawable.ic_shield, stringResource(R.string.history_empty))
         }
         incidents.forEach { IncidentCard(it) }
     }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.history_clear_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    History.clear(context)
+                }) { Text(stringResource(R.string.action_delete), color = Red, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
+            },
+            containerColor = CardColor,
+            titleContentColor = TextPrimary,
+            shape = RoundedCornerShape(28.dp),
+        )
+    }
+}
+
+@DrawableRes
+private fun Trigger.icon() = when (this) {
+    Trigger.POCKET_REMOVAL -> R.drawable.ic_pocket
+    Trigger.AIRPLANE_MODE -> R.drawable.ic_flight
+    Trigger.CHARGER_UNPLUGGED -> R.drawable.ic_plug
+    Trigger.EARBUDS_DISCONNECTED -> R.drawable.ic_headset
+    Trigger.RESTARTED, Trigger.POWER_MENU -> R.drawable.ic_power
 }
 
 @Composable
@@ -95,28 +106,25 @@ private fun IncidentCard(incident: Incident) {
         )
         else -> stringResource(R.string.history_disarmed)
     }
+    val color = if (incident.escalated) Red else Amber
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardColor),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(format.format(Date(incident.startedAt)), color = Muted, fontSize = 13.sp)
-            Text(
-                stringResource(incident.trigger.labelRes()),
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text("$level · $outcome", color = if (incident.escalated) Red else Amber, fontSize = 14.sp)
-            if (incident.photos.isNotEmpty()) {
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    incident.photos.forEach { name -> Thumbnail(File(History.photosDir(context), name)) }
-                }
+    GlassCard {
+        SettingRow(
+            incident.trigger.icon(),
+            stringResource(incident.trigger.labelRes()),
+            format.format(Date(incident.startedAt)),
+            tint = color,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TagPill(level, color)
+            Text(outcome, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        }
+        if (incident.photos.isNotEmpty()) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                incident.photos.forEach { name -> Thumbnail(File(History.photosDir(context), name)) }
             }
         }
     }
@@ -132,7 +140,7 @@ private fun Thumbnail(file: File) {
         Image(
             it,
             contentDescription = stringResource(R.string.history_photo),
-            modifier = Modifier.size(110.dp).clip(RoundedCornerShape(12.dp)),
+            modifier = Modifier.size(112.dp).clip(RoundedCornerShape(18.dp)),
             contentScale = ContentScale.Crop,
         )
     }

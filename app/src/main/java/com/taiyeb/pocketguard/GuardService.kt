@@ -77,6 +77,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Prefs.setArmed(context, false)
                 Prefs.setAlarmActive(context, false)
                 GuardState.phase.value = Phase.OFF
+                GuardState.armedAt.value = null
             }
         }
 
@@ -295,6 +296,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (engine != null) return
         val newEngine = GuardEngine(this, motionSensor != null, lightSensor != null)
         engine = newEngine
+        GuardState.armedAt.value = SystemClock.elapsedRealtime()
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PocketGuard:guard").apply {
             setReferenceCounted(false)
             acquire(WAKE_LOCK_MS)
@@ -336,6 +338,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         val current = engine ?: return
         if (current.phase != Phase.OFF) current.disarm()
         engine = null
+        GuardState.armedAt.value = null
         timers.values.forEach { handler.removeCallbacks(it) }
         timers.clear()
         handler.removeCallbacks(renewWakeLock)

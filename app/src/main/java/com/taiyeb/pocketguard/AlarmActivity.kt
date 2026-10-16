@@ -12,13 +12,16 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,9 +60,11 @@ class AlarmActivity : ComponentActivity() {
             LaunchedEffect(phase) {
                 if (phase != Phase.SIREN) finish()
             }
-            AlarmScreen(onOwner = {
-                getSystemService(KeyguardManager::class.java).requestDismissKeyguard(this@AlarmActivity, null)
-            })
+            PocketGuardTheme {
+                AlarmScreen(onOwner = {
+                    getSystemService(KeyguardManager::class.java).requestDismissKeyguard(this@AlarmActivity, null)
+                })
+            }
         }
     }
 }
@@ -101,8 +106,13 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             Text(stringResource(R.string.alarm_open_app), color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(48.dp))
-        OutlinedButton(onClick = onOwner) {
-            Text(stringResource(R.string.alarm_owner_unlock), color = Color.White)
+        OutlinedButton(
+            onClick = onOwner,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
+            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 16.dp),
+        ) {
+            Text(stringResource(R.string.alarm_owner_unlock), color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

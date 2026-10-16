@@ -10,7 +10,7 @@
     <string name="channel_status">Guard status</string>
     <string name="channel_alarm">Theft alarm</string>
     <string name="phase_off">Guard is off</string>
-    <string name="phase_off_hint">Tap ARM before you get into a crowd</string>
+    <string name="phase_off_hint">Tap the power button before you get into a crowd</string>
     <string name="phase_waiting">Armed</string>
     <string name="phase_waiting_hint">Put your phone in your pocket or bag</string>
     <string name="phase_in_pocket">Protected</string>
@@ -29,7 +29,6 @@
     <string name="main_history">History</string>
     <string name="main_arm">ARM</string>
     <string name="main_disarm">DISARM</string>
-    <string name="main_test_badge">TEST MODE · quiet siren</string>
     <string name="settings_title">Settings</string>
     <string name="settings_grace">Time to unlock before the siren: %1$d s</string>
     <string name="settings_test">Test mode</string>
@@ -72,7 +71,7 @@
     <string name="sensor_wake_yes">yes (wake-up sensor)</string>
     <string name="sensor_wake_maybe">maybe (test in pocket)</string>
     <string name="test_title">How to test</string>
-    <string name="test_1">Turn on Test mode. Tap ARM, lock the phone.</string>
+    <string name="test_1">Turn on Test mode. Tap the power button, lock the phone.</string>
     <string name="test_2">Put it in your pocket. A short buzz means it\'s protected.</string>
     <string name="test_3">Pull it out without unlocking: beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
@@ -86,13 +85,12 @@
     <string name="onboarding_1_title">Catch pickpockets in the act</string>
     <string name="onboarding_1_body">Pocket Guard screams the moment your phone leaves your pocket without your fingerprint, while the thief is still next to you.</string>
     <string name="onboarding_2_title">Arm it before the crowd</string>
-    <string name="onboarding_2_body">Tap ARM or the Quick Settings tile, then pocket your phone. A short buzz means it\'s protected. Take it out and unlock as usual: nothing happens.</string>
+    <string name="onboarding_2_body">Tap the power button or the Quick Settings tile, then pocket your locked phone. A short buzz means it\'s protected. Take it out and unlock as usual: nothing happens.</string>
     <string name="onboarding_3_title">If someone takes it</string>
     <string name="onboarding_3_body">Beeps in your earbuds, then a siren the thief can\'t silence, a flashing torch and photos of whoever is holding it. Restarting the phone doesn\'t stop it.</string>
     <string name="onboarding_4_title">Set it up, then test it</string>
     <string name="onboarding_4_body">Go through the setup checklist: a screen lock that locks immediately, and nothing that stops the guard in the background. Turn on Test mode to try it with a quiet siren.</string>
     <string name="history_title">Theft history</string>
-    <string name="history_back">← Back</string>
     <string name="history_clear">Clear</string>
     <string name="history_empty">No alarms yet.</string>
     <string name="history_level_warning">Warning only</string>
@@ -115,11 +113,35 @@
     <string name="settings_grace_none_warning">With no delay, your own pull-out also sets off the siren unless the phone is already unlocked.</string>
     <string name="triggers_airplane">Airplane mode alarm</string>
     <string name="triggers_airplane_sub">Siren if someone turns on airplane mode while it\'s locked, to cut it off the network</string>
-    <string name="photos_title">Intruder photos</string>
     <string name="permission_camera">Intruder photos need the Camera permission.</string>
     <string name="setup_lock_instant">Locks immediately when the screen turns off</string>
     <string name="setup_lock_instant_hint">Settings → Lock screen / Security: \"Lock after screen timeout\" = Immediately, and \"Power button instantly locks\" on. Tested every time the screen turns off while armed.</string>
     <string name="setup_lock_instant_untested">Not tested yet: arm the guard and let the screen turn off by itself once. Set \"Lock after screen timeout\" to Immediately and turn on \"Power button instantly locks\".</string>
     <string name="setup_power_off_password">Password needed to power off (if your phone has it)</string>
     <string name="notify_lock_not_instant">Your phone didn\'t lock when the screen turned off, so a thief could get it unlocked. Tap to set \"Lock after screen timeout\" to Immediately.</string>
+    <string name="nav_home">Home</string>
+    <string name="home_status">Guard status</string>
+    <string name="status_warning">Warning</string>
+    <string name="home_armed_for">Armed for %1$s</string>
+    <string name="home_unlock_time">Unlock time</string>
+    <string name="home_unlock_none">None</string>
+    <string name="home_seconds">%1$d s</string>
+    <string name="home_last_alarm">Last alarm</string>
+    <string name="home_last_alarm_none">None yet</string>
+    <string name="home_setup_title">Finish setup</string>
+    <string name="home_setup_left">Steps left: %1$d</string>
+    <string name="home_confirm_disarm">Confirm it\'s you to stop the alarm</string>
+    <string name="triggers_sub">What sets off the alarm while armed</string>
+    <string name="triggers_alarms">Alarms</string>
+    <string name="triggers_auto">Auto-arm</string>
+    <string name="triggers_evidence">Evidence</string>
+    <string name="triggers_pocket">Taken out of pocket or bag</string>
+    <string name="triggers_pocket_sub">Proximity, light and motion sensors decide. Always on while armed.</string>
+    <string name="tag_always_on">Always on</string>
+    <string name="settings_alarm">Alarm</string>
+    <string name="settings_delay">Unlock delay</string>
+    <string name="settings_help">Help</string>
+    <string name="history_clear_confirm">Delete all alarms and intruder photos?</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
 </resources>

@@ -9,7 +9,7 @@
     <string name="channel_status">গার্ডের অবস্থা</string>
     <string name="channel_alarm">চুরির অ্যালার্ম</string>
     <string name="phase_off">গার্ড বন্ধ</string>
-    <string name="phase_off_hint">ভিড়ে ঢোকার আগে \"চালু করুন\" বোতাম চাপুন</string>
+    <string name="phase_off_hint">ভিড়ে ঢোকার আগে পাওয়ার বোতামে চাপুন</string>
     <string name="phase_waiting">চালু</string>
     <string name="phase_waiting_hint">ফোনটি পকেটে বা ব্যাগে রাখুন</string>
     <string name="phase_in_pocket">সুরক্ষিত</string>
@@ -28,7 +28,6 @@
     <string name="main_history">ইতিহাস</string>
     <string name="main_arm">চালু করুন</string>
     <string name="main_disarm">বন্ধ করুন</string>
-    <string name="main_test_badge">টেস্ট মোড · মৃদু সাইরেন</string>
     <string name="settings_title">সেটিংস</string>
     <string name="settings_grace">সাইরেনের আগে আনলকের সময়: %1$d সেকেন্ড</string>
     <string name="settings_test">টেস্ট মোড</string>
@@ -71,7 +70,7 @@
     <string name="sensor_wake_yes">হ্যাঁ (ওয়েক-আপ সেন্সর)</string>
     <string name="sensor_wake_maybe">হয়তো (পকেটে পরীক্ষা করুন)</string>
     <string name="test_title">কীভাবে পরীক্ষা করবেন</string>
-    <string name="test_1">টেস্ট মোড চালু করুন। \"চালু করুন\" বোতাম চাপুন, ফোন লক করুন।</string>
+    <string name="test_1">টেস্ট মোড চালু করুন। পাওয়ার বোতামে চাপুন, ফোন লক করুন।</string>
     <string name="test_2">পকেটে রাখুন। ছোট একটা কম্পন মানে সুরক্ষিত।</string>
     <string name="test_3">আনলক না করে বের করুন: বিপ শব্দ হবে (ইয়ারবাড থাকলে তাতে)।</string>
     <string name="test_4">অপেক্ষা করুন: মৃদু সাইরেন বাজবে, টর্চ জ্বলবে-নিভবে, ছবি তোলা হবে।</string>
@@ -85,13 +84,12 @@
     <string name="onboarding_1_title">পকেটমারকে হাতেনাতে ধরুন</string>
     <string name="onboarding_1_body">আপনার ফিঙ্গারপ্রিন্ট ছাড়া ফোন পকেট থেকে বের হলেই Pocket Guard চিৎকার করে, যখন চোর তখনও আপনার পাশেই।</string>
     <string name="onboarding_2_title">ভিড়ে ঢোকার আগে চালু করুন</string>
-    <string name="onboarding_2_body">\"চালু করুন\" বোতাম বা কুইক সেটিংস টাইল চাপুন, তারপর ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। স্বাভাবিকভাবে বের করে আনলক করলে কিছুই হবে না।</string>
+    <string name="onboarding_2_body">পাওয়ার বোতাম বা কুইক সেটিংস টাইলে চাপুন, তারপর লক করা ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। স্বাভাবিকভাবে বের করে আনলক করলে কিছুই হবে না।</string>
     <string name="onboarding_3_title">কেউ নিয়ে নিলে</string>
     <string name="onboarding_3_body">আপনার ইয়ারবাডে বিপ, তারপর এমন সাইরেন যা চোর বন্ধ করতে পারবে না, টর্চ জ্বলবে-নিভবে, আর যে ধরে আছে তার ছবি উঠবে। রিস্টার্ট করলেও থামবে না।</string>
     <string name="onboarding_4_title">সেটআপ করুন, তারপর পরীক্ষা করুন</string>
     <string name="onboarding_4_body">সেটআপ চেকলিস্ট সম্পূর্ণ করুন: সাথে সাথে লক হওয়া স্ক্রিন লক, আর কিছু যেন ব্যাকগ্রাউন্ডে গার্ড বন্ধ না করে। মৃদু সাইরেনে পরীক্ষা করতে টেস্ট মোড চালু করুন।</string>
     <string name="history_title">চুরির ইতিহাস</string>
-    <string name="history_back">← ফিরে যান</string>
     <string name="history_clear">মুছুন</string>
     <string name="history_empty">এখনো কোনো অ্যালার্ম হয়নি।</string>
     <string name="history_level_warning">শুধু সতর্কতা</string>
@@ -114,11 +112,35 @@
     <string name="settings_grace_none_warning">দেরি না থাকলে, ফোন আগে থেকে আনলক না থাকলে আপনি নিজে বের করলেও সাইরেন বাজবে।</string>
     <string name="triggers_airplane">এয়ারপ্লেন মোড অ্যালার্ম</string>
     <string name="triggers_airplane_sub">লক অবস্থায় কেউ নেটওয়ার্ক বন্ধ করতে এয়ারপ্লেন মোড চালু করলে সাইরেন</string>
-    <string name="photos_title">অনুপ্রবেশকারীর ছবি</string>
     <string name="permission_camera">অনুপ্রবেশকারীর ছবির জন্য ক্যামেরার অনুমতি লাগবে।</string>
     <string name="setup_lock_instant">স্ক্রিন বন্ধ হলেই সাথে সাথে লক হয়</string>
     <string name="setup_lock_instant_hint">সেটিংস → লক স্ক্রিন / নিরাপত্তা: \"স্ক্রিন টাইমআউটের পরে লক\" = সাথে সাথে, এবং \"পাওয়ার বাটন সাথে সাথে লক করে\" চালু। চালু থাকা অবস্থায় প্রতিবার স্ক্রিন বন্ধ হলে পরীক্ষা হয়।</string>
     <string name="setup_lock_instant_untested">এখনো পরীক্ষা হয়নি: গার্ড চালু করে একবার স্ক্রিন নিজে থেকে বন্ধ হতে দিন। \"স্ক্রিন টাইমআউটের পরে লক\" সাথে সাথে করুন এবং \"পাওয়ার বাটন সাথে সাথে লক করে\" চালু করুন।</string>
     <string name="setup_power_off_password">বন্ধ করতে পাসওয়ার্ড লাগবে (আপনার ফোনে থাকলে)</string>
     <string name="notify_lock_not_instant">স্ক্রিন বন্ধ হওয়ার পর আপনার ফোন লক হয়নি, তাই চোর আনলক অবস্থায় পেতে পারে। \"স্ক্রিন টাইমআউটের পরে লক\" সাথে সাথে করতে ট্যাপ করুন।</string>
+    <string name="nav_home">হোম</string>
+    <string name="home_status">গার্ডের অবস্থা</string>
+    <string name="status_warning">সতর্কতা</string>
+    <string name="home_armed_for">%1$s ধরে চালু</string>
+    <string name="home_unlock_time">আনলকের সময়</string>
+    <string name="home_unlock_none">নেই</string>
+    <string name="home_seconds">%1$d সেকেন্ড</string>
+    <string name="home_last_alarm">শেষ অ্যালার্ম</string>
+    <string name="home_last_alarm_none">এখনো নেই</string>
+    <string name="home_setup_title">সেটআপ শেষ করুন</string>
+    <string name="home_setup_left">বাকি ধাপ: %1$d</string>
+    <string name="home_confirm_disarm">অ্যালার্ম থামাতে নিশ্চিত করুন যে এটি আপনি</string>
+    <string name="triggers_sub">চালু থাকা অবস্থায় কী কী অ্যালার্ম বাজায়</string>
+    <string name="triggers_alarms">অ্যালার্ম</string>
+    <string name="triggers_auto">নিজে চালু</string>
+    <string name="triggers_evidence">প্রমাণ</string>
+    <string name="triggers_pocket">পকেট বা ব্যাগ থেকে বের করা</string>
+    <string name="triggers_pocket_sub">প্রক্সিমিটি, আলো ও নড়াচড়ার সেন্সর দিয়ে বোঝে। চালু থাকলে সবসময় কাজ করে।</string>
+    <string name="tag_always_on">সবসময়</string>
+    <string name="settings_alarm">অ্যালার্ম</string>
+    <string name="settings_delay">আনলকের সময়</string>
+    <string name="settings_help">সাহায্য</string>
+    <string name="history_clear_confirm">সব অ্যালার্ম ও অনুপ্রবেশকারীর ছবি মুছে ফেলবেন?</string>
+    <string name="action_cancel">বাতিল</string>
+    <string name="action_delete">মুছুন</string>
 </resources>

@@ -86,10 +86,11 @@ calm_down() { still; sleep 3.5; } # let the motion window (3 s) expire
 # Settings are written straight into the app's device-protected storage (debug build: run-as).
 # Grace is 15 s so the scripted PIN entry (several seconds on CI) fits inside it.
 write_prefs() {
+  local onboarded="${1:-true}"
   cat >"$OUT/prefs.xml" <<EOF
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
-    <boolean name="onboarded" value="true" />
+    <boolean name="onboarded" value="$onboarded" />
     <int name="grace_seconds" value="15" />
 </map>
 EOF
@@ -256,7 +257,8 @@ expect_true lock_warning_shown "a power-button pass doesn't hide the timeout fai
 expect_true 'app_prefs | grep -q "lock_check\">FAILED"' "the failure stays stored"
 sh settings put secure lock_screen_lock_after_timeout 0
 unlock
-sh am start -W -n $PKG/.MainActivity --ez fix_lock true >/dev/null
+# Same flags as the warning notification: reaches the running app through onNewIntent.
+sh am start -W --activity-clear-top --activity-single-top -n $PKG/.MainActivity --ez fix_lock true >/dev/null
 sleep 2
 expect_true '! lock_warning_shown' "tapping Fix clears the warning and starts the test over"
 sh input keyevent KEYCODE_HOME; sleep 1
@@ -292,7 +294,44 @@ expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
 
 # --- 7. UI ------------------------------------------------------------------------------------------
 
-log "Scenario 10: UI screens and monkey fuzzing for crashes"
+log "Scenario 10: UI screens, screenshots and monkey fuzzing for crashes"
+SCREENS="$OUT/screens"
+mkdir -p "$SCREENS"
+read -r W H < <(sh wm size | tr -d '\r' | grep -oE '[0-9]+x[0-9]+' | tail -n 1 | tr 'x' ' ')
+shot() { sleep 2; adb exec-out screencap -p >"$SCREENS/$1.png"; }
+# -S restarts the app, since a running task would only be brought to the front, ignoring the extras.
+open_tab() { sh am start -S -W -n $PKG/.MainActivity --es tab "$1" "${@:2}" >/dev/null; }
+swipe() { sh input swipe $((W * $1 / 100)) $((H * $2 / 100)) $((W * $3 / 100)) $((H * $4 / 100)) 400; }
+adb logcat -c
+write_prefs false
+sh am start -W -n $PKG/.MainActivity >/dev/null
+shot 1-onboarding
+swipe 85 60 15 60
+shot 2-onboarding-arm
+write_prefs
+open_tab home
+shot 3-home-off
+open_tab triggers
+shot 5-triggers
+open_tab history
+shot 6-history
+open_tab settings
+shot 7-settings
+swipe 50 80 50 25
+shot 8-settings-checklist
+open_tab home --ez arm true
+shot 4-home-armed
+screen_off
+sh cmd connectivity airplane-mode enable
+sleep 3
+sh input keyevent KEYCODE_WAKEUP
+shot 9-alarm
+sh cmd connectivity airplane-mode disable
+unlock
+SHOTS=$(find "$SCREENS" -name "*.png" -size +10k | wc -l)
+expect_true '[ "$SHOTS" -eq 9 ]' "every screen rendered for a screenshot ($SHOTS of 9)"
+UI_CRASHES=$(adb logcat -d -b crash 2>/dev/null)
+expect_true '! grep -q "$PKG" <<<"$UI_CRASHES"' "no crash opening the onboarding, every tab and the alarm screen"
 sh am force-stop $PKG
 sleep 1
 sh am start -W -n $PKG/.MainActivity >/dev/null

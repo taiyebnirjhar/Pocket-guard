@@ -7,6 +7,20 @@ full-volume siren the thief can't silence, and the front camera photographs whoe
 English and Bangla. Android 8.0+ (minSdk 26). No SMS, location or accessibility permissions, so
 it can be installed outside the Play Store without the strictest Play Protect checks.
 
+## Screens
+
+A dark theme with a purple glow, set in Manrope. A floating tab bar switches between four tabs:
+
+- **Home**: a power button inside a ring of moving dots. The ring's colour and speed follow the
+  guard (grey off, purple protected, amber warning, red siren). Also shows the status, time
+  armed, unlock delay, last alarm and how many setup steps are left.
+- **Triggers**: every alarm and auto-arm switch, the earbud picker and intruder photos.
+- **History**: past alarms with their intruder photos.
+- **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, language and
+  the how-to-test list.
+
+CI takes a screenshot of every screen on the emulator and attaches them to each release.
+
 ## How it works
 
 1. **Armed**: waiting for the phone to go into a pocket (proximity sensor covered for 1.5 s).
@@ -101,7 +115,8 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit auto-arm; boot and update re-arm. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
-| `MainScreen.kt`, `OnboardingScreen.kt`, `HistoryScreen.kt` | Compose UI. |
+| `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt` | Compose UI: four tabs and the guide. |
+| `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
 
 ## CI pipeline
@@ -123,7 +138,7 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
    - the lock check: a lock delay caught on screen timeout, kept after a power-button lock,
      cleared by Fix and passing once the lock is immediate
    - the alarm resuming after a reboot, before the first unlock
-   - monkey crash fuzzing
+   - every screen opened and screenshotted, and monkey crash fuzzing
 
    Screenshots, the app log and keyguard state are uploaded for each failure.
 4. **Release**: only after all of the above pass.

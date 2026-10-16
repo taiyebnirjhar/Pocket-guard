@@ -29,6 +29,9 @@ enum class Trigger {
 object GuardState {
     val phase = MutableStateFlow(Phase.OFF)
 
+    /** [android.os.SystemClock.elapsedRealtime] when the guard was armed; null while off. */
+    val armedAt = MutableStateFlow<Long?>(null)
+
     /**
      * False when the alarm started while the phone wasn't locked with a PIN/pattern (screen-lock
      * delay, Smart Lock): then unlocking proves nothing and only DISARM in the app stops it.

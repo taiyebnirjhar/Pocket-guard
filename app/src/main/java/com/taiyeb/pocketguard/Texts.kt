@@ -11,6 +11,16 @@ fun Phase.titleRes() = when (this) {
     Phase.SIREN -> R.string.phase_siren
 }
 
+/** One or two words, for the status chip. */
+@StringRes
+fun Phase.shortRes() = when (this) {
+    Phase.OFF -> R.string.tile_off
+    Phase.WAITING_FOR_POCKET -> R.string.phase_waiting
+    Phase.IN_POCKET -> R.string.phase_in_pocket
+    Phase.WARNING -> R.string.status_warning
+    Phase.SIREN -> R.string.history_level_siren
+}
+
 @StringRes
 fun Phase.hintRes() = when (this) {
     Phase.OFF -> R.string.phase_off_hint
