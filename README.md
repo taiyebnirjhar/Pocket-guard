@@ -98,8 +98,8 @@ trigger.
 
 ## Install
 
-Every push to `main` runs the CI pipeline below. When it passes, the signed APK is published
-under [Releases](../../releases) as `pocket-guard-build-N`, with screenshots of every screen.
+Download the latest `PocketGuard-vX.Y.Z.apk` from [Releases](../../releases), along with
+screenshots of every screen.
 Open the release on the phone, download the APK and allow installs from your browser. Official
 builds share one signing key, so a new build installs over the old one and keeps your settings.
 
@@ -143,8 +143,16 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
    - every screen opened and screenshotted, and monkey crash fuzzing
 
    Screenshots, the app log and keyguard state are uploaded for each failure.
-4. **Release**: only for `main`, only after all of the above pass, and only when the build was
-   signed with the official key.
+4. **Release**: only for `main`, only after all of the above pass, only when the build was
+   signed with the official key, and only for a new version.
+
+## Releasing
+
+The version is in [`VERSION`](VERSION) (`major.minor.patch`). To ship one, bump it in the same
+pull request or commit as the change: patch (`1.0.1`) for fixes, minor (`1.1.0`) for new
+features, major (`2.0.0`) for big changes. When it reaches `main` and CI passes, the release is
+tagged `v1.0.1` with notes generated from the merged pull requests. Pushes that keep the same
+version are tested but not released.
 
 ## Known limits
 

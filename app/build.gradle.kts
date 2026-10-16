@@ -4,8 +4,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// CI passes the run number so every build installs as an update over the last one.
-val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+// The version lives in VERSION (major.minor.patch). Bump it to publish a release.
+val appVersion = rootProject.file("VERSION").readText().trim()
+val versionParts = appVersion.split(".").map { it.toIntOrNull() }
+require(versionParts.size == 3 && versionParts.all { it != null && it in 0..999 }) {
+    "VERSION must be major.minor.patch with numbers 0-999, got \"$appVersion\""
+}
+// 1.2.3 -> 1002003, so every higher version installs as an update over a lower one.
+val appVersionCode = versionParts.fold(0) { code, part -> code * 1000 + part!! }
 
 android {
     namespace = "com.taiyeb.pocketguard"
@@ -15,8 +21,8 @@ android {
         applicationId = "com.taiyeb.pocketguard"
         minSdk = 26
         targetSdk = 35
-        versionCode = buildNumber
-        versionName = "0.1.$buildNumber"
+        versionCode = appVersionCode
+        versionName = appVersion
     }
 
     // Official builds are signed in CI with a key kept in GitHub secrets (see README), so updates
