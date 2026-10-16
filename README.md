@@ -10,7 +10,7 @@ it can be installed outside the Play Store without the strictest Play Protect ch
 ## How it works
 
 1. **Armed**: waiting for the phone to go into a pocket (proximity sensor covered for 1.5 s).
-2. **Protected**: a short buzz confirms it.
+2. **Protected**: a short buzz confirms it, once the screen is off or the phone locked.
 3. **Taken out while locked**: proximity uncovered for 0.8 s, plus evidence that it really left
    the pocket:
    - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
@@ -45,7 +45,9 @@ the owner. So the phone's own settings must lock it at once:
 
 Android hides those settings from apps, so Pocket Guard tests them. Every time the screen turns
 off while armed, it checks 1.5 s later that the phone is locked. If not, it shows a warning
-notification and marks the checklist row red until a later check passes.
+notification and marks the checklist row red. The power button locks at once even with a lock
+delay, so a later pass doesn't clear the failure: tapping **Fix** (or the notification) starts the
+test over. To test, let the screen turn off by itself once.
 
 ## Triggers
 
@@ -118,7 +120,8 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
    - the owner's own pull-out and unlock within grace
    - sensor flicker and walking ignored
    - airplane mode and charger triggers
-   - the lock check, both failing with a lock delay and passing once fixed
+   - the lock check: a lock delay caught on screen timeout, kept after a power-button lock,
+     cleared by Fix and passing once the lock is immediate
    - the alarm resuming after a reboot, before the first unlock
    - monkey crash fuzzing
 

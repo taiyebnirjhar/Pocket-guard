@@ -27,4 +27,5 @@ fun Trigger.labelRes() = when (this) {
     Trigger.CHARGER_UNPLUGGED -> R.string.trigger_charger
     Trigger.EARBUDS_DISCONNECTED -> R.string.trigger_earbuds
     Trigger.RESTARTED -> R.string.trigger_restarted
+    Trigger.POWER_MENU -> R.string.trigger_power_menu
 }

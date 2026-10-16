@@ -102,6 +102,7 @@
     <string name="history_disarmed">disarmed</string>
     <string name="history_photo">Intruder photo</string>
     <string name="trigger_restarted">Phone restarted during an alarm</string>
+    <string name="trigger_power_menu">Power menu opened</string>
     <string name="notify_auto_off">Pocket Guard turned itself off after 4 hours armed automatically.</string>
     <string name="notify_need_lock">Pocket Guard needs a screen lock (PIN, pattern or password) to tell you from a thief.</string>
     <string name="notify_rearm">Android stopped Pocket Guard. Tap to arm it again, and allow it in battery settings.</string>
@@ -118,7 +119,7 @@
     <string name="permission_camera">Intruder photos need the Camera permission.</string>
     <string name="setup_lock_instant">Locks immediately when the screen turns off</string>
     <string name="setup_lock_instant_hint">Settings → Lock screen / Security: \"Lock after screen timeout\" = Immediately, and \"Power button instantly locks\" on. Tested every time the screen turns off while armed.</string>
-    <string name="setup_lock_instant_untested">Not tested yet: arm the guard and turn the screen off once. Set \"Lock after screen timeout\" to Immediately and turn on \"Power button instantly locks\".</string>
+    <string name="setup_lock_instant_untested">Not tested yet: arm the guard and let the screen turn off by itself once. Set \"Lock after screen timeout\" to Immediately and turn on \"Power button instantly locks\".</string>
     <string name="setup_power_off_password">Password needed to power off (if your phone has it)</string>
     <string name="notify_lock_not_instant">Your phone didn\'t lock when the screen turned off, so a thief could get it unlocked. Tap to set \"Lock after screen timeout\" to Immediately.</string>
 </resources>

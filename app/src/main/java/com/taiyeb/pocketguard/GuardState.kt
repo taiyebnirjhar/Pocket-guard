@@ -21,6 +21,9 @@ enum class Trigger {
     EARBUDS_DISCONNECTED,
     /** The phone was restarted (or the app killed) while an alarm was running. */
     RESTARTED,
+
+    /** Only in history saved by older builds, which had a power-menu alarm. */
+    POWER_MENU,
 }
 
 object GuardState {

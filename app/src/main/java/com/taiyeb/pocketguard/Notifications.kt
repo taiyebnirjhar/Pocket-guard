@@ -29,6 +29,7 @@ object Notifications {
                 setBypassDnd(true)
             },
         )
+        manager.deleteNotificationChannel("guard_stealth") // Fake shutdown, removed feature.
     }
 
     fun status(context: Context, phase: Phase): Notification {
@@ -60,11 +61,14 @@ object Notifications {
 
     /** The phone didn't lock when the screen went off: a pocketed phone would be open to a thief. */
     fun showLockWarning(context: Context) {
-        val settings = Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Through the app, so the test starts over along with opening the lock settings.
+        val fix = Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_FIX_LOCK, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         notifyInfo(
             context,
             R.string.notify_lock_not_instant,
-            PendingIntent.getActivity(context, 4, settings, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+            PendingIntent.getActivity(context, 4, fix, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
             LOCK_WARNING_ID,
         )
     }

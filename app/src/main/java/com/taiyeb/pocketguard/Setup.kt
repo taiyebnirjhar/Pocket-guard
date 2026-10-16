@@ -79,7 +79,10 @@ object SetupActions {
         open(context, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
     }
 
+    /** Opens the lock settings and starts the lock test over, since the user is about to change them. */
     fun secureLock(context: Context) {
+        Prefs.setLockCheck(context, Prefs.LockCheck.UNTESTED)
+        Notifications.cancelLockWarning(context)
         open(context, Intent(Settings.ACTION_SECURITY_SETTINGS))
     }
 

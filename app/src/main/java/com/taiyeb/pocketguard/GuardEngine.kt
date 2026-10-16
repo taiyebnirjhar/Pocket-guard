@@ -184,8 +184,10 @@ class GuardEngine(
 
     private fun confirmPocket() {
         if (phase != Phase.WAITING_FOR_POCKET || near != true) return
-        if (host.inCall()) {
-            host.schedule(Timer.CONFIRM_POCKET, CALL_RETRY_MS) // Pocketed again once the call ends.
+        // In a call, or unlocked with the screen on: a pull-out now would count as the owner, so
+        // "protected" would be a lie. Confirm once the call ends or the screen goes off.
+        if (host.inCall() || !host.isLocked()) {
+            host.schedule(Timer.CONFIRM_POCKET, CALL_RETRY_MS)
             return
         }
         go(Phase.IN_POCKET)

@@ -148,6 +148,18 @@ class GuardEngineTest {
     }
 
     @Test
+    fun pocketedUnlockedIsOnlyProtectedOnceLocked() {
+        host.locked = false
+        pocket()
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        assertEquals(0, host.confirmBuzzes)
+        host.locked = true
+        host.advance(GuardEngine.CALL_RETRY_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        assertEquals(1, host.confirmBuzzes)
+    }
+
+    @Test
     fun uncoveredWithoutMotionOrLightIsAFlicker() {
         pocket()
         engine.onProximity(false)

@@ -1,6 +1,7 @@
 package com.taiyeb.pocketguard
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +21,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_ARM = "arm"
+
+        /** From the lock warning: start the lock test over and open the lock settings. */
+        const val EXTRA_FIX_LOCK = "fix_lock"
     }
 
     private enum class Screen { ONBOARDING, MAIN, HISTORY }
@@ -37,6 +41,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && intent?.getBooleanExtra(EXTRA_ARM, false) == true) {
             if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
         }
+        if (savedInstanceState == null) handleFixLock(intent)
         if (Prefs.autoArmTransit(this)) TransitRecognition.enable(this)
         if (savedInstanceState == null && Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -68,6 +73,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleFixLock(intent)
+    }
+
+    private fun handleFixLock(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_FIX_LOCK, false) != true) return
+        intent.removeExtra(EXTRA_FIX_LOCK)
+        SetupActions.secureLock(this)
     }
 
     override fun onResume() {

@@ -155,8 +155,16 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (engine == null || powerManager.isInteractive) return@Runnable
         val locked = keyguardManager.isDeviceLocked
         Log.i(TAG, "lock check: locked=$locked")
-        Prefs.setLockCheck(this, if (locked) Prefs.LockCheck.PASSED else Prefs.LockCheck.FAILED)
-        if (locked) Notifications.cancelLockWarning(this) else Notifications.showLockWarning(this)
+        val previous = Prefs.lockCheck(this)
+        when {
+            !locked -> {
+                Prefs.setLockCheck(this, Prefs.LockCheck.FAILED)
+                if (previous != Prefs.LockCheck.FAILED) Notifications.showLockWarning(this)
+            }
+            // The power button locks at once even with a lock delay; only a screen timeout shows the
+            // gap. So a pass never clears a failure: tapping Fix starts the test over.
+            previous != Prefs.LockCheck.FAILED -> Prefs.setLockCheck(this, Prefs.LockCheck.PASSED)
+        }
     }
 
     private val chargerCheck = Runnable {

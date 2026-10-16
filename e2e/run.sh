@@ -231,20 +231,41 @@ sh dumpsys battery reset
 
 # --- 5. Setup requirement: the phone must lock immediately ----------------------------------------
 
-log "Scenario 8: lock check catches a lock delay, then clears once fixed"
+log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"
+LOCK_NOTIF='NotificationRecord\(0x[0-9a-f]+: pkg=com\.taiyeb\.pocketguard user=[^ ]+ id=4 '
+lock_warning_shown() { sh dumpsys notification --noredact | grep -qE "$LOCK_NOTIF"; }
+app_prefs() { adb shell run-as $PKG cat /data/user_de/0/$PKG/shared_prefs/pocket_guard.xml 2>/dev/null; }
+# The power button locks at once whatever the delay; a lock delay only applies when the screen
+# times out, so let it time out (10 s is the platform minimum).
 sh settings put secure lock_screen_lock_after_timeout 30000
+sh settings put global stay_on_while_plugged_in 0
+sh settings put secure screensaver_enabled 0
+sh settings put system screen_off_timeout 10000
+sh input keyevent KEYCODE_WAKEUP
 sleep 1
 reset_log
-screen_off
-expect_log "lock check: locked=false" 6 "a 30 s lock delay is detected"
-expect_true 'sh dumpsys notification --noredact | grep -qE "pkg=com\.taiyeb\.pocketguard .*id=4 "' "lock warning notification is shown"
+expect_log "lock check: locked=false" 25 "a 30 s lock delay is caught when the screen times out"
+sleep 1
+expect_true lock_warning_shown "lock warning notification is shown"
+sh settings put system screen_off_timeout 600000
 sh input keyevent KEYCODE_WAKEUP; sleep 1
-sh wm dismiss-keyguard; sleep 1
-sh settings put secure lock_screen_lock_after_timeout 0
-sleep 1
 reset_log
 screen_off
-expect_log "lock check: locked=true" 6 "immediate lock passes the check again"
+expect_log "lock check: locked=true" 6 "a power-button lock is checked too"
+expect_true lock_warning_shown "a power-button pass doesn't hide the timeout failure"
+expect_true 'app_prefs | grep -q "lock_check\">FAILED"' "the failure stays stored"
+sh settings put secure lock_screen_lock_after_timeout 0
+unlock
+sh am start -W -n $PKG/.MainActivity --ez fix_lock true >/dev/null
+sleep 2
+expect_true '! lock_warning_shown' "tapping Fix clears the warning and starts the test over"
+sh input keyevent KEYCODE_HOME; sleep 1
+reset_log
+screen_off
+expect_log "lock check: locked=true" 6 "immediate lock passes the new test"
+sleep 1
+expect_true 'app_prefs | grep -q "lock_check\">PASSED"' "the pass is stored"
+expect_true '! lock_warning_shown' "no lock warning after the pass"
 unlock
 
 # --- 6. Forced restart during an alarm --------------------------------------------------------------
