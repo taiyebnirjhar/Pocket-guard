@@ -291,6 +291,7 @@ private fun PhotosSection() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LanguageSection() {
     if (!Language.supported) return
