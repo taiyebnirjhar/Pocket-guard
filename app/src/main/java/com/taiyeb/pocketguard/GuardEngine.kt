@@ -43,6 +43,13 @@ class GuardEngine(
         /** Proximity must stay uncovered this long, which filters out fabric shifting in the pocket. */
         const val REMOVAL_CONFIRM_MS = 800L
 
+        /**
+         * With no delay chosen the user wants the siren at once, so removal is confirmed faster;
+         * a motion-only siren still stops itself if covered again within [FLICKER_RECOVERY_MS].
+         */
+        const val FAST_REMOVAL_CONFIRM_MS = 250L
+        const val FAST_UNCOVERED_CONFIRM_MS = 500L
+
         /** Covered and dark again this soon after a pocket warning: it was fabric, not a hand. */
         const val FLICKER_RECOVERY_MS = 1000L
 
@@ -85,6 +92,11 @@ class GuardEngine(
     private var confirmedByLight = false
     private var uncoveredAt: Long? = null
 
+    /** No delay chosen: confirm removals faster, since the siren is meant to start at once. */
+    private val fast get() = host.config().graceMs <= 0
+    private val removalConfirmMs get() = if (fast) FAST_REMOVAL_CONFIRM_MS else REMOVAL_CONFIRM_MS
+    private val uncoveredConfirmMs get() = if (fast) FAST_UNCOVERED_CONFIRM_MS else UNCOVERED_CONFIRM_MS
+
     fun arm() {
         if (phase != Phase.OFF) return
         near = null
@@ -111,8 +123,9 @@ class GuardEngine(
         host.cancel(Timer.CHECK_REMOVAL)
         when (phase) {
             Phase.WAITING_FOR_POCKET -> if (isNear) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
-            Phase.IN_POCKET -> if (!isNear) host.schedule(Timer.CHECK_REMOVAL, REMOVAL_CONFIRM_MS)
-            Phase.WARNING -> if (isNear) recoverFromFlicker()
+            Phase.IN_POCKET -> if (!isNear) host.schedule(Timer.CHECK_REMOVAL, removalConfirmMs)
+            // A no-delay siren starts straight from the pocket, so it gets the same flicker recovery.
+            Phase.WARNING, Phase.SIREN -> if (isNear) recoverFromFlicker()
             else -> Unit
         }
     }
@@ -120,6 +133,7 @@ class GuardEngine(
     /** Re-covered within a second of a pocket warning: the pocket shifted, the phone never left. */
     private fun recoverFromFlicker() {
         val startedAt = warningAt ?: return
+        if (phase == Phase.SIREN && !fast) return // That siren followed a whole grace period.
         if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
         // Bright light means it really was out; covered again now is a thief's hand or pocket.
         if (confirmedByLight) return
@@ -203,8 +217,8 @@ class GuardEngine(
         }
         when (val evidence = removalEvidence()) {
             is Evidence.Confirmed -> {
-                warn(Trigger.POCKET_REMOVAL)
                 confirmedByLight = evidence.byLight
+                warn(Trigger.POCKET_REMOVAL)
             }
             Evidence.None -> {
                 val uncoveredFor = host.now() - (uncoveredAt ?: host.now())
@@ -246,22 +260,22 @@ class GuardEngine(
         val jolted = motionAt != null && now - motionAt < MOTION_WINDOW_MS
         if (hasMotionSensor && !jolted) return Evidence.None
         val uncoveredFor = now - (uncoveredAt ?: now)
-        return if (uncoveredFor >= UNCOVERED_CONFIRM_MS) {
+        return if (uncoveredFor >= uncoveredConfirmMs) {
             Evidence.Confirmed(byLight = false)
         } else {
-            Evidence.WaitLonger(UNCOVERED_CONFIRM_MS - uncoveredFor)
+            Evidence.WaitLonger(uncoveredConfirmMs - uncoveredFor)
         }
     }
 
     private fun warn(cause: Trigger) {
         if (phase != Phase.WAITING_FOR_POCKET && phase != Phase.IN_POCKET) return
         // No delay chosen: skip the warning and scream at once.
-        if (host.config().graceMs <= 0) {
+        warningAt = host.now()
+        if (fast) {
             siren(cause)
             return
         }
         cancelAll()
-        warningAt = host.now()
         go(Phase.WARNING, cause)
         host.schedule(Timer.SIREN, host.config().graceMs)
     }

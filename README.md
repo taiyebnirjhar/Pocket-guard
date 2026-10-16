@@ -35,8 +35,10 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    Late readings still count for 2.5 s. A motion-only warning cancels itself if the sensor is
    covered again within 1 s (pocket fabric). A light-confirmed one doesn't, since that's a
    thief's hand.
-4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s; 0 skips
-   the warning and sirens at once) and nothing else happens.
+4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s) and
+   nothing else happens. With 0 there's no warning: the removal is confirmed faster (0.25 s
+   uncovered, 0.5 s on motion alone) and the siren starts at once. A motion-only siren still
+   stops by itself if the sensor is covered again within 1 s.
 5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
    Disturb when allowed), volume buttons locked, torch strobe, "THIS PHONE IS STOLEN" over the lock
    screen, intruder photos.

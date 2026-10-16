@@ -445,8 +445,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Prefs.setAlarmActive(this, false)
                 alarm.stop()
                 Notifications.cancelAlarm(this)
-                // Warning to IN_POCKET only happens when the pocket fabric flickered over the sensor.
-                val flicker = from == Phase.WARNING && to == Phase.IN_POCKET
+                // Alarm to IN_POCKET only happens when the pocket fabric flickered over the sensor.
+                val flicker = to == Phase.IN_POCKET
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
                 GuardState.unlockStopsAlarm.value = true
             }

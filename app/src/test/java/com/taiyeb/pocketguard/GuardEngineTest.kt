@@ -310,6 +310,65 @@ class GuardEngineTest {
     }
 
     @Test
+    fun noDelaySirensWithinHalfASecondOnMotionAlone() {
+        host.config = host.config.copy(graceMs = 0)
+        pocket()
+        engine.onMotion(8f) // Screen off: the light sensor sends nothing.
+        engine.onProximity(false)
+        host.advance(GuardEngine.FAST_UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun noDelaySirenStopsIfThePocketCoversItAgainAtOnce() {
+        host.config = host.config.copy(graceMs = 0)
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(GuardEngine.FAST_UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.SIREN, engine.phase)
+        engine.onProximity(true)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun noDelayLightConfirmedSirenIgnoresRecovering() {
+        host.config = host.config.copy(graceMs = 0)
+        pocket()
+        engine.onProximity(false)
+        engine.onLight(300f)
+        host.advance(GuardEngine.FAST_REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.SIREN, engine.phase)
+        engine.onProximity(true) // A thief's hand or pocket.
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun noDelayIgnoresAShortFlicker() {
+        host.config = host.config.copy(graceMs = 0)
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(200)
+        engine.onProximity(true)
+        host.advance(3000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun normalSirenDoesNotStopWhenCovered() {
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+        host.advance(3000)
+        assertEquals(Phase.SIREN, engine.phase)
+        engine.onProximity(true)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
     fun noDelayAppliesToChargerToo() {
         host.config = host.config.copy(graceMs = 0)
         engine.onChargerUnplugged()
