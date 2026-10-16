@@ -149,4 +149,6 @@
     <string name="alarm_open_app">ফোনটি পিন দিয়ে লক ছিল না, তাই আনলক করলে এটি থামবে না। Pocket Guard খুলে \"বন্ধ করুন\" চাপুন।</string>
     <string name="setup_dnd">সাইরেন বিরক্ত করবেন না মোড উপেক্ষা করতে পারবে</string>
     <string name="setup_smart_lock">Smart Lock / Extend Unlock বন্ধ রাখুন: এটি ফোন আনলক রাখলে আনলক দিয়ে প্রমাণ হয় না যে আপনিই মালিক।</string>
+    <string name="settings_grace_none">সাইরেনের আগে আনলকের সময়: নেই, সাথে সাথে সাইরেন</string>
+    <string name="settings_grace_none_warning">দেরি না থাকলে, ফোন আগে থেকে আনলক না থাকলে আপনি নিজে বের করলেও সাইরেন বাজবে।</string>
 </resources>

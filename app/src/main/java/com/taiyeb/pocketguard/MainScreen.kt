@@ -162,16 +162,22 @@ private fun SettingsSection(testMode: Boolean, onTestMode: (Boolean) -> Unit) {
     val context = LocalContext.current
     var grace by remember { mutableIntStateOf(Prefs.graceSeconds(context)) }
     Section(stringResource(R.string.settings_title)) {
-        Text(stringResource(R.string.settings_grace, grace), color = Color.White)
+        Text(
+            if (grace == 0) stringResource(R.string.settings_grace_none) else stringResource(R.string.settings_grace, grace),
+            color = Color.White,
+        )
         Slider(
             value = grace.toFloat(),
             onValueChange = {
                 grace = it.roundToInt()
                 Prefs.setGraceSeconds(context, grace)
             },
-            valueRange = 1f..15f,
-            steps = 13,
+            valueRange = 0f..15f,
+            steps = 14,
         )
+        if (grace == 0) {
+            Text("⚠️ " + stringResource(R.string.settings_grace_none_warning), color = Amber, fontSize = 13.sp)
+        }
         ToggleRow(stringResource(R.string.settings_test), stringResource(R.string.settings_test_sub), testMode, onTestMode)
     }
 }

@@ -150,4 +150,6 @@
     <string name="alarm_open_app">The phone wasn\'t PIN-locked, so unlocking won\'t stop this. Open Pocket Guard and tap DISARM.</string>
     <string name="setup_dnd">Siren can override Do Not Disturb</string>
     <string name="setup_smart_lock">Turn off Smart Lock / Extend Unlock: while it keeps the phone unlocked, unlocking can\'t prove it\'s you.</string>
+    <string name="settings_grace_none">Time to unlock before the siren: none, siren at once</string>
+    <string name="settings_grace_none_warning">With no delay, your own pull-out also sets off the siren unless the phone is already unlocked.</string>
 </resources>

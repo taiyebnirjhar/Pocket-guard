@@ -21,7 +21,7 @@ English and Bangla. Android 8.0+ (minSdk 26). Built and tested entirely in CI.
    Late readings still count for 2.5 s. A motion-only warning cancels itself if the sensor is
    covered again within 1 s (pocket fabric). A light-confirmed one doesn't, since that's a
    thief's hand.
-4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 1-15 s) and
+4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s; 0 skips the warning and sirens at once) and
    nothing else happens.
 5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
    Disturb when allowed), volume buttons locked, torch strobe, "THIS PHONE IS STOLEN" over the lock

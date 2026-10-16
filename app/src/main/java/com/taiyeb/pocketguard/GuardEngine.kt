@@ -267,6 +267,11 @@ class GuardEngine(
 
     private fun warn(cause: Trigger) {
         if (phase != Phase.WAITING_FOR_POCKET && phase != Phase.IN_POCKET) return
+        // No delay chosen: skip the warning and scream at once.
+        if (host.config().graceMs <= 0) {
+            siren(cause)
+            return
+        }
         cancelAll()
         warningAt = host.now()
         go(Phase.WARNING, cause)

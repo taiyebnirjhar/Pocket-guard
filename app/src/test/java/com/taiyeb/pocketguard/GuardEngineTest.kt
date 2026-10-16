@@ -345,6 +345,23 @@ class GuardEngineTest {
     }
 
     @Test
+    fun noDelaySirensImmediatelyWithoutWarning() {
+        host.config = host.config.copy(graceMs = 0)
+        pocket()
+        pullOut()
+        assertEquals(Phase.SIREN, engine.phase)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        assertEquals(Trigger.POCKET_REMOVAL, host.transitions.last().third)
+    }
+
+    @Test
+    fun noDelayAppliesToChargerToo() {
+        host.config = host.config.copy(graceMs = 0)
+        engine.onChargerUnplugged()
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
     fun unlockReArmsWhenStillCovered() {
         pocket()
         engine.onProximity(false)
