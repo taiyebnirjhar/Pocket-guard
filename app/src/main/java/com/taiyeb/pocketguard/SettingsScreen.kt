@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -323,8 +324,14 @@ private fun SensorLine(@DrawableRes icon: Int, @StringRes label: Int, value: Str
         IconBadge(icon, if (highlight) Purple else Muted, size = 34.dp)
         Spacer(Modifier.width(12.dp))
         Text(stringResource(label), color = Muted, modifier = Modifier.weight(1f), fontSize = 14.sp)
-        Column(horizontalAlignment = Alignment.End) {
-            Text(value, color = if (highlight) Lavender else TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            value,
+            color = if (highlight) Lavender else TextPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
     }
 }

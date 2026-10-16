@@ -244,7 +244,7 @@ private fun ArmedFor(since: Long) {
 }
 
 private fun relativeTime(time: Long): String =
-    DateUtils.getRelativeTimeSpanString(time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    DateUtils.getRelativeTimeSpanString(time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString()
 
 /** Setup steps that still stand between the user and a guard that works when it matters. */
 val SetupStatus.stepsLeft

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,7 +75,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+                    // Shrinks on short screens so the text always fits.
+                    Box(
+                        Modifier.weight(1f, fill = false).widthIn(max = 260.dp).aspectRatio(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         ParticleRing(page.look, Modifier.fillMaxSize())
                         Box(
                             Modifier

@@ -9,7 +9,7 @@
     <string name="channel_status">গার্ডের অবস্থা</string>
     <string name="channel_alarm">চুরির অ্যালার্ম</string>
     <string name="phase_off">গার্ড বন্ধ</string>
-    <string name="phase_off_hint">ভিড়ে ঢোকার আগে পাওয়ার বোতামে চাপুন</string>
+    <string name="phase_off_hint">ভিড়ে ঢোকার আগে গোল বোতামে চাপুন</string>
     <string name="phase_waiting">চালু</string>
     <string name="phase_waiting_hint">ফোনটি পকেটে বা ব্যাগে রাখুন</string>
     <string name="phase_in_pocket">সুরক্ষিত</string>
@@ -70,7 +70,7 @@
     <string name="sensor_wake_yes">হ্যাঁ (ওয়েক-আপ সেন্সর)</string>
     <string name="sensor_wake_maybe">হয়তো (পকেটে পরীক্ষা করুন)</string>
     <string name="test_title">কীভাবে পরীক্ষা করবেন</string>
-    <string name="test_1">টেস্ট মোড চালু করুন। পাওয়ার বোতামে চাপুন, ফোন লক করুন।</string>
+    <string name="test_1">টেস্ট মোড চালু করুন। হোমের গোল বোতামে চাপুন, ফোন লক করুন।</string>
     <string name="test_2">পকেটে রাখুন। ছোট একটা কম্পন মানে সুরক্ষিত।</string>
     <string name="test_3">আনলক না করে বের করুন: বিপ শব্দ হবে (ইয়ারবাড থাকলে তাতে)।</string>
     <string name="test_4">অপেক্ষা করুন: মৃদু সাইরেন বাজবে, টর্চ জ্বলবে-নিভবে, ছবি তোলা হবে।</string>
@@ -84,7 +84,7 @@
     <string name="onboarding_1_title">পকেটমারকে হাতেনাতে ধরুন</string>
     <string name="onboarding_1_body">আপনার ফিঙ্গারপ্রিন্ট ছাড়া ফোন পকেট থেকে বের হলেই Pocket Guard চিৎকার করে, যখন চোর তখনও আপনার পাশেই।</string>
     <string name="onboarding_2_title">ভিড়ে ঢোকার আগে চালু করুন</string>
-    <string name="onboarding_2_body">পাওয়ার বোতাম বা কুইক সেটিংস টাইলে চাপুন, তারপর লক করা ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। স্বাভাবিকভাবে বের করে আনলক করলে কিছুই হবে না।</string>
+    <string name="onboarding_2_body">হোমের গোল বোতাম বা কুইক সেটিংস টাইলে চাপুন, তারপর লক করা ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। স্বাভাবিকভাবে বের করে আনলক করলে কিছুই হবে না।</string>
     <string name="onboarding_3_title">কেউ নিয়ে নিলে</string>
     <string name="onboarding_3_body">আপনার ইয়ারবাডে বিপ, তারপর এমন সাইরেন যা চোর বন্ধ করতে পারবে না, টর্চ জ্বলবে-নিভবে, আর যে ধরে আছে তার ছবি উঠবে। রিস্টার্ট করলেও থামবে না।</string>
     <string name="onboarding_4_title">সেটআপ করুন, তারপর পরীক্ষা করুন</string>
@@ -105,7 +105,7 @@
     <string name="notify_rearm">Android Pocket Guard বন্ধ করে দিয়েছে। আবার চালু করতে ট্যাপ করুন এবং ব্যাটারি সেটিংসে অনুমতি দিন।</string>
     <string name="main_need_lock">আগে একটি স্ক্রিন লক (পিন, প্যাটার্ন বা পাসওয়ার্ড) সেট করুন</string>
     <string name="history_flicker">বাতিল: পকেট নড়ে গিয়েছিল</string>
-    <string name="alarm_open_app">এটি শুরুর সময় ফোন লক ছিল না, তাই আনলক করলে থামবে না। Pocket Guard খুলে \"বন্ধ করুন\" চাপুন।</string>
+    <string name="alarm_open_app">এটি শুরুর সময় ফোন লক ছিল না, তাই আনলক করলে থামবে না। Pocket Guard খুলে হোমের গোল বোতামে চাপুন এবং নিশ্চিত করুন যে এটি আপনি।</string>
     <string name="setup_dnd">সাইরেন বিরক্ত করবেন না মোড উপেক্ষা করতে পারবে</string>
     <string name="setup_smart_lock">Smart Lock / Extend Unlock বন্ধ রাখুন: এটি ফোন আনলক রাখলে আনলক দিয়ে প্রমাণ হয় না যে আপনিই মালিক।</string>
     <string name="settings_grace_none">সাইরেনের আগে আনলকের সময়: নেই, সাথে সাথে সাইরেন</string>

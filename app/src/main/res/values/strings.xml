@@ -10,7 +10,7 @@
     <string name="channel_status">Guard status</string>
     <string name="channel_alarm">Theft alarm</string>
     <string name="phase_off">Guard is off</string>
-    <string name="phase_off_hint">Tap the power button before you get into a crowd</string>
+    <string name="phase_off_hint">Tap the round button before you get into a crowd</string>
     <string name="phase_waiting">Armed</string>
     <string name="phase_waiting_hint">Put your phone in your pocket or bag</string>
     <string name="phase_in_pocket">Protected</string>
@@ -71,7 +71,7 @@
     <string name="sensor_wake_yes">yes (wake-up sensor)</string>
     <string name="sensor_wake_maybe">maybe (test in pocket)</string>
     <string name="test_title">How to test</string>
-    <string name="test_1">Turn on Test mode. Tap the power button, lock the phone.</string>
+    <string name="test_1">Turn on Test mode. Tap the round button on Home, lock the phone.</string>
     <string name="test_2">Put it in your pocket. A short buzz means it\'s protected.</string>
     <string name="test_3">Pull it out without unlocking: beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
@@ -85,7 +85,7 @@
     <string name="onboarding_1_title">Catch pickpockets in the act</string>
     <string name="onboarding_1_body">Pocket Guard screams the moment your phone leaves your pocket without your fingerprint, while the thief is still next to you.</string>
     <string name="onboarding_2_title">Arm it before the crowd</string>
-    <string name="onboarding_2_body">Tap the power button or the Quick Settings tile, then pocket your locked phone. A short buzz means it\'s protected. Take it out and unlock as usual: nothing happens.</string>
+    <string name="onboarding_2_body">Tap the round button on Home or the Quick Settings tile, then pocket your locked phone. A short buzz means it\'s protected. Take it out and unlock as usual: nothing happens.</string>
     <string name="onboarding_3_title">If someone takes it</string>
     <string name="onboarding_3_body">Beeps in your earbuds, then a siren the thief can\'t silence, a flashing torch and photos of whoever is holding it. Restarting the phone doesn\'t stop it.</string>
     <string name="onboarding_4_title">Set it up, then test it</string>
@@ -106,7 +106,7 @@
     <string name="notify_rearm">Android stopped Pocket Guard. Tap to arm it again, and allow it in battery settings.</string>
     <string name="main_need_lock">Set a screen lock (PIN, pattern or password) first</string>
     <string name="history_flicker">cancelled: the pocket shifted</string>
-    <string name="alarm_open_app">The phone wasn\'t locked when this started, so unlocking won\'t stop it. Open Pocket Guard and tap DISARM.</string>
+    <string name="alarm_open_app">The phone wasn\'t locked when this started, so unlocking won\'t stop it. Open Pocket Guard, tap the round button on Home and confirm it\'s you.</string>
     <string name="setup_dnd">Siren can override Do Not Disturb</string>
     <string name="setup_smart_lock">Turn off Smart Lock / Extend Unlock: while it keeps the phone unlocked, unlocking can\'t prove it\'s you.</string>
     <string name="settings_grace_none">Time to unlock before the siren: none, siren at once</string>

@@ -63,6 +63,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -426,6 +427,7 @@ fun ParticleRing(phase: Phase, modifier: Modifier = Modifier) {
     val even = remember { ArrayList<Offset>(DOTS_PER_RING / 2) }
     val odd = remember { ArrayList<Offset>(DOTS_PER_RING / 2) }
     Canvas(modifier) {
+        if (size.minDimension <= 0f) return@Canvas
         val maxRadius = size.minDimension / 2f
         drawCircle(
             Brush.radialGradient(
@@ -467,7 +469,15 @@ fun StatCard(@DrawableRes icon: Int, label: String, value: String, modifier: Mod
         IconBadge(icon, Lavender, size = 38.dp)
         Column {
             Text(label, color = Muted, fontSize = 12.sp)
-            Text(value, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(
+                value,
+                color = TextPrimary,
+                fontSize = 17.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
