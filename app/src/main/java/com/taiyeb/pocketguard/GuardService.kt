@@ -267,7 +267,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         }
-        ContextCompat.registerReceiver(this, eventReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        // Must be EXPORTED: with NOT_EXPORTED, Android 14 doesn't deliver USER_PRESENT (found by the e2e test),
+        // so unlocking would never stop the siren. These actions are protected system broadcasts anyway.
+        ContextCompat.registerReceiver(this, eventReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
         newEngine.arm()
         // The phone restarted or the app was killed mid-alarm: carry on screaming.
         if (Prefs.alarmActive(this)) newEngine.resumeAlarm()
