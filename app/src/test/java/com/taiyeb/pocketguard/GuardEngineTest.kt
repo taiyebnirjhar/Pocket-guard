@@ -386,7 +386,7 @@ class GuardEngineTest {
         engine.onProximity(false)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.IN_POCKET, engine.phase)
-        host.advance(GuardEngine.DARK_CONFIRM_MS)
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS)
         assertEquals(Phase.WARNING, engine.phase)
     }
 
@@ -405,7 +405,7 @@ class GuardEngineTest {
     @Test
     fun walkingMotionInDarkPocketIsIgnored() {
         pocket()
-        engine.onMotion(3f) // a step
+        engine.onMotion(2f) // a step
         engine.onProximity(false)
         host.advance(5000)
         assertFalse(host.transitions.any { it.second == Phase.WARNING })
@@ -449,6 +449,49 @@ class GuardEngineTest {
         engine.onProximity(true)
         host.advance(3000)
         assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    /** The bug from the field: light sensor asleep with the screen off, last reading a bright room. */
+    @Test
+    fun frozenLightSensorFallsBackToMotion() {
+        // Arrives before pocketing (setUp reads 300 lux with the sensor uncovered), then nothing.
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        engine.onMotion(4f)
+        engine.onProximity(false)
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun darkInsideButNoReadingOutsideFallsBackToMotion() {
+        pocket()
+        engine.onMotion(4f)
+        engine.onProximity(false)
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun sensorRepeatingStaleBrightValueWhileCoveredFallsBackToMotion() {
+        engine.onProximity(true)
+        engine.onLight(400f) // stale repeat of the room reading
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        engine.onMotion(4f)
+        engine.onProximity(false)
+        engine.onLight(400f)
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun frozenLightAndNoMotionIsIgnored() {
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        engine.onProximity(false)
+        host.advance(5000)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
     }
 
     @Test

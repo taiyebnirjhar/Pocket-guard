@@ -54,22 +54,28 @@ class GuardEngine(
         /** Below this both pocket and outside are dark (night), so light can't confirm a removal. */
         const val DARK_LUX = 5f
 
-        /** In the dark, a removal needs a strong yank within this window... */
+        /** A "covered" reading above this can't come from inside a pocket; some sensors repeat old values. */
+        const val STALE_COVERED_LUX = 50f
+
+        /** Without a usable light reading, a removal needs a hand-like jolt within this window... */
         const val MOTION_WINDOW_MS = 3000L
 
-        /** ...above walking level (walking peaks around 2-4 m/s² of linear acceleration)... */
-        const val MOTION_SPIKE = 5f
+        /** ...above this (linear acceleration; a phone pulled from a pocket easily exceeds it)... */
+        const val MOTION_SPIKE = 2.5f
 
-        /** ...and the sensor must stay uncovered this long, since fabric flickers but returns. */
-        const val DARK_CONFIRM_MS = 2000L
+        /** ...and the sensor must stay uncovered this long, since pocket fabric flickers but returns. */
+        const val UNCOVERED_CONFIRM_MS = 1500L
     }
 
     var phase = Phase.OFF
         private set
     private var trigger: Trigger? = null
     private var near: Boolean? = null
-    private var lux: Float? = null
-    private var pocketLux: Float? = null
+    /** Darkest light reading that arrived while the sensor was covered (null: none arrived). */
+    private var coveredLux: Float? = null
+
+    /** Latest light reading that arrived after the sensor was uncovered (null: none arrived). */
+    private var uncoveredLux: Float? = null
     private var lastMotionAt: Long? = null
     private var warningAt: Long? = null
     private var uncoveredAt: Long? = null
@@ -77,7 +83,8 @@ class GuardEngine(
     fun arm() {
         if (phase != Phase.OFF) return
         near = null
-        pocketLux = null
+        coveredLux = null
+        uncoveredLux = null
         lastMotionAt = null
         go(Phase.WAITING_FOR_POCKET)
     }
@@ -92,6 +99,9 @@ class GuardEngine(
         if (isNear == near) return
         near = isNear
         uncoveredAt = if (isNear) null else host.now()
+        // Many phones stop reporting light while the screen is off, so a reading only counts if it
+        // arrives after this change; older values say nothing about where the phone is now.
+        if (isNear) coveredLux = null else uncoveredLux = null
         host.cancel(Timer.CONFIRM_POCKET)
         host.cancel(Timer.CHECK_REMOVAL)
         host.cancel(Timer.AUTO_LOCK)
@@ -112,9 +122,10 @@ class GuardEngine(
     }
 
     fun onLight(value: Float) {
-        lux = value
-        if (phase == Phase.IN_POCKET && near == true) {
-            pocketLux = pocketLux?.let { minOf(it, value) } ?: value
+        when (near) {
+            true -> coveredLux = coveredLux?.let { minOf(it, value) } ?: value
+            false -> uncoveredLux = value
+            null -> Unit
         }
     }
 
@@ -174,7 +185,6 @@ class GuardEngine(
 
     private fun confirmPocket() {
         if (phase != Phase.WAITING_FOR_POCKET || near != true || host.inCall()) return
-        pocketLux = lux
         go(Phase.IN_POCKET)
         host.confirmBuzz()
         if (!host.isLocked()) host.schedule(Timer.AUTO_LOCK, AUTO_LOCK_DELAY_MS)
@@ -201,28 +211,31 @@ class GuardEngine(
     }
 
     /**
-     * A real removal exposes the phone to light. Walking constantly produces motion and fabric
-     * flickers over the sensor, so in the dark (or without a light sensor) it takes a strong yank
-     * plus the sensor staying uncovered for [DARK_CONFIRM_MS].
+     * Light decides when there are fresh readings from both inside and outside the pocket: brighter
+     * outside is a removal; lit outside yet no brighter means something still covers the phone.
+     * Otherwise (dark everywhere, or the light sensor asleep with the screen off, which is common)
+     * it takes a hand-like jolt plus the sensor staying uncovered for [UNCOVERED_CONFIRM_MS], since
+     * fabric flickering over the sensor while walking re-covers it quickly.
      */
     private fun removalEvidence(): Evidence {
         if (!hasMotionSensor && !hasLightSensor) return Evidence.Confirmed
         val now = host.now()
-        val current = lux
-        if (hasLightSensor && current != null) {
-            val dark = pocketLux ?: 0f
-            if (current > maxOf(dark * 3f, dark + 10f)) return Evidence.Confirmed
-            // Light outside, yet no brighter than the pocket: the phone is still covered by something.
-            if (current >= DARK_LUX) return Evidence.None
+        val inside = coveredLux
+        val outside = uncoveredLux
+        if (hasLightSensor && inside != null && outside != null) {
+            if (outside > maxOf(inside * 3f, inside + 10f)) return Evidence.Confirmed
+            // A covered sensor reading a bright room is a stale repeat, not a pocket: ignore light.
+            val insideTrustworthy = inside < STALE_COVERED_LUX
+            if (insideTrustworthy && outside >= DARK_LUX) return Evidence.None
         }
         val motionAt = lastMotionAt
-        val yanked = motionAt != null && now - motionAt < MOTION_WINDOW_MS
-        if (hasMotionSensor && !yanked) return Evidence.None
+        val jolted = motionAt != null && now - motionAt < MOTION_WINDOW_MS
+        if (hasMotionSensor && !jolted) return Evidence.None
         val uncoveredFor = now - (uncoveredAt ?: now)
-        return if (uncoveredFor >= DARK_CONFIRM_MS) {
+        return if (uncoveredFor >= UNCOVERED_CONFIRM_MS) {
             Evidence.Confirmed
         } else {
-            Evidence.WaitLonger(DARK_CONFIRM_MS - uncoveredFor)
+            Evidence.WaitLonger(UNCOVERED_CONFIRM_MS - uncoveredFor)
         }
     }
 

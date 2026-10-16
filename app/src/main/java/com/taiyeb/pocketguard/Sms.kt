@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.telephony.SmsManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 
 /** Plain SMS from the phone's own SIM: works without mobile data, which a thief may switch off. */
@@ -78,7 +79,9 @@ class SmsSender(private val context: Context) {
         override fun onReceive(context: Context, intent: Intent) {
             // Multipart messages report once per part; the first result decides.
             val message = inFlight.remove(intent.getIntExtra(EXTRA_ID, -1)) ?: return
-            if (resultCode == Activity.RESULT_OK) message.onSent() else queue(message)
+            val ok = resultCode == Activity.RESULT_OK
+            Log.i(GuardService.TAG, "sms ${if (ok) "sent" else "failed ($resultCode)"} attempt=${message.attempts}")
+            if (ok) message.onSent() else queue(message)
         }
     }
 

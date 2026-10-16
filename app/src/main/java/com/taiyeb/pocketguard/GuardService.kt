@@ -258,7 +258,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         lastPlugType = plugType()
         proximitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
         lightSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        motionSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        // ~60 ms: the jolt of a phone pulled from a pocket lasts only a few hundred ms (NORMAL is 200 ms).
+        motionSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -418,7 +419,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun noticeBuzz() = alarm.notice()
 
-    override fun lockScreen() = PowerMenuWatcher.lockScreen()
+    override fun lockScreen() {
+        Log.i(TAG, "locking screen (pocketed unlocked)")
+        PowerMenuWatcher.lockScreen()
+    }
 
     private fun granted(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 

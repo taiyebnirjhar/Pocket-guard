@@ -5,6 +5,8 @@ import android.location.Location
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
+import android.os.UserManager
+import android.util.Log
 import androidx.lifecycle.LifecycleOwner
 import java.text.DateFormat
 import java.util.Date
@@ -78,9 +80,12 @@ class IncidentRecorder(
         updatesLeft = MAX_UPDATES
         handler.postDelayed(periodicUpdate, UPDATE_INTERVAL_MS)
 
-        // Photos switch on the camera privacy dot, which would give the fake shutdown away.
-        if (Prefs.intruderPhotos(context) && !stealth) {
+        // Photos switch on the camera privacy dot, which would give the fake shutdown away; and
+        // before the first unlock after a restart, app storage is locked, so there's nowhere to save.
+        val storageUnlocked = context.getSystemService(UserManager::class.java).isUserUnlocked
+        if (Prefs.intruderPhotos(context) && !stealth && storageUnlocked) {
             camera.capture(History.photosDir(context), "i${incident.id}", PHOTOS) { files ->
+                Log.i(GuardService.TAG, "intruder photos saved: ${files.size}")
                 incident.photos += files.map { it.name }
                 History.save(context, incident)
                 onCameraFree()
@@ -109,6 +114,7 @@ class IncidentRecorder(
     fun retryAlerts() = sms.retryNow()
 
     private fun alert(incident: Incident, alert: Alert, location: Location?) {
+        Log.i(GuardService.TAG, "alert $alert location=${location?.let { "${it.latitude},${it.longitude}" }}")
         location?.let {
             incident.locations += Fix(it.latitude, it.longitude, it.accuracy, it.time)
             History.save(context, incident)

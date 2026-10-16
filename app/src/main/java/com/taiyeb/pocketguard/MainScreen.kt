@@ -538,7 +538,9 @@ private fun SensorCheck() {
                 when (event.sensor.type) {
                     Sensor.TYPE_PROXIMITY -> proximity = Detection.isNear(event.sensor, event.values[0]) to event.values[0]
                     Sensor.TYPE_LIGHT -> light = event.values[0].roundToInt()
-                    Sensor.TYPE_LINEAR_ACCELERATION -> motion = Detection.motion(event.values, linear = true)
+                    Sensor.TYPE_LINEAR_ACCELERATION, Sensor.TYPE_ACCELEROMETER -> motion = Detection.motion(
+                        event.values, linear = event.sensor.type == Sensor.TYPE_LINEAR_ACCELERATION,
+                    )
                 }
             }
 
@@ -547,8 +549,11 @@ private fun SensorCheck() {
         proximitySensor?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_NORMAL) }
         sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
             ?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
-            ?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        // Same fallback as the guard: phones without linear acceleration use the raw accelerometer.
+        (
+            sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+                ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            )?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
