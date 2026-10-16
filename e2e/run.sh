@@ -326,6 +326,8 @@ open_tab triggers
 shot 5-triggers
 open_tab history
 shot 6-history
+open_tab setup
+shot 10-setup
 open_tab settings
 shot 7-settings
 swipe 50 80 50 25
@@ -340,9 +342,9 @@ shot 9-alarm
 sh cmd connectivity airplane-mode disable
 unlock
 SHOTS=$(find "$SCREENS" -name "*.png" -size +10k | wc -l)
-expect_true '[ "$SHOTS" -eq 9 ]' "every screen rendered for a screenshot ($SHOTS of 9)"
+expect_true '[ "$SHOTS" -eq 10 ]' "every screen rendered for a screenshot ($SHOTS of 10)"
 UI_CRASHES=$(adb logcat -d -b crash 2>/dev/null)
-expect_true '! grep -q "$PKG" <<<"$UI_CRASHES"' "no crash opening the onboarding, every tab and the alarm screen"
+expect_true '! grep -q "$PKG" <<<"$UI_CRASHES"' "no crash opening the onboarding, setup, every tab and the alarm screen"
 sh am force-stop $PKG
 sleep 1
 sh am start -W -n $PKG/.MainActivity >/dev/null

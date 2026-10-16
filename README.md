@@ -103,9 +103,11 @@ screenshots of every screen.
 Open the release on the phone, download the APK and allow installs from your browser. Official
 builds share one signing key, so a new build installs over the old one and keeps your settings.
 
-After installing, work through the in-app setup checklist: notifications, battery optimization,
-lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access and autostart
-(Xiaomi, Realme, Oppo, Vivo).
+On first launch, after the short guide, **Get it ready** walks through what Android blocks by
+default, one tap each: a screen lock that locks immediately, notifications, running in the
+background, the alarm over the lock screen, autostart on brands that need it (Xiaomi, Realme,
+Oppo, Vivo…), and optionally the camera and Do Not Disturb. Tapping the power button while a
+required step is missing brings it back, and arms the guard once it's done.
 
 ## Architecture
 
@@ -117,7 +119,7 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit auto-arm; boot and update re-arm. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
-| `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt` | Compose UI: four tabs and the guide. |
+| `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
 

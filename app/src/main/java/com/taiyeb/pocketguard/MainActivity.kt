@@ -1,16 +1,12 @@
 package com.taiyeb.pocketguard
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -39,13 +35,10 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_TAB = "tab"
     }
 
-    private enum class Screen { ONBOARDING, MAIN }
+    private enum class Screen { ONBOARDING, SETUP, MAIN }
 
     /** Bumped on resume so permission and setup checks re-read settings after the user comes back. */
     private val refreshKey = mutableIntStateOf(0)
-
-    private val requestNotifications =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshKey.intValue++ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,30 +49,61 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) handleFixLock(intent)
         if (Prefs.autoArmTransit(this)) TransitRecognition.enable(this)
-        if (savedInstanceState == null && Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        // For screenshots and shortcuts: "--es tab settings" opens that tab, "--es tab setup" the setup.
+        val tabExtra = intent?.getStringExtra(EXTRA_TAB)
+        val firstScreen = when {
+            !Prefs.onboarded(this) -> Screen.ONBOARDING
+            tabExtra.equals("setup", ignoreCase = true) -> Screen.SETUP
+            else -> Screen.MAIN
         }
-        val firstScreen = if (Prefs.onboarded(this)) Screen.MAIN else Screen.ONBOARDING
-        // For screenshots and shortcuts: "--es tab settings" opens that tab.
-        val firstTab = Tab.entries.firstOrNull { it.name.equals(intent?.getStringExtra(EXTRA_TAB), ignoreCase = true) } ?: Tab.HOME
+        val firstTab = Tab.entries.firstOrNull { it.name.equals(tabExtra, ignoreCase = true) } ?: Tab.HOME
         setContent {
             PocketGuardTheme {
                 var screen by rememberSaveable { mutableStateOf(firstScreen) }
                 var tab by rememberSaveable { mutableStateOf(firstTab) }
+                // Setup opened by the power button arms the guard once it's done.
+                var armAfterSetup by rememberSaveable { mutableStateOf(false) }
                 when (screen) {
                     Screen.ONBOARDING -> {
                         // Reopened as the guide: Back returns to the app instead of leaving it.
                         BackHandler(Prefs.onboarded(this@MainActivity)) { screen = Screen.MAIN }
                         OnboardingScreen(onDone = {
+                            val firstTime = !Prefs.onboarded(this@MainActivity)
                             Prefs.setOnboarded(this@MainActivity, true)
-                            screen = Screen.MAIN
+                            // First run goes straight on to the permissions, while the user is paying attention.
+                            screen = if (firstTime && missingRequired(this@MainActivity) > 0) Screen.SETUP else Screen.MAIN
                         })
+                    }
+                    Screen.SETUP -> {
+                        val leave = {
+                            armAfterSetup = false
+                            screen = Screen.MAIN
+                        }
+                        BackHandler { leave() }
+                        GlowBackground(Purple) {
+                            SetupScreen(
+                                refreshKey = refreshKey.intValue,
+                                onDone = {
+                                    if (armAfterSetup && !GuardService.arm(this@MainActivity)) {
+                                        Toast.makeText(this@MainActivity, R.string.main_need_lock, Toast.LENGTH_LONG).show()
+                                    }
+                                    leave()
+                                },
+                                onSkip = leave,
+                            )
+                        }
                     }
                     Screen.MAIN -> {
                         BackHandler(tab != Tab.HOME) { tab = Tab.HOME }
-                        MainTabs(tab, onSelect = { tab = it }, onOpenGuide = { screen = Screen.ONBOARDING })
+                        MainTabs(
+                            tab,
+                            onSelect = { tab = it },
+                            onOpenGuide = { screen = Screen.ONBOARDING },
+                            onOpenSetup = { arm ->
+                                armAfterSetup = arm
+                                screen = Screen.SETUP
+                            },
+                        )
                     }
                 }
             }
@@ -87,14 +111,14 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun MainTabs(tab: Tab, onSelect: (Tab) -> Unit, onOpenGuide: () -> Unit) {
+    private fun MainTabs(tab: Tab, onSelect: (Tab) -> Unit, onOpenGuide: () -> Unit, onOpenSetup: (Boolean) -> Unit) {
         val phase by GuardState.phase.collectAsState()
         GlowBackground(if (tab == Tab.HOME) phase.glow else Purple) {
             when (tab) {
                 Tab.HOME -> HomeScreen(
                     refreshKey = refreshKey.intValue,
                     onOpenGuide = onOpenGuide,
-                    onOpenSettings = { onSelect(Tab.SETTINGS) },
+                    onOpenSetup = onOpenSetup,
                 )
                 Tab.TRIGGERS -> TriggersScreen(refreshKey.intValue)
                 Tab.HISTORY -> HistoryScreen()

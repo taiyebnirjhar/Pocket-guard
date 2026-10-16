@@ -89,7 +89,7 @@
     <string name="onboarding_3_title">If someone takes it</string>
     <string name="onboarding_3_body">Beeps in your earbuds, then a siren the thief can\'t silence, a flashing torch and photos of whoever is holding it. Restarting the phone doesn\'t stop it.</string>
     <string name="onboarding_4_title">Set it up, then test it</string>
-    <string name="onboarding_4_body">Go through the setup checklist: a screen lock that locks immediately, and nothing that stops the guard in the background. Turn on Test mode to try it with a quiet siren.</string>
+    <string name="onboarding_4_body">Next, allow what the alarm needs: each one is a single tap. Then turn on Test mode in Settings to try it with a quiet siren.</string>
     <string name="history_title">Theft history</string>
     <string name="history_clear">Clear</string>
     <string name="history_empty">No alarms yet.</string>
@@ -144,4 +144,27 @@
     <string name="history_clear_confirm">Delete all alarms and intruder photos?</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_delete">Delete</string>
+    <string name="ready_title">Get it ready</string>
+    <string name="ready_progress">Required: %1$d of %2$d done</string>
+    <string name="ready_note">Android blocks these by default. Without the required ones the alarm may never sound. Each takes one tap; come back here after each screen.</string>
+    <string name="ready_do">Allow: %1$s</string>
+    <string name="ready_done">Done</string>
+    <string name="ready_later">Later</string>
+    <string name="ready_optional">optional</string>
+    <string name="ready_lock">Screen lock</string>
+    <string name="ready_lock_why">A PIN, pattern or password, so the app can tell you from a thief.</string>
+    <string name="ready_lock_delay">Lock immediately</string>
+    <string name="ready_lock_delay_why">Set \"Lock after screen timeout\" to Immediately and turn on \"Power button instantly locks\".</string>
+    <string name="ready_notifications">Notifications</string>
+    <string name="ready_notifications_why">Shows that the guard is on and lets the alarm reach the lock screen.</string>
+    <string name="ready_battery">Run in the background</string>
+    <string name="ready_battery_why">Stops battery saving from switching the guard off in your pocket.</string>
+    <string name="ready_full_screen">Alarm over the lock screen</string>
+    <string name="ready_full_screen_why">Shows \"THIS PHONE IS STOLEN\" to whoever holds it.</string>
+    <string name="ready_autostart">Autostart</string>
+    <string name="ready_autostart_why">Your phone brand stops apps restarting. Turn Autostart on for Pocket Guard.</string>
+    <string name="ready_camera">Camera</string>
+    <string name="ready_camera_why">Takes intruder photos when the siren starts.</string>
+    <string name="ready_dnd">Siren through Do Not Disturb</string>
+    <string name="ready_dnd_why">Lets the siren sound even in total silence mode.</string>
 </resources>

@@ -56,13 +56,13 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSettings: () -> Unit) {
+fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit) {
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val armedAt by GuardState.armedAt.collectAsState()
     val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
     val historyVersion by History.version.collectAsState()
-    val setup = remember(refreshKey, phase) { SetupStatus.read(context) }
+    val left = remember(refreshKey, phase) { missingRequired(context) }
     // Re-read on resume: test mode switches itself off after an hour.
     val testMode = remember(refreshKey, phase) { Prefs.testMode(context) }
     val grace = remember(refreshKey) { Prefs.graceSeconds(context) }
@@ -74,6 +74,8 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSettings: () -> U
     }
     val onPower: () -> Unit = {
         when {
+            // Something the alarm depends on is still off: walk through it, then arm.
+            phase == Phase.OFF && left > 0 -> onOpenSetup(true)
             phase == Phase.OFF -> if (!GuardService.arm(context)) {
                 Toast.makeText(context, R.string.main_need_lock, Toast.LENGTH_LONG).show()
             }
@@ -152,10 +154,9 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSettings: () -> U
                 Modifier.weight(1f),
             )
         }
-        val left = setup.stepsLeft
         if (left > 0) {
             Spacer(Modifier.height(12.dp))
-            GlassCard(onClick = onOpenSettings) {
+            GlassCard(onClick = { onOpenSetup(false) }) {
                 SettingRow(
                     R.drawable.ic_warning,
                     stringResource(R.string.home_setup_title),
@@ -245,7 +246,3 @@ private fun ArmedFor(since: Long) {
 
 private fun relativeTime(time: Long): String =
     DateUtils.getRelativeTimeSpanString(time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString()
-
-/** Setup steps that still stand between the user and a guard that works when it matters. */
-val SetupStatus.stepsLeft
-    get() = listOf(notifications, battery, fullScreen, secureLock, lockCheck == Prefs.LockCheck.PASSED).count { !it }
