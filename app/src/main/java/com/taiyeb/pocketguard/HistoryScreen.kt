@@ -28,7 +28,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,8 +148,9 @@ private fun IncidentCard(incident: Incident) {
 
 @Composable
 private fun Thumbnail(file: File) {
-    val bitmap by produceState<ImageBitmap?>(null, file) {
-        value = withContext(Dispatchers.IO) { decodeUpright(file)?.asImageBitmap() }
+    var bitmap by remember(file) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(file) {
+        bitmap = withContext(Dispatchers.IO) { decodeUpright(file)?.asImageBitmap() }
     }
     bitmap?.let {
         Image(
