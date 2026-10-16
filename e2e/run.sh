@@ -226,6 +226,7 @@ expect_no_phase WARNING 4 "brief flicker while walking is ignored"
 # --- 4. Tamper triggers ----------------------------------------------------------------------------
 
 log "Scenario 6: power menu opened on the lock screen"
+log "  accessibility state: $(sh dumpsys accessibility | grep -oE 'Bound services:\{[^}]*\}|Enabled services:\{[^}]*\}' | tr '\n' ' ')"
 uncovered
 emu sensor set light 400
 sleep 1.5
@@ -264,6 +265,7 @@ sh dumpsys battery reset
 # --- 5. Accessibility helpers ---------------------------------------------------------------------
 
 log "Scenario 9: phone pocketed while unlocked gets locked"
+log "  accessibility state: $(sh dumpsys accessibility | grep -oE 'Bound services:\{[^}]*\}|Enabled services:\{[^}]*\}' | tr '\n' ' ')"
 uncovered
 sleep 1
 reset_log

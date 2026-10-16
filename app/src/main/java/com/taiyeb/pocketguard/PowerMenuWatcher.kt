@@ -29,7 +29,12 @@ class PowerMenuWatcher : AccessibilityService() {
         )
 
         fun lockScreen() {
-            if (Build.VERSION.SDK_INT >= 28) instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+            val service = instance
+            if (service == null) {
+                Log.w(GuardService.TAG, "can't lock: power-off protection not connected")
+                return
+            }
+            if (Build.VERSION.SDK_INT >= 28) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
         }
 
         fun isEnabled(context: Context): Boolean {
@@ -47,12 +52,15 @@ class PowerMenuWatcher : AccessibilityService() {
         Log.i(GuardService.TAG, "power-off protection connected")
     }
 
+    // Identity checks: after a rebind the old instance can be unbound after the new one connected.
     override fun onUnbind(intent: Intent?): Boolean {
-        instance = null
+        Log.i(GuardService.TAG, "power-off protection unbound")
+        if (instance === this) instance = null
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
+        Log.i(GuardService.TAG, "power-off protection destroyed")
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -61,12 +69,20 @@ class PowerMenuWatcher : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (GuardState.phase.value == Phase.OFF) return
         if (!getSystemService(KeyguardManager::class.java).isKeyguardLocked) return
-        if (!looksLikePowerMenu(event)) return
+        if (!looksLikePowerMenu(event)) {
+            if (event.packageName?.toString()?.contains("systemui") == true) {
+                Log.i(GuardService.TAG, "lock-screen window ignored: ${event.className}")
+            }
+            return
+        }
+        Log.i(GuardService.TAG, "power menu detected: ${event.className}")
         performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
         GuardService.onPowerMenu()
     }
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() {
+        Log.i(GuardService.TAG, "power-off protection interrupted")
+    }
 
     /** Phone makers name the power menu differently, so match the class name or the button labels. */
     private fun looksLikePowerMenu(event: AccessibilityEvent): Boolean {

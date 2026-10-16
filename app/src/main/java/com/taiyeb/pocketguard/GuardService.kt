@@ -135,6 +135,24 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         }
     }
 
+    /**
+     * Backup for USER_PRESENT, which some devices (and the emulator) occasionally don't deliver:
+     * PIN-locked when the alarm began, now unlocked with the screen on, so the owner is back.
+     */
+    private val unlockPoll = object : Runnable {
+        override fun run() {
+            val current = engine ?: return
+            if (!current.phase.isAlarm) return
+            val unlocked = powerManager.isInteractive && !keyguardManager.isKeyguardLocked
+            if (unlocked && GuardState.unlockStopsAlarm.value) {
+                Log.i(TAG, "unlock detected without USER_PRESENT")
+                onUnlocked(current)
+                return
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
     private val chargerCheck = Runnable {
         // Still unplugged after the debounce: a wobble on a dock or car mount reconnects within it.
         if (plugType() == 0) engine?.onChargerUnplugged()
@@ -313,6 +331,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         handler.removeCallbacks(autoDisarm)
         handler.removeCallbacks(chargerCheck)
         handler.removeCallbacks(lockWatch)
+        handler.removeCallbacks(unlockPoll)
         alarm.stop()
         Notifications.cancelAlarm(this)
         sensorManager.unregisterListener(this)
@@ -398,6 +417,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
             Prefs.setAlarmActive(this, true) // A restart during the warning comes back screaming too.
             if (!GuardState.unlockStopsAlarm.value) handler.post(lockWatch)
+            handler.removeCallbacks(unlockPoll)
+            handler.postDelayed(unlockPoll, 1000)
         }
         GuardState.phase.value = to
         when (to) {
