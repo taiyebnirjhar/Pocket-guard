@@ -98,10 +98,10 @@ trigger.
 
 ## Install
 
-Every push to `pocket-guard/` runs the CI pipeline below. When it passes, the APK is published
-under [Releases](../../releases) as `pocket-guard-build-N`. Open the release on the phone,
-download the APK and allow installs from your browser. Builds share one signing key, so a new
-build installs over the old one and keeps your settings.
+Every push to `main` runs the CI pipeline below. When it passes, the signed APK is published
+under [Releases](../../releases) as `pocket-guard-build-N`, with screenshots of every screen.
+Open the release on the phone, download the APK and allow installs from your browser. Official
+builds share one signing key, so a new build installs over the old one and keeps your settings.
 
 After installing, work through the in-app setup checklist: notifications, battery optimization,
 lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access and autostart
@@ -123,7 +123,7 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
 
 ## CI pipeline
 
-`.github/workflows/pocket-guard.yml`:
+`.github/workflows/ci.yml`, on every push and pull request:
 
 1. **Unit tests**: `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
    a light sensor that freezes with the screen off, late readings, flicker recovery, calls,
@@ -143,7 +143,8 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
    - every screen opened and screenshotted, and monkey crash fuzzing
 
    Screenshots, the app log and keyguard state are uploaded for each failure.
-4. **Release**: only after all of the above pass.
+4. **Release**: only for `main`, only after all of the above pass, and only when the build was
+   signed with the official key.
 
 ## Known limits
 
@@ -154,3 +155,34 @@ lock-screen alarms, a screen lock that locks immediately, Do Not Disturb access 
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
 - iPhone isn't possible: iOS gives apps no background sensor access.
+
+## Build it yourself
+
+You need JDK 17 and the Android SDK (Android Studio works).
+
+```sh
+git clone https://github.com/taiyebnirjhar/pocket-guard.git
+cd pocket-guard
+./gradlew testDebugUnitTest lintDebug assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Without the official key the build is signed with your local debug key, so it can't install over an
+official release (uninstall that first).
+
+**Signing official builds.** CI signs with a key stored in two repository secrets:
+`SIGNING_KEYSTORE_BASE64` (the keystore, base64) and `SIGNING_PASSWORD`. A fork can make its own
+with `keytool -genkeypair -keystore release.jks -storetype PKCS12 -alias pocketguard -keyalg RSA
+-keysize 4096 -validity 10000` and `base64 -w0 release.jks`.
+
+## Contributing
+
+Issues and pull requests are welcome. Pull requests run the same unit tests, lint and emulator
+test as `main`. When you change detection behaviour, add a case to `GuardEngineTest` and, if an
+emulator can fake it, to `e2e/run.sh`. Strings live in `res/values/strings.xml` and
+`res/values-bn/strings.xml`; please add both (or ask for help with the Bangla).
+
+## License
+
+[MIT](LICENSE) © 2026 Taiyeb Nirjhor. The Manrope font is under the
+[SIL Open Font License](licenses/Manrope-OFL.txt).

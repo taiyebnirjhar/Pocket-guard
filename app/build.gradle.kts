@@ -19,19 +19,23 @@ android {
         versionName = "0.1.$buildNumber"
     }
 
+    // Official builds are signed in CI with a key kept in GitHub secrets (see README), so updates
+    // install over each other. Without it (forks, local builds) the standard debug key is used.
+    val keystorePath = System.getenv("SIGNING_KEYSTORE")
     signingConfigs {
-        // Committed debug key: every CI build has the same signature, so updates install in place.
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        if (keystorePath != null) {
+            create("official") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("SIGNING_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "pocketguard"
+                keyPassword = System.getenv("SIGNING_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("official")
         }
     }
 

@@ -301,7 +301,15 @@ log "Scenario 10: UI screens, screenshots and monkey fuzzing for crashes"
 SCREENS="$OUT/screens"
 mkdir -p "$SCREENS"
 read -r W H < <(sh wm size | tr -d '\r' | grep -oE '[0-9]+x[0-9]+' | tail -n 1 | tr 'x' ' ')
-shot() { sleep 2; adb exec-out screencap -p >"$SCREENS/$1.png"; }
+# Retries when the capture is nearly empty (caught mid-transition on a slow emulator).
+shot() {
+  local file="$SCREENS/$1.png"
+  for _ in 1 2 3 4; do
+    sleep 2
+    adb exec-out screencap -p >"$file"
+    [ "$(stat -c %s "$file")" -gt 10240 ] && return
+  done
+}
 # -S restarts the app, since a running task would only be brought to the front, ignoring the extras.
 open_tab() { sh am start -S -W -n $PKG/.MainActivity --es tab "$1" "${@:2}" >/dev/null; }
 swipe() { sh input swipe $((W * $1 / 100)) $((H * $2 / 100)) $((W * $3 / 100)) $((H * $4 / 100)) 400; }
