@@ -34,7 +34,7 @@ class GuardTileService : TileService() {
         val on = GuardState.phase.value != Phase.OFF
         tile.state = if (on) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.app_name)
-        if (Build.VERSION.SDK_INT >= 29) tile.subtitle = if (on) "On" else "Off"
+        if (Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(if (on) R.string.tile_on else R.string.tile_off)
         tile.updateTile()
     }
 

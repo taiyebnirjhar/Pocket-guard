@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -80,7 +81,7 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         Text("🚨", fontSize = 96.sp)
         Spacer(Modifier.height(16.dp))
         Text(
-            "THIS PHONE IS STOLEN",
+            stringResource(R.string.alarm_stolen),
             color = Color.White,
             fontSize = 36.sp,
             lineHeight = 42.sp,
@@ -89,14 +90,14 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            "Return it to its owner.",
+            stringResource(R.string.alarm_return),
             color = Color.White,
             fontSize = 20.sp,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(48.dp))
         OutlinedButton(onClick = onOwner) {
-            Text("I'm the owner, unlock", color = Color.White)
+            Text(stringResource(R.string.alarm_owner_unlock), color = Color.White)
         }
     }
 }

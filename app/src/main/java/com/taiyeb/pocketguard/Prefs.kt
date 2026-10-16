@@ -35,4 +35,36 @@ object Prefs {
 
     fun autoArmTransit(context: Context) = get(context, "auto_arm_transit", false)
     fun setAutoArmTransit(context: Context, value: Boolean) = put(context, "auto_arm_transit", value)
+
+    fun fakeShutdown(context: Context) = get(context, "fake_shutdown", false)
+    fun setFakeShutdown(context: Context, value: Boolean) = put(context, "fake_shutdown", value)
+
+    fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
+    fun setIntruderPhotos(context: Context, value: Boolean) = put(context, "intruder_photos", value)
+
+    fun onboarded(context: Context) = get(context, "onboarded", false)
+    fun setOnboarded(context: Context, value: Boolean) = put(context, "onboarded", value)
+
+    /** Raw text as typed; [contacts] parses it. */
+    fun contactsText(context: Context) = prefs(context).getString("contacts", "").orEmpty()
+    fun setContactsText(context: Context, value: String) =
+        prefs(context).edit().putString("contacts", value).apply()
+
+    /** Up to 3 numbers, separated by commas, semicolons or new lines. */
+    fun contacts(context: Context): List<String> = contactsText(context)
+        .split(',', ';', '\n')
+        .map { number -> number.filter { it.isDigit() || it == '+' } }
+        .filter { it.length >= 3 }
+        .distinct()
+        .take(3)
+
+    fun ownerName(context: Context) = prefs(context).getString("owner_name", "").orEmpty()
+    fun setOwnerName(context: Context, value: String) =
+        prefs(context).edit().putString("owner_name", value).apply()
+
+    /** Bluetooth addresses that count for earbud triggers. Empty means any earbuds, headphones or watch. */
+    fun trustedDevices(context: Context): Set<String> =
+        prefs(context).getStringSet("trusted_devices", emptySet()).orEmpty().toSet()
+    fun setTrustedDevices(context: Context, value: Set<String>) =
+        prefs(context).edit().putStringSet("trusted_devices", value).apply()
 }

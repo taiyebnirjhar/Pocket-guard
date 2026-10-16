@@ -1,5 +1,6 @@
 package com.taiyeb.pocketguard
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -14,6 +15,7 @@ import com.google.android.gms.location.DetectedActivity
 /** Uses Google Play services activity recognition to arm when you get on a bus, train or car. */
 object TransitRecognition {
 
+    @SuppressLint("MissingPermission") // Checked by the caller; SecurityException is caught.
     fun enable(context: Context) {
         val request = ActivityTransitionRequest(
             listOf(
@@ -30,6 +32,7 @@ object TransitRecognition {
         }
     }
 
+    @SuppressLint("MissingPermission")
     fun disable(context: Context) {
         try {
             ActivityRecognition.getClient(context).removeActivityTransitionUpdates(pendingIntent(context))

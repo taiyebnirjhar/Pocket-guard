@@ -80,7 +80,7 @@ class AlarmPlayer(context: Context) {
         vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 150), 0))
     }
 
-    /** Stage 2: siren on the alarm stream (plays through silent mode), torch strobe, strong vibration. */
+    /** Stage 2: siren on the alarm stream (plays through silent mode) and strong vibration. */
     fun startSiren(quiet: Boolean) {
         stop()
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
@@ -89,6 +89,11 @@ class AlarmPlayer(context: Context) {
         handler.post(volumeLock)
         play(Tones.siren(), AudioAttributes.USAGE_ALARM)
         vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 200), 0))
+    }
+
+    /** Torch strobe. Started separately because the intruder photo needs the camera first. */
+    fun startTorch() {
+        if (torchId != null) return
         torchId = findTorch()
         handler.post(torchBlink)
     }
@@ -112,6 +117,7 @@ class AlarmPlayer(context: Context) {
                 // Camera busy or gone.
             }
         }
+        torchId = null
         torchOn = false
         savedMusicVolume?.let { setVolume(AudioManager.STREAM_MUSIC, it) }
         savedMusicVolume = null

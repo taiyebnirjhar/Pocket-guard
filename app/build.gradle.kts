@@ -45,6 +45,15 @@ android {
     buildFeatures {
         compose = true
     }
+    lint {
+        abortOnError = true
+        checkDependencies = false
+        // Sideloaded test builds, not Play Store releases (see README).
+        disable += setOf("ExpiredTargetSdkVersion")
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -56,4 +65,10 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("androidx.lifecycle:lifecycle-service:2.8.7")
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    testImplementation("junit:junit:4.13.2")
 }

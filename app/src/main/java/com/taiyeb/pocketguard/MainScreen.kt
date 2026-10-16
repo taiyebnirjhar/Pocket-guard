@@ -1,13 +1,17 @@
 package com.taiyeb.pocketguard
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,11 +29,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -48,7 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +70,7 @@ private val Phase.color
         Phase.OFF -> Muted
         Phase.WAITING_FOR_POCKET, Phase.WARNING -> Amber
         Phase.IN_POCKET -> Green
-        Phase.SIREN -> Red
+        Phase.SIREN, Phase.STEALTH -> Red
     }
 
 private val Phase.emoji
@@ -69,30 +80,18 @@ private val Phase.emoji
         Phase.IN_POCKET -> "🛡️"
         Phase.WARNING -> "⚠️"
         Phase.SIREN -> "🚨"
+        Phase.STEALTH -> "🕶️"
     }
 
+private fun granted(context: Context, permission: String) =
+    context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
 @Composable
-fun MainScreen(refreshKey: Int) {
+fun MainScreen(refreshKey: Int, onOpenHistory: () -> Unit, onOpenGuide: () -> Unit) {
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val setup = remember(refreshKey, phase) { SetupStatus.read(context) }
-    var grace by remember { mutableIntStateOf(Prefs.graceSeconds(context)) }
     var testMode by remember { mutableStateOf(Prefs.testMode(context)) }
-    var tamper by remember { mutableStateOf(Prefs.tamperAlarm(context)) }
-    var charger by remember { mutableStateOf(Prefs.chargerAlarm(context)) }
-    var earbuds by remember { mutableStateOf(Prefs.earbudsAlarm(context)) }
-    var autoEarbuds by remember { mutableStateOf(Prefs.autoArmEarbuds(context)) }
-    var autoTransit by remember { mutableStateOf(Prefs.autoArmTransit(context)) }
-
-    val bluetoothPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val activityPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && Prefs.autoArmTransit(context)) TransitRecognition.enable(context)
-    }
-    val askBluetooth = {
-        if (Build.VERSION.SDK_INT >= 31 && !setup.bluetoothPermission) {
-            bluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -103,7 +102,17 @@ fun MainScreen(refreshKey: Int) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Pocket Guard", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.app_name),
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onOpenGuide) { Text(stringResource(R.string.main_guide)) }
+            TextButton(onClick = onOpenHistory) { Text(stringResource(R.string.main_history)) }
+        }
 
         StatusCard(phase, testMode)
 
@@ -114,118 +123,298 @@ fun MainScreen(refreshKey: Int) {
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = if (off) Green else Red),
         ) {
-            Text(if (off) "ARM" else "DISARM", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        }
-
-        Section("Settings") {
-            Text("Time to unlock before the siren: $grace s", color = Color.White)
-            Slider(
-                value = grace.toFloat(),
-                onValueChange = {
-                    grace = it.roundToInt()
-                    Prefs.setGraceSeconds(context, grace)
-                },
-                valueRange = 1f..5f,
-                steps = 3,
+            Text(
+                stringResource(if (off) R.string.main_arm else R.string.main_disarm),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
             )
-            ToggleRow("Test mode", "Quiet siren, for trying it at home", testMode) {
-                testMode = it
-                Prefs.setTestMode(context, it)
-            }
         }
 
-        Section("Triggers") {
-            ToggleRow(
-                "Power-off & airplane mode alarm",
-                "Siren if someone opens the power menu or turns on airplane mode while it's locked. " +
-                    "Power menu needs power-off protection below.",
-                tamper,
-            ) {
-                tamper = it
-                Prefs.setTamperAlarm(context, it)
-            }
-            ToggleRow("Charger unplug alarm", "Warns if it's unplugged while locked, e.g. charging at a café", charger) {
-                charger = it
-                Prefs.setChargerAlarm(context, it)
-            }
-            ToggleRow(
-                "Earbuds disconnect alarm",
-                "Warns if your earbuds or watch lose the phone while it's out of your pocket and locked",
-                earbuds,
-            ) {
-                earbuds = it
-                Prefs.setEarbudsAlarm(context, it)
-                if (it) askBluetooth()
-            }
-            ToggleRow("Auto-arm when earbuds connect", "Earbuds in usually means you're on the move", autoEarbuds) {
-                autoEarbuds = it
-                Prefs.setAutoArmEarbuds(context, it)
-                if (it) askBluetooth()
-            }
-            ToggleRow("Auto-arm on bus or train", "Uses Google activity detection. Also arms in cars.", autoTransit) {
-                autoTransit = it
-                Prefs.setAutoArmTransit(context, it)
-                when {
-                    !it -> TransitRecognition.disable(context)
-                    setup.activityPermission -> TransitRecognition.enable(context)
-                    Build.VERSION.SDK_INT >= 29 ->
-                        activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                    else -> Unit
-                }
-            }
-            if ((earbuds || autoEarbuds) && !setup.bluetoothPermission) {
-                PermissionWarning("Earbud triggers need the Nearby devices permission.") { askBluetooth() }
-            }
-            if (autoTransit && !setup.activityPermission && Build.VERSION.SDK_INT >= 29) {
-                PermissionWarning("Auto-arm needs the Physical activity permission.") {
-                    activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                }
-            }
+        SettingsSection(testMode) {
+            testMode = it
+            Prefs.setTestMode(context, it)
         }
-
-        Section("Setup checklist") {
-            SetupRow("Proximity sensor", setup.proximity, fixLabel = null) {}
-            SetupRow("Notifications allowed", setup.notifications) { SetupActions.notifications(context) }
-            SetupRow("Not killed by battery saver", setup.battery) { SetupActions.battery(context) }
-            SetupRow("Alarm can show on lock screen", setup.fullScreen) { SetupActions.fullScreen(context) }
-            SetupRow("Screen lock (PIN / fingerprint) set", setup.secureLock) { SetupActions.secureLock(context) }
-            SetupRow("Power-off protection (Accessibility)", setup.accessibility) { SetupActions.accessibility(context) }
-            if (!setup.accessibility) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Switch greyed out? Open App info, tap ⋮ and \"Allow restricted settings\", then try again.",
-                        color = Muted,
-                        fontSize = 13.sp,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = { SetupActions.appInfo(context) }) { Text("App info") }
-                }
-            }
-            SetupRow(
-                "Autostart (Xiaomi, Realme, Oppo, Vivo…)",
-                ok = null,
-                fixLabel = "Open",
-            ) { SetupActions.autostart(context) }
-        }
-
+        TriggersSection(setup)
+        EmergencySection(refreshKey)
+        LanguageSection()
+        SetupSection(setup)
         SensorCheck()
-
-        Section("How to test") {
+        Section(stringResource(R.string.test_title)) {
             listOf(
-                "Keep Test mode on. Tap ARM.",
-                "Put the phone in your pocket. Wait for a short buzz: it's protected.",
-                "Pull it out without unlocking. You'll hear beeps (in your earbuds if connected).",
-                "Wait the unlock time: the quiet siren starts and the torch flashes.",
-                "Unlock with your fingerprint: everything stops and it re-arms by itself.",
-                "Try the volume buttons during the siren: they shouldn't silence it.",
-                "With power-off protection on: arm, lock, hold the power button. The menu should close and the siren start.",
-                "Charging: arm, lock, unplug the cable. Beeps, then the siren.",
-                "Make a call while armed, hang up, pocket it: no false alarm.",
+                R.string.test_1, R.string.test_2, R.string.test_3, R.string.test_4, R.string.test_5,
+                R.string.test_6, R.string.test_7, R.string.test_8, R.string.test_9,
             ).forEachIndexed { i, step ->
-                Text("${i + 1}. $step", color = Color.White, fontSize = 14.sp)
+                Text("${i + 1}. ${stringResource(step)}", color = Color.White, fontSize = 14.sp)
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SettingsSection(testMode: Boolean, onTestMode: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    var grace by remember { mutableIntStateOf(Prefs.graceSeconds(context)) }
+    Section(stringResource(R.string.settings_title)) {
+        Text(stringResource(R.string.settings_grace, grace), color = Color.White)
+        Slider(
+            value = grace.toFloat(),
+            onValueChange = {
+                grace = it.roundToInt()
+                Prefs.setGraceSeconds(context, grace)
+            },
+            valueRange = 1f..5f,
+            steps = 3,
+        )
+        ToggleRow(stringResource(R.string.settings_test), stringResource(R.string.settings_test_sub), testMode, onTestMode)
+    }
+}
+
+@Composable
+private fun TriggersSection(setup: SetupStatus) {
+    val context = LocalContext.current
+    var tamper by remember { mutableStateOf(Prefs.tamperAlarm(context)) }
+    var fakeShutdown by remember { mutableStateOf(Prefs.fakeShutdown(context)) }
+    var charger by remember { mutableStateOf(Prefs.chargerAlarm(context)) }
+    var earbuds by remember { mutableStateOf(Prefs.earbudsAlarm(context)) }
+    var autoEarbuds by remember { mutableStateOf(Prefs.autoArmEarbuds(context)) }
+    var autoTransit by remember { mutableStateOf(Prefs.autoArmTransit(context)) }
+
+    val bluetoothPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val activityPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok && Prefs.autoArmTransit(context)) TransitRecognition.enable(context)
+    }
+    val askBluetooth = {
+        if (Build.VERSION.SDK_INT >= 31 && !setup.bluetoothPermission) {
+            bluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+    }
+
+    Section(stringResource(R.string.triggers_title)) {
+        ToggleRow(stringResource(R.string.triggers_tamper), stringResource(R.string.triggers_tamper_sub), tamper) {
+            tamper = it
+            Prefs.setTamperAlarm(context, it)
+        }
+        if (tamper) {
+            ToggleRow(
+                stringResource(R.string.triggers_fake_shutdown),
+                stringResource(R.string.triggers_fake_shutdown_sub),
+                fakeShutdown,
+            ) {
+                fakeShutdown = it
+                Prefs.setFakeShutdown(context, it)
+            }
+        }
+        ToggleRow(stringResource(R.string.triggers_charger), stringResource(R.string.triggers_charger_sub), charger) {
+            charger = it
+            Prefs.setChargerAlarm(context, it)
+        }
+        ToggleRow(stringResource(R.string.triggers_earbuds), stringResource(R.string.triggers_earbuds_sub), earbuds) {
+            earbuds = it
+            Prefs.setEarbudsAlarm(context, it)
+            if (it) askBluetooth()
+        }
+        ToggleRow(
+            stringResource(R.string.triggers_auto_earbuds),
+            stringResource(R.string.triggers_auto_earbuds_sub),
+            autoEarbuds,
+        ) {
+            autoEarbuds = it
+            Prefs.setAutoArmEarbuds(context, it)
+            if (it) askBluetooth()
+        }
+        ToggleRow(
+            stringResource(R.string.triggers_auto_transit),
+            stringResource(R.string.triggers_auto_transit_sub),
+            autoTransit,
+        ) {
+            autoTransit = it
+            Prefs.setAutoArmTransit(context, it)
+            when {
+                !it -> TransitRecognition.disable(context)
+                setup.activityPermission -> TransitRecognition.enable(context)
+                Build.VERSION.SDK_INT >= 29 -> activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                else -> Unit
+            }
+        }
+        if (earbuds || autoEarbuds) {
+            if (setup.bluetoothPermission) {
+                DevicePicker()
+            } else {
+                PermissionWarning(stringResource(R.string.permission_bluetooth)) { askBluetooth() }
+            }
+        }
+        if (autoTransit && !setup.activityPermission && Build.VERSION.SDK_INT >= 29) {
+            PermissionWarning(stringResource(R.string.permission_activity)) {
+                activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+            }
+        }
+    }
+}
+
+/** Lets the user choose which paired earbuds or watch count, so a car stereo doesn't. */
+@Composable
+private fun DevicePicker() {
+    val context = LocalContext.current
+    val devices = remember { BluetoothReceiver.pairedDevices(context) }
+    var trusted by remember { mutableStateOf(Prefs.trustedDevices(context)) }
+    Text(stringResource(R.string.devices_title), color = Color.White, fontWeight = FontWeight.SemiBold)
+    Text(stringResource(R.string.devices_sub), color = Muted, fontSize = 13.sp)
+    if (devices.isEmpty()) {
+        Text(stringResource(R.string.devices_none), color = Muted, fontSize = 13.sp)
+    }
+    devices.forEach { (name, address) ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = address in trusted,
+                onCheckedChange = { checked ->
+                    trusted = if (checked) trusted + address else trusted - address
+                    Prefs.setTrustedDevices(context, trusted)
+                },
+            )
+            Text(name, color = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun EmergencySection(refreshKey: Int) {
+    val context = LocalContext.current
+    var contacts by remember { mutableStateOf(Prefs.contactsText(context)) }
+    var name by remember { mutableStateOf(Prefs.ownerName(context)) }
+    var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
+    // Re-read permissions on resume and after a request.
+    var permissionTick by remember { mutableIntStateOf(0) }
+    val key = refreshKey + permissionTick
+    val sms = remember(key) { granted(context, Manifest.permission.SEND_SMS) }
+    val location = remember(key) { Locator.hasPermission(context) }
+    val camera = remember(key) { granted(context, Manifest.permission.CAMERA) }
+    val background = remember(key) {
+        Build.VERSION.SDK_INT < 29 || granted(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
+    val requestMain = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        permissionTick++
+    }
+    val requestBackground = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        permissionTick++
+    }
+
+    Section(stringResource(R.string.emergency_title)) {
+        Text(stringResource(R.string.emergency_sub), color = Muted, fontSize = 13.sp)
+        OutlinedTextField(
+            value = contacts,
+            onValueChange = {
+                contacts = it
+                Prefs.setContactsText(context, it)
+            },
+            label = { Text(stringResource(R.string.emergency_numbers)) },
+            placeholder = { Text("+8801XXXXXXXXX, +8801XXXXXXXXX") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = name,
+            onValueChange = {
+                name = it
+                Prefs.setOwnerName(context, it)
+            },
+            label = { Text(stringResource(R.string.emergency_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        ToggleRow(stringResource(R.string.emergency_photos), stringResource(R.string.emergency_photos_sub), photos) {
+            photos = it
+            Prefs.setIntruderPhotos(context, it)
+        }
+        SetupRow(stringResource(R.string.emergency_perm_sms), sms, fixLabel = null) {}
+        SetupRow(stringResource(R.string.emergency_perm_location), location, fixLabel = null) {}
+        SetupRow(stringResource(R.string.emergency_perm_camera), camera, fixLabel = null) {}
+        if (!sms || !location || !camera) {
+            OutlinedButton(
+                onClick = {
+                    requestMain.launch(
+                        arrayOf(
+                            Manifest.permission.SEND_SMS,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.CAMERA,
+                        ),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.emergency_allow)) }
+        }
+        if (location && !background && Build.VERSION.SDK_INT >= 29) {
+            PermissionWarning(stringResource(R.string.emergency_background)) {
+                requestBackground.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                val numbers = Prefs.contacts(context)
+                val text = context.getString(
+                    R.string.sms_test_message,
+                    Prefs.ownerName(context).ifBlank { context.getString(R.string.sms_owner_default) },
+                )
+                val message = when {
+                    numbers.isEmpty() -> context.getString(R.string.emergency_no_numbers)
+                    !sms -> context.getString(R.string.emergency_no_sms_permission)
+                    else -> context.getString(R.string.emergency_test_sent, Sms.send(context, numbers, text))
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.emergency_test)) }
+    }
+}
+
+@Composable
+private fun LanguageSection() {
+    if (!Language.supported) return
+    val context = LocalContext.current
+    val current = remember { Language.current(context) }
+    Section(stringResource(R.string.language_title)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                null to stringResource(R.string.language_system),
+                "en" to "English",
+                "bn" to "বাংলা",
+            ).forEach { (tag, label) ->
+                FilterChip(
+                    selected = current == tag,
+                    onClick = { Language.set(context, tag) },
+                    label = { Text(label) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupSection(setup: SetupStatus) {
+    val context = LocalContext.current
+    Section(stringResource(R.string.setup_title)) {
+        SetupRow(stringResource(R.string.setup_proximity), setup.proximity, fixLabel = null) {}
+        SetupRow(stringResource(R.string.setup_notifications), setup.notifications) { SetupActions.notifications(context) }
+        SetupRow(stringResource(R.string.setup_battery), setup.battery) { SetupActions.battery(context) }
+        SetupRow(stringResource(R.string.setup_full_screen), setup.fullScreen) { SetupActions.fullScreen(context) }
+        SetupRow(stringResource(R.string.setup_lock), setup.secureLock) { SetupActions.secureLock(context) }
+        SetupRow(stringResource(R.string.setup_accessibility), setup.accessibility) { SetupActions.accessibility(context) }
+        if (!setup.accessibility) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.setup_restricted),
+                    color = Muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { SetupActions.appInfo(context) }) { Text(stringResource(R.string.setup_app_info)) }
+            }
+        }
+        SetupRow(stringResource(R.string.setup_autostart), ok = null, fixLabel = stringResource(R.string.action_open)) {
+            SetupActions.autostart(context)
+        }
     }
 }
 
@@ -247,13 +436,13 @@ private fun StatusCard(phase: Phase, testMode: Boolean) {
                 Text(phase.emoji, fontSize = 56.sp)
             }
             Spacer(Modifier.height(16.dp))
-            Text(phase.title, color = phase.color, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(phase.titleRes()), color = phase.color, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text(phase.hint, color = Muted, textAlign = TextAlign.Center)
+            Text(stringResource(phase.hintRes()), color = Muted, textAlign = TextAlign.Center)
             if (testMode) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "TEST MODE · quiet siren",
+                    stringResource(R.string.main_test_badge),
                     color = Amber,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -296,13 +485,13 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChang
 private fun PermissionWarning(text: String, onGrant: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("⚠️ $text", color = Amber, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        TextButton(onClick = onGrant) { Text("Allow") }
+        TextButton(onClick = onGrant) { Text(stringResource(R.string.action_allow)) }
     }
 }
 
 /** ok = null means the app can't check it, so it only offers a button. */
 @Composable
-private fun SetupRow(label: String, ok: Boolean?, fixLabel: String? = "Fix", onFix: () -> Unit) {
+private fun SetupRow(label: String, ok: Boolean?, fixLabel: String? = stringResource(R.string.action_fix), onFix: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             when (ok) {
@@ -324,8 +513,10 @@ private fun SetupRow(label: String, ok: Boolean?, fixLabel: String? = "Fix", onF
 @Composable
 private fun SensorCheck() {
     val context = LocalContext.current
-    var proximity by remember { mutableStateOf("no reading yet") }
-    var light by remember { mutableStateOf("—") }
+    val covered = stringResource(R.string.sensor_covered)
+    val uncovered = stringResource(R.string.sensor_uncovered)
+    var proximity by remember { mutableStateOf<Pair<Boolean, Float>?>(null) }
+    var light by remember { mutableStateOf<Int?>(null) }
     var motion by remember { mutableFloatStateOf(0f) }
     val sensorManager = remember { context.getSystemService(SensorManager::class.java) }
     val proximitySensor = remember {
@@ -337,11 +528,8 @@ private fun SensorCheck() {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
-                    Sensor.TYPE_PROXIMITY -> {
-                        val near = Detection.isNear(event.sensor, event.values[0])
-                        proximity = (if (near) "COVERED" else "uncovered") + "  (${event.values[0]})"
-                    }
-                    Sensor.TYPE_LIGHT -> light = "${event.values[0].roundToInt()} lux"
+                    Sensor.TYPE_PROXIMITY -> proximity = Detection.isNear(event.sensor, event.values[0]) to event.values[0]
+                    Sensor.TYPE_LIGHT -> light = event.values[0].roundToInt()
                     Sensor.TYPE_LINEAR_ACCELERATION -> motion = Detection.motion(event.values, linear = true)
                 }
             }
@@ -356,26 +544,33 @@ private fun SensorCheck() {
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    Section("Sensor check") {
-        Text("Cover the top of the screen with your hand to test.", color = Muted, fontSize = 13.sp)
-        SensorLine("Proximity", if (proximitySensor == null) "not found" else proximity)
+    Section(stringResource(R.string.sensor_title)) {
+        Text(stringResource(R.string.sensor_sub), color = Muted, fontSize = 13.sp)
         SensorLine(
-            "Works with screen off",
+            R.string.sensor_proximity,
             when {
-                proximitySensor == null -> "—"
-                proximitySensor.isWakeUpSensor -> "yes (wake-up sensor)"
-                else -> "maybe (test in pocket)"
+                proximitySensor == null -> stringResource(R.string.sensor_not_found)
+                proximity == null -> stringResource(R.string.sensor_no_reading)
+                else -> proximity!!.let { (near, raw) -> "${if (near) covered else uncovered}  ($raw)" }
             },
         )
-        SensorLine("Light", light)
-        SensorLine("Motion", "%.1f m/s²".format(motion))
+        SensorLine(
+            R.string.sensor_screen_off,
+            when {
+                proximitySensor == null -> "—"
+                proximitySensor.isWakeUpSensor -> stringResource(R.string.sensor_wake_yes)
+                else -> stringResource(R.string.sensor_wake_maybe)
+            },
+        )
+        SensorLine(R.string.sensor_light, light?.let { "$it lux" } ?: "—")
+        SensorLine(R.string.sensor_motion, "%.1f m/s²".format(motion))
     }
 }
 
 @Composable
-private fun SensorLine(label: String, value: String) {
+private fun SensorLine(@StringRes label: Int, value: String) {
     Row {
-        Text(label, color = Muted, modifier = Modifier.weight(1f), fontSize = 14.sp)
+        Text(stringResource(label), color = Muted, modifier = Modifier.weight(1f), fontSize = 14.sp)
         Text(value, color = Color.White, fontSize = 14.sp)
     }
 }
