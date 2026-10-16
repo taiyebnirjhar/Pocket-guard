@@ -129,7 +129,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         override fun onReceive(context: Context, intent: Intent) {
             val engine = engine ?: return
             when (intent.action) {
-                Intent.ACTION_USER_PRESENT -> onUnlocked(engine)
+                Intent.ACTION_USER_PRESENT -> {
+                    Log.i(TAG, "user present")
+                    onUnlocked(engine)
+                }
                 Intent.ACTION_SCREEN_OFF -> lockIfNeeded()
                 Intent.ACTION_POWER_CONNECTED -> handler.postDelayed({ lastPlugType = plugType() }, 1000)
                 Intent.ACTION_POWER_DISCONNECTED -> {
@@ -370,7 +373,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun onTransition(from: Phase, to: Phase, trigger: Trigger?) {
         Log.i(TAG, "phase=$to from=$from trigger=$trigger")
-        if (to.isAlarm && !from.isAlarm) GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
+        if (to.isAlarm && !from.isAlarm) {
+            GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
+            Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
+        }
         GuardState.phase.value = to
         when (to) {
             Phase.WARNING -> {

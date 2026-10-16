@@ -8,6 +8,9 @@ PKG=com.taiyeb.pocketguard
 PIN=1234
 FAILED=0
 PASSED=0
+OUT=e2e-output
+FULL_LOG="$OUT/pocketguard.log"
+mkdir -p "$OUT"
 
 log() { echo "[e2e] $*"; }
 emu() { adb emu "$@" >/dev/null; }
@@ -24,9 +27,9 @@ expect_phase() {
     fi
     sleep 0.25
   done
-  log "FAIL: $name (no phase=$phase within ${timeout}s)"
-  adb logcat -d -s PocketGuard:I | tail -n 10
   FAILED=$((FAILED + 1))
+  log "FAIL: $name (no phase=$phase within ${timeout}s)"
+  diagnose "$name"
   return 1
 }
 
@@ -35,22 +38,43 @@ expect_no_phase() {
   local phase="$1" seconds="$2" name="$3"
   sleep "$seconds"
   if grep -q "phase=$phase " <<<"$(adb logcat -d -s PocketGuard:I)"; then
-    log "FAIL: $name (unexpected phase=$phase)"
-    adb logcat -d -s PocketGuard:I | tail -n 10
     FAILED=$((FAILED + 1))
+    log "FAIL: $name (unexpected phase=$phase)"
+    diagnose "$name"
   else
     log "PASS: $name"
     PASSED=$((PASSED + 1))
   fi
 }
 
-reset_log() { adb logcat -c; }
+reset_log() { adb logcat -d -v time -s PocketGuard:* >>"$FULL_LOG"; adb logcat -c; }
+
+# On failure: screenshot, app log so far, and lock/focus state.
+diagnose() {
+  local name="$1"
+  local file="$OUT/fail-$FAILED.png"
+  adb exec-out screencap -p >"$file" 2>/dev/null || true
+  log "  screenshot: $file"
+  log "  app log (latest):"
+  { tail -n 8 "$FULL_LOG"; adb logcat -d -v time -s PocketGuard:*; } | tail -n 15 | sed 's/^/    /'
+  log "  window state:"
+  sh dumpsys window | grep -E "mCurrentFocus|mDreamingLockscreen|isKeyguardShowing|mShowingLockscreen|KeyguardController" | head -n 6 | sed 's/^/    /'
+}
 screen_off() { sh input keyevent KEYCODE_SLEEP; sleep 1; }
 # The guard requires a PIN (anyone can swipe away a lock screen without one).
+# The alarm screen sits on top of the lock screen, so leave it first, then open the PIN bouncer.
 unlock() {
   sh input keyevent KEYCODE_WAKEUP; sleep 0.7
-  sh wm dismiss-keyguard; sleep 0.7
-  sh input text "$PIN"; sh input keyevent KEYCODE_ENTER; sleep 1.5
+  sh input keyevent KEYCODE_HOME; sleep 0.7
+  sh wm dismiss-keyguard; sleep 1
+  sh input keyevent KEYCODE_MENU; sleep 0.7
+  sh input text "$PIN"; sleep 0.3
+  sh input keyevent KEYCODE_ENTER; sleep 2
+  if sh dumpsys window | grep -q "mDreamingLockscreen=true\|isKeyguardShowing=true"; then
+    log "  (keyguard still showing after PIN entry, retrying)"
+    sh wm dismiss-keyguard; sleep 1
+    sh input text "$PIN"; sh input keyevent KEYCODE_ENTER; sleep 2
+  fi
 }
 still() { emu sensor set acceleration 0:9.81:0; }
 pocket() { emu sensor set light 0; emu sensor set proximity 0; }
