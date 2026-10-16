@@ -11,7 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -178,7 +178,7 @@ private fun StepRow(step: SetupStep, isNext: Boolean, onClick: () -> Unit) {
             Column(horizontalAlignment = Alignment.End) {
                 PillAction(stringResource(R.string.action_allow), onClick, color = if (step.required) Lavender else Muted)
                 if (!step.required) {
-                    Text(stringResource(R.string.ready_optional), color = Muted, fontSize = 11.sp, modifier = Modifier.height(16.dp))
+                    Text(stringResource(R.string.ready_optional), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
