@@ -50,6 +50,10 @@ object Prefs {
         .apply()
 
     fun armed(context: Context) = get(context, "armed", false)
+
+    /** Armed by earbuds or transit, so it turns itself off after a few hours (kept across restarts). */
+    fun autoArmed(context: Context) = get(context, "auto_armed", false)
+    fun setAutoArmed(context: Context, value: Boolean) = put(context, "auto_armed", value)
     fun setArmed(context: Context, value: Boolean) = put(context, "armed", value)
 
     /** A siren or fake shutdown is running; restored if the phone restarts or the app is killed. */

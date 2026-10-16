@@ -174,7 +174,7 @@ class GuardEngineTest {
         engine.onMotion(8f)
         host.advance(GuardEngine.MOTION_WINDOW_MS + 100)
         engine.onProximity(false)
-        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        host.advance(GuardEngine.EVIDENCE_WINDOW_MS + 500)
         assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
     }
 
@@ -424,13 +424,47 @@ class GuardEngineTest {
     @Test
     fun recoveredFlickerCancelsPocketWarning() {
         pocket()
-        pullOut()
+        engine.onMotion(8f)
+        engine.onProximity(false) // no light reading: confirmed by motion
+        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
         engine.onProximity(true)
         assertEquals(Phase.IN_POCKET, engine.phase)
         host.advance(10_000)
         assertFalse(host.transitions.any { it.second == Phase.SIREN })
         assertEquals(Triple(Phase.WARNING, Phase.IN_POCKET, Trigger.POCKET_REMOVAL), host.transitions.last())
+    }
+
+    @Test
+    fun lightConfirmedWarningIsNotCancelledByCoveringAgain() {
+        pocket()
+        pullOut() // bright light outside: really out
+        engine.onProximity(true) // a thief's hand or pocket
+        assertEquals(Phase.WARNING, engine.phase)
+        host.advance(3000)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun lateLightReadingStillCounts() {
+        pocket()
+        engine.onProximity(false)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 100)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        engine.onLight(300f) // the light sensor wakes up late
+        host.advance(GuardEngine.RECHECK_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun pocketConfirmsOnceTheCallEnds() {
+        host.call = true
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.call = false
+        host.advance(GuardEngine.CALL_RETRY_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
     }
 
     @Test

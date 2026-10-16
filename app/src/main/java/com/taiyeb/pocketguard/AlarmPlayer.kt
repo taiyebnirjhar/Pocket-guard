@@ -219,11 +219,10 @@ object Audio {
 
     /** True only when call audio comes out of the earpiece, i.e. the phone is held at the ear. */
     fun callAtEar(audio: AudioManager): Boolean {
+        // Not ringing: an accomplice calling the phone must not pause the guard.
         val mode = audio.mode
-        val inCall = mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION ||
-            mode == AudioManager.MODE_RINGTONE
+        val inCall = mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
         if (!inCall) return false
-        if (mode == AudioManager.MODE_RINGTONE) return true // Ringing: the owner is about to answer.
         if (Build.VERSION.SDK_INT >= 31) {
             return audio.communicationDevice?.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
         }

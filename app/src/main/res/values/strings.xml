@@ -72,7 +72,7 @@
     <string name="emergency_test">Send test SMS</string>
     <string name="emergency_no_numbers">Add at least one phone number first</string>
     <string name="emergency_no_sms_permission">Allow SMS first</string>
-    <string name="emergency_test_sent">Test SMS sent to %1$d contact(s)</string>
+    <string name="emergency_test_sent">Test SMS handed to the network for %1$d contact(s)</string>
     <string name="sms_owner_default">The owner</string>
     <string name="sms_test_prefix">[TEST]</string>
     <string name="sms_alert">Pocket Guard alert: %1$s\'s phone may have been stolen (%2$s). %3$s Battery %4$d%%.</string>

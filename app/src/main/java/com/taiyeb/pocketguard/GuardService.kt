@@ -120,6 +120,21 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         }
     }
 
+    /**
+     * An alarm that began before the phone locked (screen-lock delay) can't trust an unlock yet. As
+     * soon as the phone is properly locked, a later unlock does prove the owner again.
+     */
+    private val lockWatch = object : Runnable {
+        override fun run() {
+            if (engine?.phase?.isAlarm != true) return
+            if (keyguardManager.isDeviceLocked) {
+                GuardState.unlockStopsAlarm.value = true
+                return
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
     private val chargerCheck = Runnable {
         // Still unplugged after the debounce: a wobble on a dock or car mount reconnects within it.
         if (plugType() == 0) engine?.onChargerUnplugged()
@@ -195,10 +210,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         val wasArmed = engine != null
         val auto = intent?.getBooleanExtra(EXTRA_AUTO, false) == true
         startMonitoring()
+        if (!wasArmed) Prefs.setAutoArmed(this, auto)
         if (!wasArmed && auto) {
             alarm.notice()
             handler.postDelayed(autoDisarm, AUTO_DISARM_MS)
         } else if (!auto) {
+            Prefs.setAutoArmed(this, false)
             handler.removeCallbacks(autoDisarm) // The user armed it: keep it on until they disarm.
         }
         return START_STICKY
@@ -226,11 +243,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 ServiceCompat.startForeground(this, Notifications.STATUS_ID, notification, types)
                 return true
             } catch (e: Exception) {
-                if (Build.VERSION.SDK_INT >= 31 && e is ForegroundServiceStartNotAllowedException) {
-                    Log.w(TAG, "Not allowed to start in the foreground now", e)
-                    return false
-                }
-                Log.w(TAG, "Foreground service types $types refused", e)
+                // Android 15 refuses camera/location types from boot: drop to the next, smaller set.
+                val notAllowed = Build.VERSION.SDK_INT >= 31 && e is ForegroundServiceStartNotAllowedException
+                Log.w(TAG, "Foreground service types $types refused (notAllowed=$notAllowed)", e)
+                if (types == base) return false
             }
         }
         return false
@@ -296,6 +312,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         handler.removeCallbacks(renewWakeLock)
         handler.removeCallbacks(autoDisarm)
         handler.removeCallbacks(chargerCheck)
+        handler.removeCallbacks(lockWatch)
         alarm.stop()
         Notifications.cancelAlarm(this)
         sensorManager.unregisterListener(this)
@@ -379,6 +396,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (to.isAlarm && !from.isAlarm) {
             GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
+            Prefs.setAlarmActive(this, true) // A restart during the warning comes back screaming too.
+            if (!GuardState.unlockStopsAlarm.value) handler.post(lockWatch)
         }
         GuardState.phase.value = to
         when (to) {

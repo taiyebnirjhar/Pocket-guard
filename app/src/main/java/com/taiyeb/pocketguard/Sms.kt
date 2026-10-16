@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 
@@ -30,12 +31,7 @@ object Sms {
     fun sendOne(context: Context, number: String, text: String, sent: PendingIntent?): Boolean {
         if (!canSend(context)) return false
         return try {
-            val manager = if (Build.VERSION.SDK_INT >= 31) {
-                context.getSystemService(SmsManager::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                SmsManager.getDefault()
-            }
+            val manager = manager(context)
             val parts = manager.divideMessage(text)
             val sentIntents = if (sent == null) null else ArrayList(parts.map { sent })
             manager.sendMultipartTextMessage(number, null, parts, sentIntents, null)
@@ -43,6 +39,19 @@ object Sms {
         } catch (e: Exception) {
             false // No SIM, or no default SIM for SMS.
         }
+    }
+}
+
+/** The SIM chosen for SMS in the phone's settings, explicitly, so dual-SIM phones don't stall. */
+private fun manager(context: Context): SmsManager {
+    val subscription = SubscriptionManager.getDefaultSmsSubscriptionId()
+    val valid = subscription != SubscriptionManager.INVALID_SUBSCRIPTION_ID
+    return if (Build.VERSION.SDK_INT >= 31) {
+        val default = context.getSystemService(SmsManager::class.java)
+        if (valid) default.createForSubscriptionId(subscription) else default
+    } else {
+        @Suppress("DEPRECATION")
+        if (valid) SmsManager.getSmsManagerForSubscriptionId(subscription) else SmsManager.getDefault()
     }
 }
 
@@ -57,6 +66,9 @@ class SmsSender(private val context: Context) {
         private const val EXTRA_ID = "id"
         private const val RETRY_MS = 60_000L
         private const val MAX_ATTEMPTS = 15
+
+        /** Some radios never report a result; treat silence this long as a failure. */
+        private const val RESULT_TIMEOUT_MS = 90_000L
     }
 
     private class Message(
@@ -126,7 +138,14 @@ class SmsSender(private val context: Context) {
         if (!Sms.sendOne(context, message.number, message.text, sent)) {
             inFlight.remove(message.id)
             queue(message)
+            return
         }
+        handler.postDelayed({
+            if (inFlight.remove(message.id) != null) {
+                Log.i(GuardService.TAG, "sms result timed out, retrying")
+                queue(message)
+            }
+        }, RESULT_TIMEOUT_MS)
     }
 
     private fun queue(message: Message) {

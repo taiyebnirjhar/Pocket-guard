@@ -39,21 +39,36 @@ object History {
 
     fun photosDir(context: Context) = File(context.filesDir, "intruders").apply { mkdirs() }
 
-    fun load(context: Context): List<Incident> {
+    fun load(context: Context): List<Incident> = read(context) ?: emptyList()
+
+    /** Null when the file exists but can't be read, so [save] doesn't overwrite it with one entry. */
+    private fun read(context: Context): List<Incident>? {
         return try {
             val file = File(context.filesDir, FILE)
             if (!file.exists()) return emptyList()
             val array = JSONArray(file.readText())
-            (0 until array.length()).mapNotNull { fromJson(array.getJSONObject(it)) }
+            // One damaged entry must not cost the rest.
+            (0 until array.length()).mapNotNull {
+                try {
+                    fromJson(array.getJSONObject(it))
+                } catch (e: Exception) {
+                    null
+                }
+            }
         } catch (e: Exception) {
-            emptyList() // Also before the first unlock after a restart, when app storage is locked.
+            null // Also before the first unlock after a restart, when app storage is locked.
         }
     }
 
     fun save(context: Context, incident: Incident) {
         try {
             val now = System.currentTimeMillis()
-            val all = load(context).filter { it.id != incident.id }.toMutableList()
+            val existing = read(context) ?: run {
+                // Unreadable: keep it aside for inspection instead of silently losing it.
+                File(context.filesDir, FILE).renameTo(File(context.filesDir, "$FILE.damaged"))
+                emptyList()
+            }
+            val all = existing.filter { it.id != incident.id }.toMutableList()
             all.add(0, incident)
             val kept = all.filter { it.id == incident.id || !expired(it, now) }
                 .sortedByDescending { it.startedAt }

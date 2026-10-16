@@ -57,6 +57,13 @@ class GuardEngine(
         /** A "covered" reading above this can't come from inside a pocket; some sensors repeat old values. */
         const val STALE_COVERED_LUX = 50f
 
+        /** Light and motion readings can arrive late: keep re-checking this long after uncovering. */
+        const val EVIDENCE_WINDOW_MS = 2500L
+        const val RECHECK_MS = 300L
+
+        /** During a call at the ear, try confirming the pocket again this often. */
+        const val CALL_RETRY_MS = 2000L
+
         /** Without a usable light reading, a removal needs a hand-like jolt within this window... */
         const val MOTION_WINDOW_MS = 3000L
 
@@ -78,6 +85,9 @@ class GuardEngine(
     private var uncoveredLux: Float? = null
     private var lastMotionAt: Long? = null
     private var warningAt: Long? = null
+
+    /** The pocket warning was confirmed by fresh light, which fabric flicker can't produce. */
+    private var confirmedByLight = false
     private var uncoveredAt: Long? = null
 
     fun arm() {
@@ -117,6 +127,8 @@ class GuardEngine(
     private fun recoverFromFlicker() {
         val startedAt = warningAt ?: return
         if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
+        // Bright light means it really was out; covered again now is a thief's hand or pocket.
+        if (confirmedByLight) return
         cancelAll()
         go(Phase.IN_POCKET)
     }
@@ -184,7 +196,11 @@ class GuardEngine(
     }
 
     private fun confirmPocket() {
-        if (phase != Phase.WAITING_FOR_POCKET || near != true || host.inCall()) return
+        if (phase != Phase.WAITING_FOR_POCKET || near != true) return
+        if (host.inCall()) {
+            host.schedule(Timer.CONFIRM_POCKET, CALL_RETRY_MS) // Pocketed again once the call ends.
+            return
+        }
         go(Phase.IN_POCKET)
         host.confirmBuzz()
         if (!host.isLocked()) host.schedule(Timer.AUTO_LOCK, AUTO_LOCK_DELAY_MS)
@@ -198,14 +214,24 @@ class GuardEngine(
             return
         }
         when (val evidence = removalEvidence()) {
-            Evidence.Confirmed -> warn(Trigger.POCKET_REMOVAL)
-            Evidence.None -> go(Phase.WAITING_FOR_POCKET)
+            is Evidence.Confirmed -> {
+                warn(Trigger.POCKET_REMOVAL)
+                confirmedByLight = evidence.byLight
+            }
+            Evidence.None -> {
+                val uncoveredFor = host.now() - (uncoveredAt ?: host.now())
+                if (uncoveredFor < EVIDENCE_WINDOW_MS) {
+                    host.schedule(Timer.CHECK_REMOVAL, RECHECK_MS) // A late reading may still settle it.
+                } else {
+                    go(Phase.WAITING_FOR_POCKET)
+                }
+            }
             is Evidence.WaitLonger -> host.schedule(Timer.CHECK_REMOVAL, evidence.ms)
         }
     }
 
     private sealed interface Evidence {
-        data object Confirmed : Evidence
+        data class Confirmed(val byLight: Boolean) : Evidence
         data object None : Evidence
         data class WaitLonger(val ms: Long) : Evidence
     }
@@ -218,12 +244,12 @@ class GuardEngine(
      * fabric flickering over the sensor while walking re-covers it quickly.
      */
     private fun removalEvidence(): Evidence {
-        if (!hasMotionSensor && !hasLightSensor) return Evidence.Confirmed
+        if (!hasMotionSensor && !hasLightSensor) return Evidence.Confirmed(byLight = false)
         val now = host.now()
         val inside = coveredLux
         val outside = uncoveredLux
         if (hasLightSensor && inside != null && outside != null) {
-            if (outside > maxOf(inside * 3f, inside + 10f)) return Evidence.Confirmed
+            if (outside > maxOf(inside * 3f, inside + 10f)) return Evidence.Confirmed(byLight = true)
             // A covered sensor reading a bright room is a stale repeat, not a pocket: ignore light.
             val insideTrustworthy = inside < STALE_COVERED_LUX
             if (insideTrustworthy && outside >= DARK_LUX) return Evidence.None
@@ -233,7 +259,7 @@ class GuardEngine(
         if (hasMotionSensor && !jolted) return Evidence.None
         val uncoveredFor = now - (uncoveredAt ?: now)
         return if (uncoveredFor >= UNCOVERED_CONFIRM_MS) {
-            Evidence.Confirmed
+            Evidence.Confirmed(byLight = false)
         } else {
             Evidence.WaitLonger(UNCOVERED_CONFIRM_MS - uncoveredFor)
         }

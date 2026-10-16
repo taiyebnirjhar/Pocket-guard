@@ -71,7 +71,7 @@
     <string name="emergency_test">পরীক্ষামূলক SMS পাঠান</string>
     <string name="emergency_no_numbers">আগে অন্তত একটি ফোন নম্বর দিন</string>
     <string name="emergency_no_sms_permission">আগে SMS-এর অনুমতি দিন</string>
-    <string name="emergency_test_sent">%1$d জনকে পরীক্ষামূলক SMS পাঠানো হয়েছে</string>
+    <string name="emergency_test_sent">%1$d জনের পরীক্ষামূলক SMS নেটওয়ার্কে পাঠানো হয়েছে</string>
     <string name="sms_owner_default">মালিক</string>
     <string name="sms_test_prefix">[TEST]</string>
     <string name="sms_alert">Pocket Guard সতর্কতা: %1$s-এর ফোন সম্ভবত চুরি হয়েছে (%2$s)। %3$s ব্যাটারি %4$d%%।</string>

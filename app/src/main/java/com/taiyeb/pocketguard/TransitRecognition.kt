@@ -62,7 +62,7 @@ class TransitReceiver : BroadcastReceiver() {
         try {
             GuardService.arm(context, auto = true)
         } catch (e: Exception) {
-            // Background start refused (battery optimization still on).
+            Notifications.showRearm(context) // Background start refused: battery optimization still on.
         }
     }
 }
@@ -80,7 +80,7 @@ class BootReceiver : BroadcastReceiver() {
         }
         if (Prefs.armed(context) && GuardState.phase.value == Phase.OFF) {
             try {
-                GuardService.arm(context)
+                GuardService.arm(context, auto = Prefs.autoArmed(context))
             } catch (e: Exception) {
                 Notifications.showRearm(context)
             }

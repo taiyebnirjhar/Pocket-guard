@@ -19,20 +19,27 @@ class GuardTileService : TileService() {
         super.onClick()
         if (GuardState.phase.value == Phase.OFF) {
             try {
-                if (!GuardService.arm(this)) openApp() // No secure lock screen: the app explains.
+                if (GuardService.arm(this)) {
+                    showOn(true) // The service updates the state shortly; show it right away.
+                } else {
+                    openApp() // No secure lock screen: the app explains.
+                }
             } catch (e: Exception) {
                 // Some Android versions refuse to start a foreground service from a tile; arm via the app.
                 openApp()
             }
         } else {
-            unlockAndRun { GuardService.disarm(this) }
+            unlockAndRun {
+                GuardService.disarm(this)
+                showOn(false)
+            }
         }
-        refresh()
     }
 
-    private fun refresh() {
+    private fun refresh() = showOn(GuardState.phase.value != Phase.OFF)
+
+    private fun showOn(on: Boolean) {
         val tile = qsTile ?: return
-        val on = GuardState.phase.value != Phase.OFF
         tile.state = if (on) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.app_name)
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(if (on) R.string.tile_on else R.string.tile_off)

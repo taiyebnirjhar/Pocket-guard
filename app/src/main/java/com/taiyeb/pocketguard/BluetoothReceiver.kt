@@ -61,11 +61,19 @@ class BluetoothReceiver : BroadcastReceiver() {
         if (intent.action != BluetoothDevice.ACTION_ACL_CONNECTED) return
         if (!Prefs.autoArmEarbuds(context) || GuardState.phase.value != Phase.OFF) return
         val device = IntentCompat.getParcelableExtra(intent, BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-        if (device == null || !counts(context, device)) return
+        if (device == null || !isPaired(device) || !counts(context, device)) return
         try {
             GuardService.arm(context, auto = true)
         } catch (e: Exception) {
-            // Background start refused (battery optimization still on).
+            Notifications.showRearm(context) // Background start refused: battery optimization still on.
         }
+    }
+
+    /** Only the user's own paired devices; another app could fake the broadcast with any device. */
+    @SuppressLint("MissingPermission")
+    private fun isPaired(device: BluetoothDevice) = try {
+        device.bondState == BluetoothDevice.BOND_BONDED
+    } catch (e: SecurityException) {
+        false
     }
 }
