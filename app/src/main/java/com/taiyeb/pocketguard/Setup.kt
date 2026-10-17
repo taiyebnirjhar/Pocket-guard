@@ -62,10 +62,19 @@ object SetupActions {
         )
     }
 
+    /**
+     * The GitHub build asks directly; the Play build may not hold that permission, so it opens the
+     * list where the user picks Pocket Guard and chooses "Don't optimise".
+     */
     @SuppressLint("BatteryLife")
     fun battery(context: Context) {
+        val list = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        if (BuildConfig.PLAY_STORE) {
+            open(context, list)
+            return
+        }
         val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri(context))
-        if (!open(context, direct)) open(context, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        if (!open(context, direct)) open(context, list)
     }
 
     fun fullScreen(context: Context) {

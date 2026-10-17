@@ -100,7 +100,7 @@ fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit) {
         if (!ok) SetupActions.notifications(context) // Denied before: only the settings screen can change it.
         localKey++
     }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { localKey++ }
+    val askCamera = rememberDisclosedPermission(R.string.disclose_camera, arrayOf(Manifest.permission.CAMERA)) { localKey++ }
 
     val act: (SetupStep) -> Unit = { step ->
         when (step.id) {
@@ -120,7 +120,7 @@ fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit) {
                 Prefs.setAutostartOpened(context)
                 SetupActions.autostart(context)
             }
-            "camera" -> cameraPermission.launch(Manifest.permission.CAMERA)
+            "camera" -> askCamera()
             "dnd" -> SetupActions.doNotDisturb(context)
         }
     }

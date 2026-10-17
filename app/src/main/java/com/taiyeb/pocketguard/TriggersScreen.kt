@@ -3,8 +3,6 @@ package com.taiyeb.pocketguard
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,27 +45,30 @@ fun TriggersScreen(refreshKey: Int) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
 
-    val bluetoothPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val activityPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok && Prefs.autoArmTransit(context)) TransitRecognition.enable(context)
-    }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { camera = it }
+    val askBluetoothPermission = rememberDisclosedPermission(
+        R.string.disclose_bluetooth, arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
+    )
+    val askActivity = rememberDisclosedPermission(
+        R.string.disclose_activity, arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
+    ) { ok -> if (ok && Prefs.autoArmTransit(context)) TransitRecognition.enable(context) }
+    val askCamera = rememberDisclosedPermission(R.string.disclose_camera, arrayOf(Manifest.permission.CAMERA)) { camera = it }
     var microphone by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
     var keysDisclosure by remember { mutableStateOf(false) }
     val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
-    val recordPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+    val askRecord = rememberDisclosedPermission(
+        R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+    ) {
         camera = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         microphone = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         // A running guard needs the microphone in its foreground type to record from the lock screen.
-        if (result.values.any { it }) GuardService.refreshForeground()
+        if (camera || microphone) GuardService.refreshForeground()
     }
-    val askRecord = { recordPermissions.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)) }
     val askBluetooth = {
         if (Build.VERSION.SDK_INT >= 31 && !setup.bluetoothPermission) {
-            bluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            askBluetoothPermission()
         }
     }
 
@@ -92,6 +93,7 @@ fun TriggersScreen(refreshKey: Int) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
                     if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off)) { keysDisclosure = true }
                     if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash)) { SosSetup.openSettings(context) }
+                    Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }
             }
@@ -156,13 +158,13 @@ fun TriggersScreen(refreshKey: Int) {
                 when {
                     !it -> TransitRecognition.disable(context)
                     setup.activityPermission -> TransitRecognition.enable(context)
-                    Build.VERSION.SDK_INT >= 29 -> activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                    Build.VERSION.SDK_INT >= 29 -> askActivity()
                     else -> Unit
                 }
             }
             if (autoTransit && !setup.activityPermission && Build.VERSION.SDK_INT >= 29) {
                 PermissionWarning(stringResource(R.string.permission_activity)) {
-                    activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                    askActivity()
                 }
             }
         }
@@ -182,10 +184,10 @@ fun TriggersScreen(refreshKey: Int) {
             ToggleRow(R.drawable.ic_camera, stringResource(R.string.emergency_photos), stringResource(R.string.emergency_photos_sub), photos) {
                 photos = it
                 Prefs.setIntruderPhotos(context, it)
-                if (it && !camera) cameraPermission.launch(Manifest.permission.CAMERA)
+                if (it && !camera) askCamera()
             }
             if (photos && !camera) {
-                PermissionWarning(stringResource(R.string.permission_camera)) { cameraPermission.launch(Manifest.permission.CAMERA) }
+                PermissionWarning(stringResource(R.string.permission_camera)) { askCamera() }
             }
         }
     }
