@@ -214,4 +214,37 @@
     <string name="disclose_activity">বাস বা ট্রেনে থাকলে গার্ড চালুর কথা মনে করাতে Pocket Guard শারীরিক কার্যকলাপ ব্যবহার করে, অ্যাপ বন্ধ থাকলেও। কিছুই জমা বা শেয়ার করা হয় না।</string>
     <string name="sos_other_ways">লক স্ক্রিন থেকেও: Pocket Guard নোটিফিকেশনের SOS বাটন, বা কুইক সেটিংসের SOS টাইল। স্ক্রিন বন্ধ থাকলে ফোনের নিজস্ব জরুরি SOS (পাওয়ার ৫ বার চাপুন) ব্যবহার করুন, যা ফোনের সেফটি সেটিংসে চালু করা যায়।</string>
     <string name="settings_privacy">গোপনীয়তা নীতি</string>
+    <string name="contacts_section">জরুরি যোগাযোগ</string>
+    <string name="contacts_title">SOS-এ SMS সতর্কতা</string>
+    <string name="contacts_sub">আপনি SOS চালু করলে এই মানুষেরা আপনার অবস্থানসহ একটি SMS পাবেন, ৫ সেকেন্ড পরে (বাতিল না করলে), আর আপনি সরে গেলে আপডেট।</string>
+    <string name="contacts_name">সতর্কতায় আপনার নাম</string>
+    <string name="contacts_add_pick">কন্টাক্ট থেকে যোগ করুন</string>
+    <string name="contacts_add_number">নম্বর যোগ করুন</string>
+    <string name="contacts_add">যোগ করুন</string>
+    <string name="contacts_contact_name">নাম</string>
+    <string name="contacts_number">ফোন নম্বর</string>
+    <string name="contacts_remove">সরান</string>
+    <string name="contacts_preview">তারা পাবেন:</string>
+    <string name="contacts_approve">অনুমোদন</string>
+    <string name="contacts_approved">অনুমোদিত: SOS চালু করলে %1$d জন এটি পাবেন।</string>
+    <string name="contacts_not_approved">বার্তা আর মানুষগুলো অনুমোদন না করা পর্যন্ত সতর্কতা বন্ধ। দেখতে চাপুন।</string>
+    <string name="contacts_need_name">আগে সতর্কতার জন্য আপনার নাম লিখুন।</string>
+    <string name="contacts_test">পরীক্ষামূলক পাঠান</string>
+    <string name="contacts_allow_location">অবস্থানের অনুমতি দিন</string>
+    <string name="contacts_confirm_title">SOS সতর্কতা অনুমোদন</string>
+    <string name="contacts_confirm">আপনি SOS চালু করলে Pocket Guard এই SMS পাঠাবে %1$s-কে, %3$d সেকেন্ড পরে (বাতিল না করলে), আর সরে গেলে একটি আপডেট:
+
+%2$s</string>
+    <string name="disclose_location">শুধু SOS চলার সময় আপনার জরুরি যোগাযোগদের সতর্কতায় অবস্থান দিতে Pocket Guard আপনার অবস্থান ব্যবহার করে, ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার বা জমা করা হয় না।</string>
+    <string name="disclose_location_sms">শুধু SOS চলার সময় Pocket Guard আপনার অবস্থান ব্যবহার করে, আর আপনার ফোন থেকে SMS-এ আপনার অনুমোদিত জরুরি যোগাযোগদের পাঠায়, ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার বা জমা করা হয় না।</string>
+    <string name="alert_countdown">%2$d সেকেন্ডে %1$s-কে সতর্ক করা হচ্ছে</string>
+    <string name="alert_cancel">সতর্কতা বাতিল</string>
+    <string name="alert_sent">%1$s-কে সতর্কতা পাঠানো হয়েছে</string>
+    <string name="alert_send_sms">আপনার যোগাযোগদের SMS পাঠান</string>
+    <string name="alert_whatsapp">হোয়াটসঅ্যাপে শেয়ার</string>
+    <string name="alert_text_sos">%1$s-এর সাহায্য দরকার! Pocket Guard থেকে SOS, %2$s-এ। অবস্থান: %3$s (%4$d মিটারের মধ্যে)</string>
+    <string name="alert_text_no_location">%1$s-এর সাহায্য দরকার! Pocket Guard থেকে SOS, %2$s-এ। অবস্থান এখনো পাওয়া যায়নি, আপডেট আসছে।</string>
+    <string name="alert_text_update">%1$s, %2$s-এ অবস্থান: %3$s</string>
+    <string name="alert_text_false">%1$s: ভুল সতর্কতা, আমি নিরাপদ। দুঃখিত!</string>
+    <string name="alert_text_test">Pocket Guard থেকে পরীক্ষা, কিছু হয়নি। একটি SOS সতর্কতা দেখতে এমন:</string>
 </resources>

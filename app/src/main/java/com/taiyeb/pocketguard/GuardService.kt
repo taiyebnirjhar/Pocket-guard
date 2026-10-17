@@ -99,6 +99,19 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         /** SOS from the tile or the app. False when the guard isn't armed (SOS needs it running). */
         fun requestSos(source: String): Boolean = instance?.sos(source) ?: false
 
+        /** "Cancel alerts" on the SOS alarm screen, during the countdown. */
+        fun cancelAlerts() {
+            instance?.alerts?.cancel()
+        }
+
+        /** Play build: the owner taps to send the prepared alert from the SMS app. */
+        fun sendAlertsByHand() {
+            instance?.alerts?.openSmsApp()
+        }
+
+        /** The latest alert text (for "Share on WhatsApp"), or null. */
+        fun alertText(): String? = instance?.alerts?.lastText
+
         /** "I'm the owner" on an SOS alarm started while the phone was unlocked: nothing to unlock. */
         fun ownerStopSos() {
             instance?.ownerStopSos()
@@ -347,7 +360,13 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (Build.VERSION.SDK_INT >= 30 && Prefs.sosButtons(this) && granted(Manifest.permission.RECORD_AUDIO)) {
             withMicrophone = withMicrophone or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
-        for (types in listOf(withMicrophone, withCamera, base).distinct()) {
+        // SOS alerts carry the location: read only while SOS runs, but declared from the start, since
+        // Android grants it only to a service started while the app was open.
+        var withLocation = withMicrophone
+        if (Build.VERSION.SDK_INT >= 30 && EmergencyContacts.approved(this) && SosAlerts.hasLocation(this)) {
+            withLocation = withLocation or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+        }
+        for (types in listOf(withLocation, withMicrophone, withCamera, base).distinct()) {
             try {
                 ServiceCompat.startForeground(this, Notifications.STATUS_ID, notification, types)
                 return true
@@ -491,6 +510,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     // --- SOS --------------------------------------------------------------------------------------
 
     private var tts: TextToSpeech? = null
+    private val alerts by lazy { SosAlerts(this, ::log) }
     private var sosPhrase = ""
 
     /** Logs what the SOS buttons can do now: the key watcher is the only way to see the keys. */
@@ -725,6 +745,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Phase.SIREN -> if (trigger == Trigger.SOS) {
                 Prefs.setAlarmActive(this, true)
                 alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
+                alerts.start()
                 Notifications.showAlarm(this)
                 recorder.escalate(trigger)
             } else {
@@ -746,6 +767,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 // Back to IN_POCKET: the pocket fabric flickered. Back to ON_TABLE: put back down.
                 val flicker = to == Phase.IN_POCKET || to == Phase.ON_TABLE
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
+                if (trigger == Trigger.SOS) alerts.stop()
                 GuardState.unlockStopsAlarm.value = true
             }
         }

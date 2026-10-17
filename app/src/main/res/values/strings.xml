@@ -215,4 +215,37 @@
     <string name="disclose_activity">Pocket Guard uses physical activity (being on a bus or train) to remind you to arm the guard, even when the app is closed. Nothing is stored or shared.</string>
     <string name="sos_other_ways">Also from the lock screen: the SOS button on the Pocket Guard notification, or the SOS tile in Quick Settings. With the screen off, use your phone\'s own Emergency SOS (press power 5 times), which you can set up in your phone\'s Safety settings.</string>
     <string name="settings_privacy">Privacy policy</string>
+    <string name="contacts_section">Emergency contacts</string>
+    <string name="contacts_title">SMS alerts on SOS</string>
+    <string name="contacts_sub">When you start SOS, these people get an SMS with your location, 5 s later unless you cancel, then updates if you move.</string>
+    <string name="contacts_name">Your name in alerts</string>
+    <string name="contacts_add_pick">Add from contacts</string>
+    <string name="contacts_add_number">Add a number</string>
+    <string name="contacts_add">Add</string>
+    <string name="contacts_contact_name">Name</string>
+    <string name="contacts_number">Phone number</string>
+    <string name="contacts_remove">Remove</string>
+    <string name="contacts_preview">They will get:</string>
+    <string name="contacts_approve">Approve</string>
+    <string name="contacts_approved">Approved: %1$d people get this when you start SOS.</string>
+    <string name="contacts_not_approved">Alerts are off until you approve the message and the people. Tap to review.</string>
+    <string name="contacts_need_name">Enter your name for the alert first.</string>
+    <string name="contacts_test">Send a test</string>
+    <string name="contacts_allow_location">Allow location</string>
+    <string name="contacts_confirm_title">Approve SOS alerts</string>
+    <string name="contacts_confirm">When you start SOS, Pocket Guard will send this SMS to %1$s, %3$d seconds later unless you cancel, and an update if you move:
+
+%2$s</string>
+    <string name="disclose_location">Pocket Guard uses your location only while SOS is running, to put it in the alerts to your emergency contacts, even when the phone is locked. It is not used at any other time and not stored.</string>
+    <string name="disclose_location_sms">Pocket Guard uses your location only while SOS is running, and sends it by SMS from your phone to the emergency contacts you approved, even when the phone is locked. It is not used at any other time and not stored.</string>
+    <string name="alert_countdown">Alerting %1$s in %2$d s</string>
+    <string name="alert_cancel">Cancel alerts</string>
+    <string name="alert_sent">Alert sent to %1$s</string>
+    <string name="alert_send_sms">Send SMS to your contacts</string>
+    <string name="alert_whatsapp">Share on WhatsApp</string>
+    <string name="alert_text_sos">%1$s needs help! SOS from Pocket Guard at %2$s. Location: %3$s (within %4$d m)</string>
+    <string name="alert_text_no_location">%1$s needs help! SOS from Pocket Guard at %2$s. Location not available yet, an update follows.</string>
+    <string name="alert_text_update">%1$s, location at %2$s: %3$s</string>
+    <string name="alert_text_false">%1$s: false alarm, I\'m safe. Sorry!</string>
+    <string name="alert_text_test">Test from Pocket Guard, nothing is wrong. An SOS alert would read:</string>
 </resources>

@@ -76,6 +76,45 @@ class AlarmActivity : ComponentActivity() {
     }
 }
 
+/** The SOS alerts: a countdown with Cancel, then who was told, or the tap the Play build needs. */
+@Composable
+private fun AlertStatus(alert: AlertUi) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Spacer(Modifier.height(16.dp))
+    when {
+        !alert.sent -> {
+            Text(
+                stringResource(R.string.alert_countdown, alert.names, alert.secondsLeft),
+                color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center,
+            )
+            androidx.compose.material3.TextButton(onClick = { GuardService.cancelAlerts() }) {
+                Text(stringResource(R.string.alert_cancel), color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+        alert.needsTap -> OutlinedButton(
+            onClick = { GuardService.sendAlertsByHand() },
+            shape = CircleShape,
+            border = BorderStroke(1.dp, Color.White),
+        ) { Text(stringResource(R.string.alert_send_sms), color = Color.White, fontWeight = FontWeight.Bold) }
+        else -> Text(stringResource(R.string.alert_sent, alert.names), color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+    }
+    if (alert.sent) {
+        androidx.compose.material3.TextButton(onClick = {
+            val text = GuardService.alertText() ?: return@TextButton
+            val whatsApp = SosAlerts.whatsAppIntent(text)
+            runCatching { context.startActivity(whatsApp) }.onFailure {
+                // No WhatsApp: any app that can send text.
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent.createChooser(whatsApp.setPackage(null), null)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
+        }) { Text(stringResource(R.string.alert_whatsapp), color = Color.White) }
+    }
+}
+
 @Composable
 private fun AlarmScreen(onOwner: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "flash")
@@ -117,6 +156,8 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text("● " + stringResource(R.string.alarm_help_recording), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
+        val alert by GuardState.alert.collectAsState()
+        alert?.let { AlertStatus(it) }
         val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
         if (!unlockStops) {
             Spacer(Modifier.height(16.dp))

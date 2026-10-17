@@ -4,4 +4,10 @@
 
     <!-- One tap to exempt the guard from battery optimisation (Play allows only listed uses). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- SOS alerts go out by SMS by themselves (Play allows this only with an approved exception). -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
 </manifest>
