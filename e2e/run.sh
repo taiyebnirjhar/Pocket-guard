@@ -291,6 +291,9 @@ screen_off
 reset_log
 for i in 1 2 3 4 5; do sh input keyevent KEYCODE_VOLUME_UP; sleep 0.25; done
 expect_log "phase=SIREN .*trigger=SOS" 6 "volume up five times sounds the SOS alarm"
+if ! grep -q "trigger=SOS" <<<"$(app_log)"; then
+  sh dumpsys media_session | sed -n '1,80p' | sed 's/^/    /'
+fi
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"

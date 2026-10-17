@@ -23,6 +23,8 @@ import android.view.KeyEvent
 class SosButtons(
     private val context: Context,
     private val log: (String) -> Unit,
+    /** The app's own warning or siren is sounding: that's not another app's media. */
+    private val ownSound: () -> Boolean,
     private val onSos: () -> Unit,
 ) {
     companion object {
@@ -45,6 +47,7 @@ class SosButtons(
 
     private val volume = object : VolumeProvider(VOLUME_CONTROL_RELATIVE, 100, 50) {
         override fun onAdjustVolume(direction: Int) {
+            if (direction != 0) log("SOS buttons: volume ${if (direction > 0) "up" else "down"}")
             // Volume works as always: pass the press on to whatever stream it would have moved.
             if (direction != 0) {
                 val flags = if (power.isInteractive) AudioManager.FLAG_SHOW_UI else 0
@@ -57,7 +60,7 @@ class SosButtons(
     /** Media from another app wants the keys: step aside until it stops. */
     private val mediaCheck = object : Runnable {
         override fun run() {
-            val busy = audio.isMusicActive
+            val busy = audio.isMusicActive && !ownSound()
             if (busy && !steppedAside) {
                 steppedAside = true
                 session?.isActive = false
@@ -88,7 +91,7 @@ class SosButtons(
                 return true
             }
         })
-        steppedAside = audio.isMusicActive
+        steppedAside = audio.isMusicActive && !ownSound()
         s.isActive = !steppedAside
         session = s
         handler.postDelayed(mediaCheck, MEDIA_CHECK_MS)

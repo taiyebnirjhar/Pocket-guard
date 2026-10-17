@@ -458,7 +458,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     fun updateSos() {
         val want = engine != null && Prefs.sosButtons(this)
         if (want && sos == null) {
-            sos = SosButtons(this, ::log) { engine?.onSos() }.also { it.start() }
+            sos = SosButtons(this, ::log, ownSound = { engine?.phase?.isAlarm == true }) { engine?.onSos() }.also { it.start() }
         } else if (!want && sos != null) {
             sos?.stop()
             sos = null
