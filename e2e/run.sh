@@ -301,6 +301,7 @@ unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the gentle-pull warning"
 still
 uncovered
+sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
 log "Scenario 7e: SOS, volume up pressed five times with the screen off"
 screen_off

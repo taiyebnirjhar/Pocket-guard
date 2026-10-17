@@ -26,7 +26,7 @@ import androidx.core.content.ContextCompat
  * would change nothing, so the volume is held one step below it while listening and restored
  * after. When another app plays media, the keys are that app's: presses still count, and the
  * volume is left where the owner puts it. Holding the key doesn't count: its repeats come faster
- * than any tap.
+ * than anyone taps.
  */
 class SosButtons(
     private val context: Context,
@@ -37,8 +37,12 @@ class SosButtons(
         const val PRESSES = 5
         const val WINDOW_MS = 3000L
 
-        /** Key repeats of a held button come every ~50 ms; taps are well apart. */
-        const val MIN_TAP_GAP_MS = 90L
+        /**
+         * A held button repeats ~20 times a second; nobody taps that fast. Three steps this close
+         * together is a hold, and it counts for nothing until the steps stop for [HOLD_QUIET_MS].
+         */
+        const val HOLD_SPAN_MS = 250L
+        const val HOLD_QUIET_MS = 500L
         private const val MEDIA_CHECK_MS = 2000L
         private const val SAMPLE_RATE = 8000
 
@@ -55,6 +59,7 @@ class SosButtons(
     private val taps = LongArray(PRESSES)
     private var tapCount = 0
     private var lastRaiseAt = Long.MIN_VALUE / 2
+    private var holding = false
     private var started = false
     private var listening = false
     private var silence: AudioTrack? = null
@@ -201,7 +206,9 @@ class SosButtons(
         val value = intent.getIntExtra(EXTRA_VALUE, -1)
         val prev = intent.getIntExtra(EXTRA_PREV, -1)
         val hold = holdAt
-        if (value > prev && (hold == null || prev == hold)) {
+        // Above the held volume is a press, even one that lands before the last was put back;
+        // putting it back never goes above it.
+        if (if (hold != null) value > hold else value > prev) {
             log("SOS buttons: volume up")
             onRaise()
         }
@@ -213,12 +220,15 @@ class SosButtons(
         val now = SystemClock.elapsedRealtime()
         val gap = now - lastRaiseAt
         lastRaiseAt = now
-        if (gap < MIN_TAP_GAP_MS) {
-            tapCount = 0 // Held down: not the pattern.
-            return
-        }
+        if (holding && gap < HOLD_QUIET_MS) return
+        holding = false
         taps[tapCount % PRESSES] = now
         tapCount++
+        if (tapCount >= 3 && now - taps[(tapCount - 3) % PRESSES] < HOLD_SPAN_MS) {
+            holding = true // Held down: not the pattern.
+            tapCount = 0
+            return
+        }
         if (tapCount >= PRESSES && now - taps[tapCount % PRESSES] <= WINDOW_MS) {
             tapCount = 0
             log("SOS: volume up ×$PRESSES")
