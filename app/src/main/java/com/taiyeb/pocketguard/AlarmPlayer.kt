@@ -18,7 +18,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import kotlin.math.roundToInt
 
-class AlarmPlayer(private val context: Context) {
+class AlarmPlayer(private val context: Context, private val log: (String) -> Unit = {}) {
 
     private val audio = context.getSystemService(AudioManager::class.java)
     private val camera = context.getSystemService(CameraManager::class.java)
@@ -37,14 +37,20 @@ class AlarmPlayer(private val context: Context) {
     private var savedMusicVolume: Int? = null
     private var savedAlarmVolume: Int? = null
     private var targetAlarmVolume = 0
+    private var volumeFought = false
     private var torchId: String? = null
     private var torchOn = false
 
     /** Puts the alarm volume back every 200 ms, so the volume buttons can't silence the siren. */
     private val volumeLock = object : Runnable {
         override fun run() {
-            if (audio.getStreamVolume(AudioManager.STREAM_ALARM) != targetAlarmVolume) {
+            val now = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+            if (now != targetAlarmVolume) {
                 setVolume(AudioManager.STREAM_ALARM, targetAlarmVolume)
+                if (!volumeFought) {
+                    volumeFought = true
+                    log("alarm volume lowered to $now (a button or the system), set back to $targetAlarmVolume")
+                }
             }
             handler.postDelayed(this, 200)
         }
@@ -113,6 +119,7 @@ class AlarmPlayer(private val context: Context) {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         saveAlarmVolume()
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
+        logVolume(quiet, max)
         handler.post(volumeLock)
         play(Tones.siren(), AudioAttributes.USAGE_ALARM)
         val pattern = VibrationEffect.createWaveform(longArrayOf(0, 600, 200), 0)
@@ -129,6 +136,7 @@ class AlarmPlayer(private val context: Context) {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         saveAlarmVolume()
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
+        logVolume(quiet, max)
         handler.post(volumeLock)
         play(Tones.sos(), AudioAttributes.USAGE_ALARM)
         handler.post(object : Runnable {
@@ -181,6 +189,11 @@ class AlarmPlayer(private val context: Context) {
             }
         }
         savedInterruptionFilter = null
+    }
+
+    private fun logVolume(quiet: Boolean, max: Int) {
+        volumeFought = false
+        log("alarm volume $targetAlarmVolume of $max" + if (quiet) " (test mode: quiet on purpose)" else "")
     }
 
     /** The volume to go back to: the one from before any siren, even one cut off by a restart. */

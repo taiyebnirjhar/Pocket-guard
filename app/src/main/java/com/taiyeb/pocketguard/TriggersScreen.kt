@@ -93,6 +93,13 @@ fun TriggersScreen(refreshKey: Int) {
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
                     if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { keysDisclosure = true }
+                    // Android 13+ greys out Accessibility for apps installed outside an app store
+                    // ("Controlled by restricted setting") until it's allowed in App info.
+                    if (!sosKeys && Build.VERSION.SDK_INT >= 33 && !BuildConfig.PLAY_STORE) {
+                        PermissionWarning(stringResource(R.string.sos_keys_restricted), stringResource(R.string.action_app_info)) {
+                            openAppSettings(context)
+                        }
+                    }
                     if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash), stringResource(R.string.action_open_settings)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
