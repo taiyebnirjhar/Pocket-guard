@@ -50,10 +50,11 @@ not a credential lock (an alarm that began without one already ignores the unloc
 test now measures swing to swing on each axis, so a test that starts mid-swing no longer halves
 the breathing it sees. SOS stays hidden in v1.4.0 while it moves to a two-key hold with recording.
 
-**Added in v1.5.0**: SOS is volume + and − held together for 3 s, seen by an optional
-accessibility key filter (no ordinary app receives volume keys with the screen off; the earlier
-remote-volume media session gets none on Android 13+, and volume-change broadcasts arrive late
-and merged). The SOS alarm records video with sound in one-minute pieces until the unlock.
+**Added in v1.5.0**: SOS is power pressed, then volume + and − held together for 3 s, seen by
+an opt-in accessibility key filter. With the screen off Android gives volume keys to no app:
+the remote-volume media session gets none on Android 13+, accessibility filters only see keys
+that would reach the screen, and reading volume steps over silent audio was dropped (it plays
+hidden audio and resets the volume, and could not time a hold). The SOS alarm records video with sound in one-minute pieces until the unlock.
 
 **Not yet** (later steps): the gyroscope, the edge-based owner check and display-state
 DisplayListener ranks, the call-state pause and charger watch, the hand (H) rules in shadow mode,

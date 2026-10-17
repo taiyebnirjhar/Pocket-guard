@@ -423,8 +423,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         sensorManager.unregisterListener(this)
         displayManager.unregisterDisplayListener(displayListener)
         handler.removeCallbacks(accelHealth)
-        sos?.stop()
-        sos = null
         tts?.shutdown()
         tts = null
         try {
@@ -469,30 +467,19 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     // --- SOS --------------------------------------------------------------------------------------
 
-    private var sos: SosButtons? = null
     private var tts: TextToSpeech? = null
     private var sosPhrase = ""
 
-    /**
-     * Starts or stops the SOS fallback to match the setting (armed only). With the key watcher on,
-     * it sees the keys themselves and the fallback isn't needed.
-     */
+    /** Logs what the SOS buttons can do now: the key watcher is the only way to see the keys. */
     fun updateSos() {
         val want = engine != null && Prefs.sosButtons(this)
-        val fallback = want && !SosAccessibilityService.connected
-        if (fallback && sos == null) {
-            sos = SosButtons(this, ::log) { sosHold("volume steps") }.also { it.start() }
-        } else if (!fallback && sos != null) {
-            sos?.stop()
-            sos = null
-        }
         if (want != sosWanted) {
             sosWanted = want
             log(
                 when {
                     !want -> "SOS off"
                     SosAccessibilityService.connected -> "SOS on: watching the volume keys"
-                    else -> "SOS on: reading the volume steps (key watcher off)"
+                    else -> "SOS on, but the key watcher is off: turn it on in Accessibility"
                 },
             )
         }

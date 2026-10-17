@@ -84,8 +84,8 @@ siren. Table mode can be switched off under Triggers.
 
 ## SOS: a call for help
 
-For harassment in a crowd: while the guard is armed and the phone locked, hold volume **+ and −
-together for 3 s** (screen off is fine, in a pocket by feel). A buzz confirms it, and at once:
+For harassment in a crowd: while the guard is armed and the phone locked, **press power, then
+hold volume + and − together for 3 s** (by feel, in a pocket works). A buzz confirms it, and at once:
 
 - the SOS alarm: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when
   the app shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with
@@ -98,8 +98,10 @@ private storage, out of the gallery. Recording people without consent is against
 some places.
 
 Setup (Triggers → SOS): allow Camera and Microphone, and turn on **Pocket Guard SOS buttons** in
-Accessibility. Only that lets an app see the volume keys with the screen off; it watches the
-volume keys and nothing else, and every key still works as usual. Holding + and − is also
+Accessibility (the app explains what it sees and asks first). It watches the volume keys and
+nothing else, and every key still works as usual. Why press power first: with the screen off,
+Android shows the volume keys to no app at all, accessibility included; the lock screen is
+enough. Android's own Emergency SOS (power pressed 5 times) works with the screen off too. Holding + and − is also
 Android's accessibility shortcut: by default it does nothing, but if a shortcut is assigned the
 app says so, since both would start. A short squeeze, one key held, or taps don't count.
 

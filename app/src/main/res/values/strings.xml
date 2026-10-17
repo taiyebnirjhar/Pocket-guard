@@ -183,9 +183,9 @@
     <string name="sos_speech">Help! Stop it! Help!</string>
     <string name="alarm_help">I NEED HELP</string>
     <string name="alarm_help_sub">This person called for help. Please stay with them, or call 999.</string>
-    <string name="triggers_sos">SOS: hold volume + and − together</string>
-    <string name="triggers_sos_sub">While armed and locked, hold both volume buttons for 3 s (the screen can be off): a loud whistle and a spoken call for help, and it records video with sound until you unlock.</string>
-    <string name="test_10">SOS: armed and locked, hold volume + and − together for 3 s: a buzz, a whistle and a spoken call for help, and recording starts. Unlock to stop; the video is in History.</string>
+    <string name="triggers_sos">SOS: press power, then hold volume + and −</string>
+    <string name="triggers_sos_sub">While armed and locked: press power to wake the screen, then hold both volume buttons for 3 s. A loud whistle and a spoken call for help, and it records video with sound until you unlock.</string>
+    <string name="test_10">SOS: armed and locked, press power, then hold volume + and − together for 3 s: a buzz, a whistle and a spoken call for help, and recording starts. Unlock to stop; the video is in History.</string>
     <string name="trigger_table">Picked up from the table</string>
     <string name="history_put_back">cancelled: put back down</string>
     <string name="triggers_table">Face-down on a table</string>
@@ -193,11 +193,14 @@
     <string name="test_9">On a table: lock it and lay it down (face-up or face-down). Two short buzzes: guarded (face-up about 1 s, face-down about 4 s). Slide, lift or tilt it: beeps after 1.5 s. Lift it and put it back down still: they stop.</string>
     <string name="sos_accessibility_label">Pocket Guard SOS buttons</string>
     <string name="sos_accessibility_description">Lets Pocket Guard see both volume buttons held together for 3 seconds, even with the screen off, to sound the SOS alarm. It only watches the volume buttons: it reads nothing on screen and every button works as usual.</string>
-    <string name="sos_keys_off">For reliable SOS with the screen off, turn on "Pocket Guard SOS buttons" in Accessibility.</string>
+    <string name="sos_keys_off">To use the SOS buttons, turn on "Pocket Guard SOS buttons" in Accessibility.</string>
     <string name="sos_shortcut_clash">Your phone\'s accessibility shortcut also uses volume + and − held. Turn the shortcut off, or SOS will open it too.</string>
     <string name="permission_sos_record">Recording needs the Camera and Microphone permissions.</string>
     <string name="sos_legal">Recording people without their consent is against the law in some places.</string>
     <string name="sos_recordings">Recordings</string>
     <string name="alarm_help_recording">Recording</string>
     <string name="history_share">Share</string>
+    <string name="sos_keys_disclosure_title">SOS buttons use Accessibility</string>
+    <string name="sos_keys_disclosure">Pocket Guard uses the Accessibility service to detect volume + and − held together for 3 seconds, to start the SOS alarm and recording, even on the lock screen and when the app is closed. It only watches the volume buttons: it does not read your screen, collect what you type, or change any settings, and the buttons keep working as usual. Nothing it sees leaves your phone. You can turn it off any time in Accessibility settings.</string>
+    <string name="sos_keys_agree">I agree, open settings</string>
 </resources>

@@ -11,9 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +56,7 @@ fun TriggersScreen(refreshKey: Int) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
+    var keysDisclosure by remember { mutableStateOf(false) }
     val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
     val recordPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         camera = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -86,7 +90,7 @@ fun TriggersScreen(refreshKey: Int) {
                 }
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
-                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off)) { SosSetup.openSettings(context) }
+                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off)) { keysDisclosure = true }
                     if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }
@@ -104,6 +108,29 @@ fun TriggersScreen(refreshKey: Int) {
                 Prefs.setEarbudsAlarm(context, it)
                 if (it) askBluetooth()
             }
+        }
+
+        if (keysDisclosure) {
+            // Play policy: what the accessibility service sees and why, and an explicit yes,
+            // before sending the user to turn it on.
+            AlertDialog(
+                onDismissRequest = { keysDisclosure = false },
+                title = { Text(stringResource(R.string.sos_keys_disclosure_title)) },
+                text = { Text(stringResource(R.string.sos_keys_disclosure)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        keysDisclosure = false
+                        SosSetup.openSettings(context)
+                    }) { Text(stringResource(R.string.sos_keys_agree), color = Purple, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { keysDisclosure = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
+                },
+                containerColor = CardColor,
+                titleContentColor = TextPrimary,
+                textContentColor = Muted,
+                shape = RoundedCornerShape(28.dp),
+            )
         }
 
         SectionLabel(stringResource(R.string.triggers_auto))

@@ -9,7 +9,7 @@ import android.os.Looper
 /**
  * Sees the volume keys themselves, screen on or off, which no ordinary app can: both held
  * together for [SosHold.HOLD_MS] is the SOS call. It only watches: every key still does what it
- * always does. Optional; without it [SosButtons] reads the hold from the volume steps instead.
+ * always does. It is opt-in, after the disclosure in Triggers; without it there is no SOS hold.
  */
 class SosAccessibilityService : AccessibilityService() {
 
