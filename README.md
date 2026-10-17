@@ -103,7 +103,11 @@ and "false alarm") and approve them with the list; any change asks again, includ
 language or switching the live link, and Home says when alerts are off for that reason. A number
 needs at least 6 digits. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
 screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
-SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The
+SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The SMS is
+always in English letters, English or Banglish (*"Taiyeb er shahajjo dorkar!…"*, picked on the
+contacts card), whatever language the app shows: one Bangla letter makes an SMS Unicode, which
+holds 70 characters a part instead of 160, so the alert with its two links would take 4 SMS
+instead of 2. The
 location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
 3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
 sends the SMS itself and resends one that didn't go (no signal), up to 5 tries; the Play build fills in the SMS app and you tap Send (Play allows sending

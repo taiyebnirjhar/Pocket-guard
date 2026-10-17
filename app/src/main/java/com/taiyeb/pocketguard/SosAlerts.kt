@@ -24,7 +24,6 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import java.text.DateFormat
 import java.util.Date
 
 /**
@@ -85,7 +84,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             val numbers = EmergencyContacts.numbers(context)
             val emails = EmergencyContacts.emails(context)
             if (numbers.isEmpty() && emails.isEmpty()) return false
-            val text = context.getString(R.string.alert_text_test) + "\n" + EmergencyContacts.previewText(context)
+            val text = EmergencyContacts.sms(context, R.string.alert_text_test) + "\n" + EmergencyContacts.previewText(context)
             if (numbers.isNotEmpty()) {
                 if (canSendSms(context)) {
                     numbers.forEach { runCatching { sendSms(context, it, text) } }
@@ -355,5 +354,5 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         runCatching { location.removeLocationUpdates(updates) }
     }
 
-    private fun timeNow() = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+    private fun timeNow() = EmergencyContacts.smsTime(Date())
 }

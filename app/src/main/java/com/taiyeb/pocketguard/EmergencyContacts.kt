@@ -1,6 +1,8 @@
 package com.taiyeb.pocketguard
 
 import android.content.Context
+import android.content.res.Configuration
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -64,7 +66,7 @@ object EmergencyContacts {
     private fun wording(context: Context) = listOf(
         R.string.alert_text_sos, R.string.alert_text_no_location, R.string.alert_text_update,
         R.string.alert_text_false, R.string.alert_text_live,
-    ).joinToString("|") { context.getString(it) }
+    ).joinToString("|") { sms(context, it) }
 
     fun approved(context: Context) = list(context).any { reachable(context, it) } && ownerName(context).isNotEmpty() &&
         prefs(context).getString(KEY_APPROVED, null) == fingerprint(context)
@@ -97,29 +99,65 @@ object EmergencyContacts {
 
     // --- The messages ----------------------------------------------------------------------------
 
+    /**
+     * The SMS words: English, or Bangla in English letters (Banglish), whatever language the app
+     * shows. One Bangla letter makes the whole SMS Unicode, which holds 70 characters a part
+     * instead of 160: an alert with its two links would be 4 SMS instead of 2.
+     */
+    enum class SmsLanguage { ENGLISH, BANGLISH }
+
+    private const val KEY_SMS_LANGUAGE = "sms_language"
+
+    fun smsLanguage(context: Context) =
+        if (prefs(context).getString(KEY_SMS_LANGUAGE, null) == "banglish") SmsLanguage.BANGLISH else SmsLanguage.ENGLISH
+
+    fun setSmsLanguage(context: Context, language: SmsLanguage) = prefs(context).edit()
+        .putString(KEY_SMS_LANGUAGE, if (language == SmsLanguage.BANGLISH) "banglish" else "en").apply()
+
+    private val banglish = mapOf(
+        R.string.alert_text_sos to R.string.alert_text_sos_banglish,
+        R.string.alert_text_no_location to R.string.alert_text_no_location_banglish,
+        R.string.alert_text_update to R.string.alert_text_update_banglish,
+        R.string.alert_text_false to R.string.alert_text_false_banglish,
+        R.string.alert_text_test to R.string.alert_text_test_banglish,
+        R.string.alert_text_live to R.string.alert_text_live_banglish,
+    )
+
+    /** An SMS text, from resources read in English so numbers stay in English digits too. */
+    fun sms(context: Context, id: Int, vararg args: Any): String {
+        val config = Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
+        val english = context.createConfigurationContext(config)
+        val chosen = if (smsLanguage(context) == SmsLanguage.BANGLISH) banglish[id] ?: id else id
+        return english.getString(chosen, *args)
+    }
+
+    /** The time an SMS says, in English digits. */
+    fun smsTime(time: java.util.Date = java.util.Date()): String =
+        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, Locale.ENGLISH).format(time)
+
     fun sosText(context: Context, time: String, lat: Double?, lng: Double?, accuracy: Float?, live: String? = null): String {
         val name = ownerName(context)
         val text = if (lat != null && lng != null) {
-            context.getString(R.string.alert_text_sos, name, time, AlertPlan.mapLink(lat, lng), (accuracy ?: 0f).toInt())
+            sms(context, R.string.alert_text_sos, name, time, AlertPlan.mapLink(lat, lng), (accuracy ?: 0f).toInt())
         } else {
-            context.getString(R.string.alert_text_no_location, name, time)
+            sms(context, R.string.alert_text_no_location, name, time)
         }
         return if (live != null) text + "\n" + liveText(context, live) else text
     }
 
-    fun liveText(context: Context, link: String) = context.getString(R.string.alert_text_live, link)
+    fun liveText(context: Context, link: String) = sms(context, R.string.alert_text_live, link)
 
     fun updateText(context: Context, time: String, lat: Double, lng: Double) =
-        context.getString(R.string.alert_text_update, ownerName(context), time, AlertPlan.mapLink(lat, lng))
+        sms(context, R.string.alert_text_update, ownerName(context), time, AlertPlan.mapLink(lat, lng))
 
-    fun falseAlarmText(context: Context) = context.getString(R.string.alert_text_false, ownerName(context))
+    fun falseAlarmText(context: Context) = sms(context, R.string.alert_text_false, ownerName(context))
 
     fun previewUpdateText(context: Context) =
-        context.getString(R.string.alert_text_update, ownerName(context).ifEmpty { "…" }, "14:07", "https://maps.google.com/?q=…")
+        sms(context, R.string.alert_text_update, ownerName(context).ifEmpty { "…" }, "2:07 PM", "https://maps.google.com/?q=…")
 
     /** What the approval screen shows: the alert as it would read now, without a real location. */
     fun previewText(context: Context): String {
-        val text = context.getString(R.string.alert_text_sos, ownerName(context).ifEmpty { "…" }, "14:05", "https://maps.google.com/?q=…", 10)
+        val text = sms(context, R.string.alert_text_sos, ownerName(context).ifEmpty { "…" }, "2:05 PM", "https://maps.google.com/?q=…", 10)
         return if (Backend.enabled(context)) text + "\n" + liveText(context, Backend.liveLink(context, "…")) else text
     }
 }

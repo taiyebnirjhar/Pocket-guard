@@ -254,6 +254,10 @@
     <string name="contacts_not_approved">Alerts are off until you approve the message and the people. Tap to review.</string>
     <string name="contacts_none_reachable">Nobody here can get an alert yet: add a phone number (or an email address with online features on).</string>
     <string name="contacts_need_name">Enter your name for the alert first.</string>
+    <string name="contacts_sms_language">SMS language</string>
+    <string name="contacts_sms_language_why">In English letters: Bangla letters make every SMS part hold less than half as much, so each alert would cost twice the SMS.</string>
+    <string name="sms_english">English</string>
+    <string name="sms_banglish">Banglish</string>
     <string name="contacts_test">Send a test</string>
     <string name="contacts_allow_location">Allow location</string>
     <string name="contacts_confirm_title">Approve SOS alerts</string>
@@ -267,12 +271,19 @@
     <string name="alert_sent">Alert sent to %1$s</string>
     <string name="alert_send_sms">Send SMS to your contacts</string>
     <string name="alert_whatsapp">Share on WhatsApp</string>
-    <string name="alert_text_sos">%1$s needs help! SOS from Pocket Guard at %2$s. Location: %3$s (within %4$d m)</string>
-    <string name="alert_text_no_location">%1$s needs help! SOS from Pocket Guard at %2$s. Location not available yet, an update follows.</string>
-    <string name="alert_text_update">%1$s, location at %2$s: %3$s</string>
-    <string name="alert_text_false">%1$s: false alarm, I\'m safe. Sorry!</string>
-    <string name="alert_text_test">Test from Pocket Guard, nothing is wrong. An SOS alert would read:</string>
-    <string name="alert_text_live">Live location: %1$s</string>
+    <string name="alert_text_sos" translatable="false">%1$s needs help! SOS from Pocket Guard at %2$s. Location: %3$s (within %4$d m)</string>
+    <string name="alert_text_no_location" translatable="false">%1$s needs help! SOS from Pocket Guard at %2$s. Location not available yet, an update follows.</string>
+    <string name="alert_text_update" translatable="false">%1$s, location at %2$s: %3$s</string>
+    <string name="alert_text_false" translatable="false">%1$s: false alarm, I\'m safe. Sorry!</string>
+    <string name="alert_text_test" translatable="false">Test from Pocket Guard, nothing is wrong. An SOS alert would read:</string>
+    <string name="alert_text_live" translatable="false">Live location: %1$s</string>
+    <!-- SMS texts are sent in English letters only (see EmergencyContacts.sms). -->
+    <string name="alert_text_sos_banglish" translatable="false">%1$s er shahajjo dorkar! Pocket Guard theke SOS, %2$s. Location: %3$s (%4$d m er moddhe)</string>
+    <string name="alert_text_no_location_banglish" translatable="false">%1$s er shahajjo dorkar! Pocket Guard theke SOS, %2$s. Location ekhono pawa jayni, update ashche.</string>
+    <string name="alert_text_update_banglish" translatable="false">%1$s, %2$s e location: %3$s</string>
+    <string name="alert_text_false_banglish" translatable="false">%1$s: bhul alarm, ami nirapod. Dukkhito!</string>
+    <string name="alert_text_test_banglish" translatable="false">Pocket Guard theke test, kichu hoyni. Ashol SOS alert emon hobe:</string>
+    <string name="alert_text_live_banglish" translatable="false">Live location: %1$s</string>
     <string name="contacts_email">Email (optional)</string>
     <string name="contacts_edit">Edit contact</string>
     <string name="contacts_save">Save</string>

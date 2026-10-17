@@ -253,6 +253,10 @@
     <string name="contacts_not_approved">বার্তা আর মানুষগুলো অনুমোদন না করা পর্যন্ত সতর্কতা বন্ধ। দেখতে চাপুন।</string>
     <string name="contacts_none_reachable">এখনো কেউ সতর্কতা পাবেন না: একটি ফোন নম্বর যোগ করুন (অথবা অনলাইন সুবিধা চালু থাকলে একটি ইমেইল ঠিকানা)।</string>
     <string name="contacts_need_name">আগে সতর্কতার জন্য আপনার নাম লিখুন।</string>
+    <string name="contacts_sms_language">SMS-এর ভাষা</string>
+    <string name="contacts_sms_language_why">ইংরেজি অক্ষরে: বাংলা অক্ষর থাকলে প্রতিটি SMS অংশে অর্ধেকেরও কম লেখা ধরে, তাই প্রতিটি সতর্কতায় দ্বিগুণ SMS লাগত।</string>
+    <string name="sms_english">English</string>
+    <string name="sms_banglish">Banglish</string>
     <string name="contacts_test">পরীক্ষামূলক পাঠান</string>
     <string name="contacts_allow_location">অবস্থানের অনুমতি দিন</string>
     <string name="contacts_confirm_title">SOS সতর্কতা অনুমোদন</string>
@@ -266,12 +270,6 @@
     <string name="alert_sent">%1$s-কে সতর্কতা পাঠানো হয়েছে</string>
     <string name="alert_send_sms">আপনার যোগাযোগদের SMS পাঠান</string>
     <string name="alert_whatsapp">হোয়াটসঅ্যাপে শেয়ার</string>
-    <string name="alert_text_sos">%1$s-এর সাহায্য দরকার! Pocket Guard থেকে SOS, %2$s-এ। অবস্থান: %3$s (%4$d মিটারের মধ্যে)</string>
-    <string name="alert_text_no_location">%1$s-এর সাহায্য দরকার! Pocket Guard থেকে SOS, %2$s-এ। অবস্থান এখনো পাওয়া যায়নি, আপডেট আসছে।</string>
-    <string name="alert_text_update">%1$s, %2$s-এ অবস্থান: %3$s</string>
-    <string name="alert_text_false">%1$s: ভুল সতর্কতা, আমি নিরাপদ। দুঃখিত!</string>
-    <string name="alert_text_test">Pocket Guard থেকে পরীক্ষা, কিছু হয়নি। একটি SOS সতর্কতা দেখতে এমন:</string>
-    <string name="alert_text_live">সরাসরি অবস্থান: %1$s</string>
     <string name="contacts_email">ইমেইল (ঐচ্ছিক)</string>
     <string name="contacts_edit">যোগাযোগ বদলান</string>
     <string name="contacts_save">সংরক্ষণ</string>
