@@ -305,21 +305,22 @@ sleep 2 # The new pose settles before locking: lying still and locked, it guards
 
 log "Scenario 7e: SOS, volume + and - held together for 3 s with the screen off"
 A11Y="$PKG/.SosAccessibilityService"
-hold_both() { sh input keycombination -t "$1" KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN; }
+# Real hardware key events through the emulator console: accessibility key filters never see
+# keys injected with "adb shell input" (those count as already filtered).
+hw_key() { emu event send "EV_KEY:$1:$2" EV_SYN:SYN_REPORT:0 >/dev/null; }
+hold_both() {
+  hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
+  sleep "$(awk "BEGIN { print $1 / 1000 }")"
+  hw_key KEY_VOLUMEDOWN 0; hw_key KEY_VOLUMEUP 0
+}
 reset_log
 sh settings put secure enabled_accessibility_services "$A11Y"
 sh settings put secure accessibility_enabled 1
 expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) connects"
-# Diagnostics: what reaches the key watcher, screen on and off, single keys and the combination.
-watcher_saw() { app_log | grep -c "SOS key watcher: KEYCODE_VOLUME" ; }
-sh input keyevent KEYCODE_WAKEUP; sleep 1
-reset_log; sh input keyevent KEYCODE_VOLUME_UP; sleep 1; log "  diag: screen on, one key: watcher saw $(watcher_saw)"
-reset_log; log "  diag: keycombination says: $(sh input keycombination -t 1000 KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN 2>&1 | head -n 3)"; sleep 1
-log "  diag: screen on, both keys: watcher saw $(watcher_saw)"
+watcher_saw() { app_log | grep -c "SOS key watcher: KEYCODE_VOLUME"; }
 screen_off
-reset_log; sh input keyevent KEYCODE_VOLUME_UP; sleep 1; log "  diag: screen off, one key: watcher saw $(watcher_saw)"
-reset_log; sh input keycombination -t 1000 KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN; sleep 1; log "  diag: screen off, both keys: watcher saw $(watcher_saw)"
-adb logcat -d | grep -iE "AccessibilityInputFilter|KeyCombinationManager|interceptKeyBeforeQueueing" | tail -n 10 | sed 's/^/    /'
+reset_log; hw_key KEY_VOLUMEUP 1; hw_key KEY_VOLUMEUP 0; sleep 1
+log "  diag: screen off, one hardware key: watcher saw $(watcher_saw) events"
 screen_off
 reset_log
 hold_both 800
