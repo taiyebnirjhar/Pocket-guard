@@ -17,7 +17,11 @@ import android.hardware.display.DisplayManager
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -76,6 +80,11 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 .putExtra(EXTRA_AUTO, auto)
             ContextCompat.startForegroundService(context, intent)
             return true
+        }
+
+        /** The SOS setting changed: apply it to a running guard. */
+        fun refreshSos() {
+            instance?.updateSos()
         }
 
         fun disarm(context: Context) {
@@ -355,6 +364,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 ", table guard " + (if (Prefs.tableGuard(this)) "on" else "off") +
                 ", delay ${Prefs.graceSeconds(this)} s",
         )
+        updateSos()
+        tts = TextToSpeech(this) { status -> if (status == TextToSpeech.SUCCESS) setUpSpeech() }
         accelCount = 0
         lastAccelRate = -1
         handler.removeCallbacks(accelHealth)
@@ -393,6 +404,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         sensorManager.unregisterListener(this)
         displayManager.unregisterDisplayListener(displayListener)
         handler.removeCallbacks(accelHealth)
+        sos?.stop()
+        sos = null
+        tts?.shutdown()
+        tts = null
         try {
             unregisterReceiver(eventReceiver)
         } catch (e: IllegalArgumentException) {
@@ -432,6 +447,46 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    // --- SOS --------------------------------------------------------------------------------------
+
+    private var sos: SosButtons? = null
+    private var tts: TextToSpeech? = null
+    private var sosPhrase = ""
+
+    /** Starts or stops the SOS buttons to match the setting (armed only). */
+    fun updateSos() {
+        val want = engine != null && Prefs.sosButtons(this)
+        if (want && sos == null) {
+            sos = SosButtons(this, ::log) { engine?.onSos() }.also { it.start() }
+        } else if (!want && sos != null) {
+            sos?.stop()
+            sos = null
+            log("SOS buttons off")
+        }
+    }
+
+    /** The call for help is spoken on the alarm stream, in Bangla when the app shows Bangla and a voice exists. */
+    private fun setUpSpeech() {
+        val engine = tts ?: return
+        engine.setAudioAttributes(
+            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
+        )
+        val bangla = Locale.forLanguageTag("bn-BD")
+        val wantsBangla = (Language.current(this) ?: Locale.getDefault().language) == "bn"
+        val useBangla = wantsBangla && engine.isLanguageAvailable(bangla) >= TextToSpeech.LANG_AVAILABLE
+        engine.language = if (useBangla) bangla else Locale.US
+        engine.setSpeechRate(0.9f)
+        sosPhrase = if (useBangla) getString(R.string.sos_speech) else "Help! Stop it! Help!"
+    }
+
+    private fun speakSos() {
+        val engine = tts ?: return
+        if (sosPhrase.isEmpty()) return
+        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f) }
+        engine.speak(sosPhrase, TextToSpeech.QUEUE_FLUSH, params, "sos")
+    }
 
     private var accelCount = 0
     private var lastAccelRate = -1
@@ -582,6 +637,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             handler.postDelayed(unlockPoll, 1000)
         }
         GuardState.phase.value = to
+        GuardState.alarmTrigger.value = if (to.isAlarm) trigger else null
         when (to) {
             Phase.WARNING -> {
                 // Lifted off a table or turned to look: likely the owner's own glance, so a moment
@@ -592,7 +648,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 )
                 trigger?.let(recorder::begin)
             }
-            Phase.SIREN -> {
+            Phase.SIREN -> if (trigger == Trigger.SOS) {
+                Prefs.setAlarmActive(this, true)
+                alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
+                Notifications.showAlarm(this)
+                recorder.escalate(trigger)
+            } else {
                 Prefs.setAlarmActive(this, true)
                 // On the table it may still be put back down; its own buzzing would prevent that, so
                 // a table siren buzzes only once the phone can no longer be put back.

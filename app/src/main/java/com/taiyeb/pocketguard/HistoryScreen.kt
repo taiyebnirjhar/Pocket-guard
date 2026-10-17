@@ -88,6 +88,7 @@ private fun Trigger.icon() = when (this) {
     Trigger.EARBUDS_DISCONNECTED -> R.drawable.ic_headset
     Trigger.RESTARTED, Trigger.POWER_MENU -> R.drawable.ic_power
     Trigger.TABLE_MOVED -> R.drawable.ic_pocket
+    Trigger.SOS -> R.drawable.ic_vibration
 }
 
 @Composable

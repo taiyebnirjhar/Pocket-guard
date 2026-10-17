@@ -301,6 +301,15 @@ class GuardEngine(
         if (near == true) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
     }
 
+    /**
+     * The owner called for help (the SOS buttons): the SOS alarm at once, from any armed state,
+     * with no warning first. Unlocking stops it, as for any alarm.
+     */
+    fun onSos() {
+        if (phase == Phase.OFF || (phase == Phase.SIREN && trigger == Trigger.SOS)) return
+        siren(Trigger.SOS)
+    }
+
     /** Restores an alarm that was running when the phone restarted or the app was killed. */
     fun resumeAlarm() {
         if (phase == Phase.OFF) return

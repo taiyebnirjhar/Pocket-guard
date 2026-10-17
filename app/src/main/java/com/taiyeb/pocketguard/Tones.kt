@@ -24,6 +24,27 @@ object Tones {
         return out
     }
 
+    /**
+     * The SOS sound, unlike the theft siren: 1.2 s of a shrill whistle trill (about 3 kHz,
+     * warbling 25 times a second, like a referee's whistle), then 1.8 s of silence for the
+     * spoken call for help. Looped every [SOS_PERIOD_MS].
+     */
+    const val SOS_PERIOD_MS = 3000L
+    const val SOS_WHISTLE_MS = 1200L
+
+    fun sos(): ShortArray {
+        val out = ShortArray((SAMPLE_RATE * SOS_PERIOD_MS / 1000).toInt())
+        val whistle = (SAMPLE_RATE * SOS_WHISTLE_MS / 1000).toInt()
+        var phase = 0.0
+        for (n in 0 until whistle) {
+            val t = n.toDouble() / SAMPLE_RATE
+            phase += 2 * PI * (3000 + 250 * sin(2 * PI * 25 * t)) / SAMPLE_RATE
+            val fade = minOf(1.0, n / 400.0, (whistle - n) / 400.0)
+            out[n] = (sin(phase) * 0.95 * fade * Short.MAX_VALUE).toInt().toShort()
+        }
+        return out
+    }
+
     /** One second of a harsh up-and-down sweep; looped for the siren. */
     fun siren(): ShortArray {
         val length = SAMPLE_RATE

@@ -33,6 +33,13 @@
         android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION"
         android:maxSdkVersion="28" />
 
+    <!-- The SOS alarm speaks its call for help with the phone's text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

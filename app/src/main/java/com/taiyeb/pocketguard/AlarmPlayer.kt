@@ -119,6 +119,27 @@ class AlarmPlayer(context: Context) {
         if (vibrateAfterMs > 0) handler.postDelayed({ vibrate(pattern) }, vibrateAfterMs) else vibrate(pattern)
     }
 
+    /**
+     * The SOS alarm, which sounds unlike the theft siren: a whistle trill and, in its pauses,
+     * [speak] (a spoken call for help), on the alarm stream at full volume through silent mode.
+     */
+    fun startSos(quiet: Boolean, speak: () -> Unit) {
+        stop()
+        overrideDoNotDisturb()
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+        savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
+        handler.post(volumeLock)
+        play(Tones.sos(), AudioAttributes.USAGE_ALARM)
+        handler.post(object : Runnable {
+            override fun run() {
+                handler.postDelayed({ speak() }, Tones.SOS_WHISTLE_MS + 50)
+                handler.postDelayed(this, Tones.SOS_PERIOD_MS)
+            }
+        })
+        vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 200), 0))
+    }
+
     /** Torch strobe. Started separately because the intruder photo needs the camera first. */
     fun startTorch() {
         if (torchId != null) return

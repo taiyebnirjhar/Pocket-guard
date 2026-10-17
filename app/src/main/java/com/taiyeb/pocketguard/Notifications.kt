@@ -124,8 +124,9 @@ object Notifications {
             .setOngoing(true)
             .setFullScreenIntent(pending, true)
             .setContentIntent(pending)
-        builder.setContentTitle(context.getString(R.string.phase_siren))
-            .setContentText(context.getString(R.string.phase_siren_hint))
+        val sos = GuardState.alarmTrigger.value == Trigger.SOS
+        builder.setContentTitle(context.getString(if (sos) R.string.sos_title else R.string.phase_siren))
+            .setContentText(context.getString(if (sos) R.string.alarm_help_sub else R.string.phase_siren_hint))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         context.getSystemService(NotificationManager::class.java).notify(ALARM_ID, builder.build())
         try {

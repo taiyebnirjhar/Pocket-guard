@@ -43,6 +43,9 @@ enum class Trigger {
 
     /** Lifted, tilted or pushed off the table it lay face-down on. */
     TABLE_MOVED,
+
+    /** The owner called for help: volume up pressed five times quickly. */
+    SOS,
 }
 
 object GuardState {
@@ -56,4 +59,7 @@ object GuardState {
      * delay, Smart Lock): then unlocking proves nothing and only DISARM in the app stops it.
      */
     val unlockStopsAlarm = MutableStateFlow(true)
+
+    /** What the running alarm is for (null when none), so the alarm screen can say the right thing. */
+    val alarmTrigger = MutableStateFlow<Trigger?>(null)
 }

@@ -87,6 +87,10 @@ object Prefs {
 
     fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
 
+    /** SOS: volume up five times quickly sounds a call for help, while armed. */
+    fun sosButtons(context: Context) = get(context, "sos_buttons", true)
+    fun setSosButtons(context: Context, value: Boolean) = put(context, "sos_buttons", value)
+
     /** Guard a phone lying face-down on a table, not only one in a pocket. */
     fun tableGuard(context: Context) = get(context, "table_guard", true)
     fun setTableGuard(context: Context, value: Boolean) = put(context, "table_guard", value)

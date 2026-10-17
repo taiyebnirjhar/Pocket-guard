@@ -39,6 +39,7 @@ fun TriggersScreen(refreshKey: Int) {
     var autoTransit by remember { mutableStateOf(Prefs.autoArmTransit(context)) }
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
     var tableGuard by remember { mutableStateOf(Prefs.tableGuard(context)) }
+    var sosButtons by remember { mutableStateOf(Prefs.sosButtons(context)) }
     var camera by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -63,6 +64,11 @@ fun TriggersScreen(refreshKey: Int) {
             ToggleRow(R.drawable.ic_shield, stringResource(R.string.triggers_table), stringResource(R.string.triggers_table_sub), tableGuard) {
                 tableGuard = it
                 Prefs.setTableGuard(context, it)
+            }
+            ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
+                sosButtons = it
+                Prefs.setSosButtons(context, it)
+                GuardService.refreshSos()
             }
             ToggleRow(R.drawable.ic_flight, stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
                 airplane = it

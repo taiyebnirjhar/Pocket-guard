@@ -77,6 +77,20 @@ still within the grace period, the warning stops by itself (3 times per 10 min a
 warns until you unlock. With no delay set, a table pick-up still gets these 1.5 s before the
 siren. Table mode can be switched off under Triggers.
 
+## SOS: a call for help
+
+For harassment in a crowd: while the guard is armed, press **volume up 5 times within 3 s**
+(screen on or off, in a pocket by feel). The phone sounds the SOS alarm at once, unlike the theft
+siren: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when the app
+shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with the
+screen showing "I NEED HELP". Unlock to stop it; it is saved in History.
+
+It doesn't get in the way of the phone: each press still changes the volume as usual, holding the
+button doesn't count, calls are untouched, and it avoids the system's own button shortcuts (both
+volume keys held is Android's accessibility shortcut; volume down twice opens the camera on many
+phones). While another app plays music, that app owns the volume keys and SOS can't hear them;
+earbud play/pause is passed on to your music app. Switch it off under Triggers.
+
 ## Setup requirement: the phone must lock immediately
 
 A phone pocketed with the screen just turned off, but not yet locked, would let a thief pass as

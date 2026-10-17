@@ -583,4 +583,23 @@ class GuardEngineTest {
         host.advance(GuardEngine.CALL_RETRY_MS)
         assertEquals(Phase.IN_POCKET, engine.phase)
     }
+
+    @Test
+    fun sosSirensAtOnceFromAnyArmedState() {
+        engine.onSos()
+        assertEquals(Phase.SIREN, engine.phase)
+        assertEquals(Trigger.SOS, host.transitions.last().third)
+        engine.onOwnerUnlocked()
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        pocket()
+        engine.onSos()
+        assertEquals(Triple(Phase.IN_POCKET, Phase.SIREN, Trigger.SOS), host.transitions.last())
+    }
+
+    @Test
+    fun sosDoesNothingWhileOff() {
+        engine.disarm()
+        engine.onSos()
+        assertEquals(Phase.OFF, engine.phase)
+    }
 }

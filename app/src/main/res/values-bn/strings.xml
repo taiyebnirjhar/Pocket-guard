@@ -177,6 +177,14 @@
     <string name="phase_on_table">টেবিলে সুরক্ষিত</string>
     <string name="phase_on_table_hint">তুললে, কাত করলে বা ঠেলে ফেললে সতর্ক করবে। তোলার সময় আনলক করুন।</string>
     <string name="status_on_table">টেবিলে</string>
+    <string name="trigger_sos">SOS: আপনি সাহায্য চেয়েছেন</string>
+    <string name="sos_title">SOS অ্যালার্ম</string>
+    <string name="sos_speech">বাঁচাও! থামো! বাঁচাও!</string>
+    <string name="alarm_help">আমার সাহায্য দরকার</string>
+    <string name="alarm_help_sub">এই ব্যক্তি সাহায্য চেয়েছেন। অনুগ্রহ করে পাশে থাকুন, বা ৯৯৯-এ কল করুন।</string>
+    <string name="triggers_sos">SOS: ভলিউম আপ ৫ বার</string>
+    <string name="triggers_sos_sub">গার্ড চালু থাকলে দ্রুত ৫ বার ভলিউম আপ চাপুন (স্ক্রিন বন্ধ থাকলেও): জোরে বাঁশি আর মুখে সাহায্যের ডাক। ভলিউম আগের মতোই কাজ করবে। থামাতে আনলক করুন।</string>
+    <string name="test_10">SOS: গার্ড চালু অবস্থায় ৩ সেকেন্ডের মধ্যে ৫ বার ভলিউম আপ চাপুন: বাঁশি আর মুখে সাহায্যের ডাক। থামাতে আনলক করুন।</string>
     <string name="trigger_table">টেবিল থেকে তোলা হয়েছে</string>
     <string name="history_put_back">বাতিল: আবার নামিয়ে রাখা হয়েছে</string>
     <string name="triggers_table">টেবিলে উপুড় করে রাখা</string>

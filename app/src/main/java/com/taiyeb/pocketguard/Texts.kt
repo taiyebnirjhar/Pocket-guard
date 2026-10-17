@@ -42,4 +42,5 @@ fun Trigger.labelRes() = when (this) {
     Trigger.RESTARTED -> R.string.trigger_restarted
     Trigger.POWER_MENU -> R.string.trigger_power_menu
     Trigger.TABLE_MOVED -> R.string.trigger_table
+    Trigger.SOS -> R.string.trigger_sos
 }

@@ -83,10 +83,11 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("🚨", fontSize = 96.sp)
+        val sos = GuardState.alarmTrigger.collectAsState().value == Trigger.SOS
+        Text(if (sos) "🆘" else "🚨", fontSize = 96.sp)
         Spacer(Modifier.height(16.dp))
         Text(
-            stringResource(R.string.alarm_stolen),
+            stringResource(if (sos) R.string.alarm_help else R.string.alarm_stolen),
             color = Color.White,
             fontSize = 36.sp,
             lineHeight = 42.sp,
@@ -95,7 +96,7 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            stringResource(R.string.alarm_return),
+            stringResource(if (sos) R.string.alarm_help_sub else R.string.alarm_return),
             color = Color.White,
             fontSize = 20.sp,
             textAlign = TextAlign.Center,

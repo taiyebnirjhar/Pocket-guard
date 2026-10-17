@@ -286,6 +286,15 @@ expect_phase WAITING_FOR_POCKET 6 "unlock after the gentle-pull warning"
 still
 uncovered
 
+log "Scenario 7e: SOS, volume up pressed five times with the screen off"
+screen_off
+reset_log
+for i in 1 2 3 4 5; do sh input keyevent KEYCODE_VOLUME_UP; sleep 0.25; done
+expect_log "phase=SIREN .*trigger=SOS" 6 "volume up five times sounds the SOS alarm"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+
 # --- 6. Setup requirement: the phone must lock immediately ----------------------------------------
 
 log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"
