@@ -159,7 +159,6 @@
     <string name="history_clear_confirm">সব অ্যালার্ম, তাদের অনুপ্রবেশকারীর ছবি আর SOS রেকর্ডিং মুছবেন? এটি ফেরানো যাবে না।</string>
     <string name="action_cancel">বাতিল</string>
     <string name="action_close">বন্ধ</string>
-    <string name="action_open">খুলুন</string>
     <string name="action_delete">মুছুন</string>
     <string name="ready_title">প্রস্তুত করুন</string>
     <string name="ready_progress">প্রয়োজনীয়: %2$d-এর মধ্যে %1$d সম্পন্ন</string>

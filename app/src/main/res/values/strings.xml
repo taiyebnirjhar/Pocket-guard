@@ -160,7 +160,6 @@
     <string name="history_clear_confirm">Delete all alarms with their intruder photos and SOS recordings? This can\'t be undone.</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_close">Close</string>
-    <string name="action_open">Open</string>
     <string name="action_delete">Delete</string>
     <string name="ready_title">Get it ready</string>
     <string name="ready_progress">Required: %1$d of %2$d done</string>
