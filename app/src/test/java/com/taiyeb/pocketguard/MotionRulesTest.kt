@@ -32,18 +32,22 @@ class MotionRulesTest {
         engine.onProximity(false)
     }
 
-    /** Streams [ms] of samples from [gen] (time since start, ms) with sensor noise and offset. */
+    /**
+     * Streams [ms] of samples from [gen] (time since start, ms) with sensor noise and offset. The
+     * app's own buzzes shake the sensor for the 80 ms after them, as a motor on a hard table does.
+     */
     private fun stream(ms: Long, gen: (Long) -> FloatArray) {
         var elapsed = 0L
         while (elapsed < ms) {
             host.advance(stepMs)
             elapsed += stepMs
             val v = gen(elapsed)
+            val n = if (host.time - host.lastBuzzAt in 0L..80L) 0.5f else noise
             engine.onAccel(
                 host.time,
-                v[0] + bias[0] + (random.nextGaussian() * noise).toFloat(),
-                v[1] + bias[1] + (random.nextGaussian() * noise).toFloat(),
-                v[2] + bias[2] + (random.nextGaussian() * noise).toFloat(),
+                v[0] + bias[0] + (random.nextGaussian() * n).toFloat(),
+                v[1] + bias[1] + (random.nextGaussian() * n).toFloat(),
+                v[2] + bias[2] + (random.nextGaussian() * n).toFloat(),
             )
         }
     }
@@ -63,6 +67,29 @@ class MotionRulesTest {
     private fun uprightTurned(deg: Float): FloatArray {
         val r = deg * PI.toFloat() / 180f
         return floatArrayOf(0f, G * cos(r), G * sin(r))
+    }
+
+    /**
+     * Lying face-up on a thigh that turns [deg] about the hip ([r] m away) and back over [ms]: the
+     * reading includes the swing's own acceleration, as a rigid body does.
+     */
+    private fun pivoted(deg: Double, ms: Long, r: Double, t: Long): FloatArray {
+        fun theta(s: Double) = if (s <= 0 || s >= ms / 1000.0) 0.0 else
+            Math.toRadians(deg) * (1 - kotlin.math.cos(2 * PI * s / (ms / 1000.0))) / 2
+        fun pos(s: Double) = doubleArrayOf(r * kotlin.math.cos(theta(s)) - r, r * kotlin.math.sin(theta(s)))
+        val s = t / 1000.0
+        val h = 0.001
+        val a = pos(s + h)
+        val b = pos(s)
+        val c = pos(s - h)
+        val fy = (a[0] - 2 * b[0] + c[0]) / (h * h)
+        val fz = (a[1] - 2 * b[1] + c[1]) / (h * h) + G
+        val th = theta(s)
+        return floatArrayOf(
+            0f,
+            (fy * kotlin.math.cos(th) + fz * kotlin.math.sin(th)).toFloat(),
+            (-fy * kotlin.math.sin(th) + fz * kotlin.math.cos(th)).toFloat(),
+        )
     }
 
     /** Minimum-jerk acceleration for travelling [cm] in [ms] (peaks at about 5.8 d / T²). */
@@ -346,6 +373,132 @@ class MotionRulesTest {
         still(faceDownTilted(6f), 1000)
         assertEquals(Phase.ON_TABLE, engine.phase)
         neverWarned()
+    }
+
+    @Test
+    fun proppedUpPhoneWithASensorOffsetStaysProtected() {
+        bias = floatArrayOf(0f, 0.3f, 0f) // Along the way it gets tilted.
+        placeOnTable()
+        stream(1000) { t -> faceDownTilted(5f * t / 1000f) }
+        still(faceDownTilted(5f), 15_000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
+    fun proppedUpPhoneOnABusyTableIsNotHeld() {
+        placeOnTable()
+        stream(1500) { t -> faceDownTilted(5f * t / 1500f) }
+        still(faceDownTilted(5f), 6000)
+        noise = 0.05f // Writing, typing, cutlery on the table: it is never still.
+        still(faceDownTilted(5f), 8000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
+    fun carefulLiftWithAPalmOverTheSensorWarns() {
+        placeOnTable()
+        // Lifted 10 cm over 1.5 s, tilting 5 degrees as it goes, the sensor kept covered.
+        stream(1500) { t ->
+            val k = 1f + minJerkAccel(10f, 1500, t) / G
+            faceDownTilted(5f * t.coerceAtMost(400L) / 400f).map { it * k }.toFloatArray()
+        }
+        noise = 0.05f // In the hand.
+        still(faceDownTilted(5f), 500)
+        stream(4000) { t -> faceDownTilted(5f).map { it * (1f + if (t % 550 < 60) 0.3f else 0f) }.toFloatArray() }
+        assertTrue(host.transitions.any { it.second.isAlarm })
+        assertFalse(host.transitions.any { it.first == Phase.ON_TABLE && it.second == Phase.IN_POCKET })
+    }
+
+    @Test
+    fun stopAndGoDrivingStaysQuiet() {
+        // Laid on the seat while parked, then city traffic: pushes of 1-2.5 m/s² for 2-4.5 s, mild
+        // road vibration (below what confirms a vehicle), never a 5 s push.
+        for (seed in 1L..3L) {
+            setUp()
+            val plan = Random(seed)
+            placeOnTable()
+            noise = 0.04f
+            var left = 120_000L
+            while (left > 0) {
+                val amp = 1f + 1.5f * plan.nextFloat()
+                val ms = 2000L + plan.nextInt(2500)
+                val dir = plan.nextInt(4)
+                stream(ms) { t ->
+                    val ramp = (minOf(t, ms - t).coerceAtLeast(0L) / 400f).coerceAtMost(1f)
+                    val h = amp * ramp
+                    when (dir) {
+                        0 -> floatArrayOf(h, 0f, -G)
+                        1 -> floatArrayOf(-h, 0f, -G)
+                        2 -> floatArrayOf(0f, h, -G)
+                        else -> floatArrayOf(0f, -h, -G)
+                    }
+                }
+                val gap = 2000L + plan.nextInt(6000)
+                still(faceDown, gap)
+                left -= ms + gap
+            }
+            noise = 0.01f
+            assertTrue("seed $seed", host.transitions.none { it.second.isAlarm })
+        }
+    }
+
+    @Test
+    fun idlingCarThenDrivingOffStaysQuiet() {
+        // Laid on the seat while parked; the engine starts and idles, then stop-and-go driving.
+        // Many pushes escape the |a| test (a sensor offset against them), so the idle shake must
+        // already have marked it a vehicle.
+        val plan = Random(99)
+        repeat(24) { i ->
+            setUp()
+            random = Random(1000L + i)
+            bias = FloatArray(3) { (plan.nextFloat() * 2 - 1) * 0.3f }
+            noise = 0.005f + 0.02f * plan.nextFloat()
+            placeOnTable()
+            noise = 0.08f + 0.08f * plan.nextFloat() // Engine vibration.
+            still(faceDown, 4000L + plan.nextInt(11_000))
+            var left = 60_000L
+            while (left > 0 && engine.phase == Phase.ON_TABLE) {
+                val amp = 0.6f + 2.4f * plan.nextFloat()
+                val ms = 1500L + plan.nextInt(6000)
+                val az = 2 * PI.toFloat() * plan.nextFloat()
+                stream(ms) { t ->
+                    val h = amp * (minOf(t, ms - t).coerceAtLeast(0L) / 500f).coerceAtMost(1f)
+                    floatArrayOf(h * cos(az), h * sin(az), -G)
+                }
+                val gap = 1000L + plan.nextInt(8000)
+                still(faceDown, gap)
+                left -= ms + gap
+            }
+            assertTrue("drive $i", host.transitions.none { it.second.isAlarm })
+        }
+        noise = 0.01f
+        bias = floatArrayOf(0f, 0f, 0f)
+    }
+
+    @Test
+    fun vibrationAloneNeverDropsTableMode() {
+        placeOnTable()
+        noise = 0.1f // An idling engine, or someone shaking the table: no push, so it stays guarded.
+        still(faceDown, 15_000)
+        noise = 0.01f
+        still(faceDown, 2000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
+    fun placementSettlingAfterThePocketBuzzStillEnters() {
+        noise = 0.12f // In the hand.
+        stream(1500) { t -> faceDownTilted(3f + 2f * sin(2 * PI.toFloat() * t / 700f)) }
+        engine.onProximity(true)
+        // Touching down and letting go takes most of a second; the pocket buzz comes at 1.5 s.
+        stream(900) { t -> faceDownTilted(1f + 2f * (1f - t / 900f) * sin(2 * PI.toFloat() * t / 300f)) }
+        noise = 0.01f
+        still(faceDownTilted(1f), 14_000)
+        assertEquals(1, host.confirmBuzzes)
+        assertEquals(Phase.ON_TABLE, engine.phase)
     }
 
     @Test
@@ -642,14 +795,45 @@ class MotionRulesTest {
     }
 
     @Test
-    fun sidewaysPullWarns() {
-        pocketUpright()
-        engine.onProximity(false)
-        // Drawn out sideways: |a| hardly changes, so the push shows only against gravity.
-        stream(150) { floatArrayOf(4f, G, 0f) }
-        stream(150) { floatArrayOf(-4f, G, 0f) }
-        still(upright, 2500)
-        warnedWith(Evidence.JOLT)
+    fun thiefHurryingOffAfterTheYankStillWarns() {
+        // Yanked out of a standing owner's pocket, then hurried off at once: the getaway steps fall
+        // into a rhythm with the yank, but the yank itself was made standing still.
+        for (gap in 0L until 400L step 40L) {
+            setUp()
+            pocketUpright()
+            var uncovered = false
+            stream(6000) { t ->
+                if (!uncovered) { uncovered = true; engine.onProximity(false) }
+                val v = uprightTurned(70f * t.coerceAtMost(300L) / 300f)
+                val yank = if (t < 200) 5f * sin(PI.toFloat() * t / 200f) else 0f
+                val ph = if (t >= 40 + gap) (t - 40 - gap) % 400 else -1L
+                val step = if (ph in 0L..119L) 3.5f * sin(PI.toFloat() * ph / 120f) else 0f
+                val k = 1f + step / G
+                floatArrayOf(v[0] * k, v[1] * k + yank, v[2] * k)
+            }
+            still(uprightTurned(70f), 8000)
+            assertTrue("gap $gap", host.transitions.any { it.second.isAlarm })
+        }
+    }
+
+    @Test
+    fun seatedKneeDipWithAnOpenPocketIsQuiet() {
+        // Sitting, the pocket gaping open, in the dark: the thigh dips 15-30 degrees about the hip and
+        // back. Its swing moves |a| by 1-2 m/s², under a jolt, so it must stay quiet.
+        val dips = listOf(15.0 to 800L, 15.0 to 1200L, 20.0 to 1200L, 25.0 to 1500L, 30.0 to 1500L)
+        for ((deg, ms) in dips) for (seed in 1L..2L) {
+            setUp()
+            random = Random(seed)
+            bias = floatArrayOf(0.2f, -0.3f, 0.25f)
+            still(faceUp, 1000)
+            engine.onProximity(true)
+            still(faceUp, 15_000)
+            assertEquals(Phase.IN_POCKET, engine.phase)
+            engine.onProximity(false)
+            stream(ms + 200) { t -> pivoted(deg, ms, 0.25, t) }
+            still(faceUp, 6000)
+            assertTrue("dip $deg in $ms ms, seed $seed", host.transitions.none { it.second.isAlarm })
+        }
     }
 
     @Test

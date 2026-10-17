@@ -96,6 +96,9 @@ class GuardEngine(
         const val GAIT_UNCOVERED_MS = 3000L
         const val GAIT_RECENT_MS = 2000L
 
+        /** A jolt this soon after the uncover, while standing still, is the pull itself. */
+        const val PULL_JOLT_MS = 1000L
+
         /** Turned to look: this far from the pocket posture, with the screen woken as it turned. */
         const val TILT_OUT_DEG = 45f
         const val TILT_OUT_HOLD_MS = 500L
@@ -139,6 +142,9 @@ class GuardEngine(
 
     var phase = Phase.OFF
         private set
+
+    /** A table alarm can still be put back until then (on the [Host.now] clock). */
+    val tablePutBackUntil get() = tableTriggerAt + PUT_BACK_FROM_SIREN_MS
 
     /** What confirmed the current alarm (null when none, or for tamper triggers). */
     var evidence: Evidence? = null
@@ -258,8 +264,13 @@ class GuardEngine(
     fun onAccel(t: Long, x: Float, y: Float, z: Float) {
         if (!hasMotionSensor) return
         val events = motion.onSample(t, x, y, z)
-        // A sideways jolt is confirmed a moment after it happened.
-        if (events and MotionProcessor.Event.JOLT != 0) lastMotionAt = motion.lastJoltAt
+        if (events and MotionProcessor.Event.JOLT != 0) {
+            lastMotionAt = t
+            if (!motion.walking(t)) {
+                quietJoltAt = t
+                if (episodeActive && pullJoltAt == null && t - episodeStart <= PULL_JOLT_MS) pullJoltAt = t
+            }
+        }
         if (!phase.isAlarm) table.trackSettle(t)
         when (phase) {
             Phase.IN_POCKET -> if (near == true && !episodeActive && table.latched && host.config().tableGuard &&
@@ -420,9 +431,13 @@ class GuardEngine(
             if (insideTrustworthy && outside >= DARK_LUX) return RemovalCheck.None
         }
         val motionAt = lastMotionAt
-        // Steps are jolts too: only one after the walking stopped counts.
-        val jolted = motionAt != null && now - motionAt < MOTION_WINDOW_MS &&
-            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)
+        // Steps are jolts too: only one after the walking stopped counts. The pull itself, made
+        // while standing still, still counts when steps follow at once (a thief hurrying off):
+        // once they stop, or once the phone has been turned into a hand.
+        val pull = pullJoltAt
+        val jolted = (motionAt != null && now - motionAt < MOTION_WINDOW_MS &&
+            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)) ||
+            (hasMotionData && pull != null && (!motion.walkedWithin(now, GAIT_RECENT_MS) || peakHeld))
         if (hasMotionSensor && !jolted) return RemovalCheck.None
         var since = uncoveredAt ?: now
         var needed = uncoveredConfirmMs
@@ -467,6 +482,10 @@ class GuardEngine(
     private var peakHeld = false
     private var tiltOutSince = -1L
     private var cueInEpisode = false
+
+    /** The latest jolt while not walking, and the one that came with this uncover (the pull). */
+    private var quietJoltAt = Long.MIN_VALUE / 2
+    private var pullJoltAt: Long? = null
     private var rebaseSince = -1L
     private var rebaseX = 0f
     private var rebaseY = 0f
@@ -494,6 +513,7 @@ class GuardEngine(
         episodeStart = now
         watching = false
         cueInEpisode = now - displayOnAt in 0L..500L
+        pullJoltAt = if (now - quietJoltAt in 0L..500L) quietJoltAt else null
         // Woken just before it came out: the display cue for the turn that follows.
         if (cueInEpisode) displayCueAt = now
         pathDeg = 0f

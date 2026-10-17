@@ -56,8 +56,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         /** Warnings where the owner is likely looking at the phone start this much later. */
         private const val OWNER_SILENT_MS = 1500L
 
-        /** A table siren buzzes only once the phone can no longer be put back down. */
-        private const val TABLE_SIREN_QUIET_VIBRATION_MS = 10_000L
         private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
@@ -525,10 +523,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             }
             Phase.SIREN -> {
                 Prefs.setAlarmActive(this, true)
-                // On the table it may still be put back down; its own buzzing would prevent that.
+                // On the table it may still be put back down; its own buzzing would prevent that, so
+                // a table siren buzzes only once the phone can no longer be put back.
+                val putBackLeft = (engine?.tablePutBackUntil ?: 0L) - SystemClock.elapsedRealtime()
                 alarm.startSiren(
                     quiet = Prefs.testMode(this),
-                    vibrateAfterMs = if (trigger == Trigger.TABLE_MOVED) TABLE_SIREN_QUIET_VIBRATION_MS else 0,
+                    vibrateAfterMs = if (trigger == Trigger.TABLE_MOVED) putBackLeft.coerceAtLeast(0L) else 0,
                 )
                 Notifications.showAlarm(this)
                 trigger?.let(recorder::escalate)

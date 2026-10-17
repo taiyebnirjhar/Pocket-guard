@@ -24,6 +24,9 @@ class GuardEngineTest {
         var ringing = false
         var tableTicks = 0
         val chirps = mutableListOf<Boolean>()
+
+        /** When the phone last buzzed itself: motion streams shake the sensor for a moment after. */
+        var lastBuzzAt = Long.MIN_VALUE / 2
         lateinit var engine: GuardEngine
 
         override fun now() = time
@@ -41,14 +44,17 @@ class GuardEngineTest {
         }
         override fun confirmBuzz() {
             confirmBuzzes++
+            lastBuzzAt = time
         }
         override fun noticeBuzz() {
             noticeBuzzes++
+            lastBuzzAt = time
         }
         override fun credentialLocked() = locked && credentialLocked
         override fun ringing() = ringing
         override fun tableTick() {
             tableTicks++
+            lastBuzzAt = time
         }
         override fun tableChirp(burst: Boolean) {
             chirps += burst
