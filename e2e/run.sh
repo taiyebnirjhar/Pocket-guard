@@ -310,6 +310,16 @@ reset_log
 sh settings put secure enabled_accessibility_services "$A11Y"
 sh settings put secure accessibility_enabled 1
 expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) connects"
+# Diagnostics: what reaches the key watcher, screen on and off, single keys and the combination.
+watcher_saw() { app_log | grep -c "SOS key watcher: KEYCODE_VOLUME" ; }
+sh input keyevent KEYCODE_WAKEUP; sleep 1
+reset_log; sh input keyevent KEYCODE_VOLUME_UP; sleep 1; log "  diag: screen on, one key: watcher saw $(watcher_saw)"
+reset_log; log "  diag: keycombination says: $(sh input keycombination -t 1000 KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN 2>&1 | head -n 3)"; sleep 1
+log "  diag: screen on, both keys: watcher saw $(watcher_saw)"
+screen_off
+reset_log; sh input keyevent KEYCODE_VOLUME_UP; sleep 1; log "  diag: screen off, one key: watcher saw $(watcher_saw)"
+reset_log; sh input keycombination -t 1000 KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN; sleep 1; log "  diag: screen off, both keys: watcher saw $(watcher_saw)"
+adb logcat -d | grep -iE "AccessibilityInputFilter|KeyCombinationManager|interceptKeyBeforeQueueing" | tail -n 10 | sed 's/^/    /'
 screen_off
 reset_log
 hold_both 800
