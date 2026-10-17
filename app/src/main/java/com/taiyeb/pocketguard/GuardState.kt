@@ -44,9 +44,18 @@ enum class Trigger {
     /** Lifted, tilted or pushed off the table it lay face-down on. */
     TABLE_MOVED,
 
-    /** The owner called for help: volume up pressed five times quickly. */
+    /** The owner called for help (both volume keys held, the notification, the tile or the app). */
     SOS,
 }
+
+/** What the alarm screen shows about the alerts to emergency contacts. */
+data class AlertUi(
+    val names: String,
+    val secondsLeft: Int,
+    val sent: Boolean,
+    /** The Play build can't send SMS itself: the owner taps to open the SMS app, prefilled. */
+    val needsTap: Boolean,
+)
 
 object GuardState {
     val phase = MutableStateFlow(Phase.OFF)
@@ -62,4 +71,7 @@ object GuardState {
 
     /** What the running alarm is for (null when none), so the alarm screen can say the right thing. */
     val alarmTrigger = MutableStateFlow<Trigger?>(null)
+
+    /** The SOS alerts to emergency contacts, while SOS runs and they are on (null otherwise). */
+    val alert = MutableStateFlow<AlertUi?>(null)
 }

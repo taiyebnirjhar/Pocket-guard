@@ -97,6 +97,16 @@ Unlock to stop both. The recordings are in History, to play or share; they stay 
 private storage, out of the gallery. Recording people without consent is against the law in
 some places.
 
+**Emergency contacts** (Triggers → Emergency contacts): up to 5 people, picked from your contacts
+or typed in, and the name the alert uses. You see the exact message and approve it with the list;
+any change asks again. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
+screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
+SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The
+location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
+3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". The GitHub build
+sends the SMS itself; the Play build fills in the SMS app and you tap Send (Play allows sending
+SMS on its own only with an approved exception). "Share on WhatsApp" opens WhatsApp with the alert.
+
 Other ways to start SOS while armed, none of which needs the Accessibility setting: the **SOS**
 button on the Pocket Guard notification (on the lock screen, no unlock), the **SOS** tile in
 Quick Settings (swipe down on the lock screen and tap), and the SOS card on Home. Started from an

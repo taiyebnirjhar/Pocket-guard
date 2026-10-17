@@ -347,6 +347,44 @@ expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 
+log "Scenario 7g: SOS alerts an approved emergency contact by SMS with the location"
+# The emulator's own number receives the SMS. The contact list and its approval are written the
+# way the app stores them (the approval covers the text version, the name and the people).
+sh am force-stop $PKG
+cat >"$OUT/contacts.xml" <<CONTACTS
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="contacts">[{&quot;name&quot;:&quot;Mom&quot;,&quot;phone&quot;:&quot;+15555215554&quot;}]</string>
+    <string name="name">Taiyeb</string>
+    <string name="approved">1|Taiyeb|Mom=+15555215554</string>
+</map>
+CONTACTS
+adb push "$OUT/contacts.xml" /data/local/tmp/pg-contacts.xml >/dev/null
+sh chmod 644 /data/local/tmp/pg-contacts.xml
+adb shell "run-as $PKG sh -c 'cp /data/local/tmp/pg-contacts.xml /data/user_de/0/$PKG/shared_prefs/emergency_contacts.xml'"
+emu geo fix 90.4125 23.8103
+reset_log
+arm "re-armed with an approved contact (location declared for SOS)"
+sleep 2
+sh input keyevent KEYCODE_HOME
+screen_off
+emu geo fix 90.4125 23.8103
+reset_log
+sh am startservice -n "$PKG/.GuardService" -a com.taiyeb.pocketguard.SOS >/dev/null
+expect_log "SOS alerts: 1 contacts in 5 s" 6 "SOS starts the alert countdown for the approved contact"
+sleep 2
+expect_true '! app_log | grep -q "SMS sent"' "no SMS during the countdown"
+expect_log "SOS alerts: SMS sent to 1 of 1" 12 "after the countdown the SMS goes out"
+sent_sms() { adb shell content query --uri content://sms/sent --projection address:body 2>/dev/null; }
+for _ in $(seq 1 20); do grep -q "Taiyeb needs help" <<<"$(sent_sms)" && break; sleep 0.5; done
+expect_true 'grep -q "Taiyeb needs help" <<<"$(sent_sms)"' "the SMS names the owner"
+expect_true 'grep -q "maps.google.com/?q=23.81" <<<"$(sent_sms)"' "the SMS carries the location"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops SOS"
+expect_log "sending false alarm" 4 "stopped right after the alert: a false-alarm SMS follows"
+sleep 2
+
 log "Scenario 7f: SOS from the notification while the phone is unlocked"
 # The notification action starts the service with the SOS action (root may start it directly).
 reset_log
