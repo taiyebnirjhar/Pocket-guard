@@ -249,7 +249,7 @@ class TableMonitor(private val m: MotionProcessor) {
         if (events and MotionProcessor.Event.FALL != 0) return Signal.FALL
 
         val tilt = tiltDeg()
-        if (tilt >= UNCOVER_MOTION_DEG) lastLiftLikeAt = t
+        if (m.fastAngleTo(baseX, baseY, baseZ) >= UNCOVER_MOTION_DEG) lastLiftLikeAt = t
 
         // Turned over or tilted up: fast gravity far from the resting pose, with |a| near 1 g so
         // it is a real rotation rather than acceleration faking one. Faking a tilt θ takes a push
@@ -360,13 +360,13 @@ class TableMonitor(private val m: MotionProcessor) {
      * 1 g by about h² / 2g, while a real tilt leaves it at 1 g. True while such a push is on.
      */
     private fun trackDrive(t: Long): Boolean {
-        val n = sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ).coerceAtLeast(1e-3f)
-        val ux = baseX / n
-        val uy = baseY / n
-        val uz = baseZ / n
-        val ex = m.ax - baseX
-        val ey = m.ay - baseY
-        val ez = m.az - baseZ
+        val n = sqrt(refX * refX + refY * refY + refZ * refZ).coerceAtLeast(1e-3f)
+        val ux = refX / n
+        val uy = refY / n
+        val uz = refZ / n
+        val ex = m.ax - refX
+        val ey = m.ay - refY
+        val ez = m.az - refZ
         val along = ex * ux + ey * uy + ez * uz
         val hx = ex - along * ux
         val hy = ey - along * uy

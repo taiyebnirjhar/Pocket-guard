@@ -336,6 +336,19 @@ class MotionRulesTest {
     }
 
     @Test
+    fun proppedUpPhoneIgnoresASensorGlitch() {
+        placeOnTable()
+        stream(1000) { t -> faceDownTilted(6f * t / 1000f) }
+        still(faceDownTilted(6f), 3000)
+        engine.onProximity(false) // Nothing moved it: the sensor flickered.
+        still(faceDownTilted(6f), 1500)
+        engine.onProximity(true)
+        still(faceDownTilted(6f), 1000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
     fun laidDownEdgeFirstStillBecomesProtected() {
         still(faceDownTilted(15f), 1000)
         engine.onProximity(true) // Covered on the way down, one edge first.
