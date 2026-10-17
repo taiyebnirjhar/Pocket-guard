@@ -318,9 +318,20 @@ sh settings put secure enabled_accessibility_services "$A11Y"
 sh settings put secure accessibility_enabled 1
 expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) connects"
 watcher_saw() { app_log | grep -c "SOS key watcher: KEYCODE_VOLUME"; }
+log "  diag: accessibility state:"
+sh dumpsys accessibility | grep -iE "pocketguard|filterKeyEvents|KeyEventDispatcher|capabilit|isEnabled|Bound services|Enabled services" | head -n 15 | sed 's/^/    /'
+sh dumpsys input | grep -iE "InputFilterEnabled|inputFilter" | head -n 5 | sed 's/^/    /'
+sh input keyevent KEYCODE_WAKEUP; sleep 1
+reset_log
+log "  diag: emu says: $(adb emu event send EV_KEY:KEY_VOLUMEUP:1 EV_SYN:SYN_REPORT:0 2>&1 | tr '\r\n' '  ')"
+adb emu event send EV_KEY:KEY_VOLUMEUP:0 EV_SYN:SYN_REPORT:0 >/dev/null; sleep 1
+log "  diag: screen on, one hardware key: watcher saw $(watcher_saw) events"
+sh dumpsys audio | grep -E "adjustSuggestedStreamVolume" | tail -n 2 | sed 's/^/    /'
+adb logcat -d | grep -iE "VOLUME_UP|KeyEvent.*VOLUME" | tail -n 5 | sed 's/^/    /'
 screen_off
 reset_log; hw_key KEY_VOLUMEUP 1; hw_key KEY_VOLUMEUP 0; sleep 1
 log "  diag: screen off, one hardware key: watcher saw $(watcher_saw) events"
+sh dumpsys audio | grep -E "adjustSuggestedStreamVolume" | tail -n 2 | sed 's/^/    /'
 screen_off
 reset_log
 hold_both 800
