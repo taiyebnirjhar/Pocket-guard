@@ -15,12 +15,12 @@ val appVersionCode = versionParts.fold(0) { code, part -> code * 1000 + part!! }
 
 android {
     namespace = "com.taiyeb.pocketguard"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.taiyeb.pocketguard"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
     }
@@ -43,6 +43,25 @@ android {
         debug {
             if (keystorePath != null) signingConfig = signingConfigs.getByName("official")
         }
+        // The Play build is uploaded as a release bundle, signed with the same key (Play's
+        // upload key); GitHub releases stay the debug APK the e2e test installs.
+        release {
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("official")
+        }
+    }
+
+    // Two builds from one codebase. They differ only in what Google Play lets this app declare:
+    // the Play build leaves out restricted permissions and uses the allowed alternative.
+    flavorDimensions += "store"
+    productFlavors {
+        create("full") {
+            dimension = "store"
+            buildConfigField("boolean", "PLAY_STORE", "false")
+        }
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "PLAY_STORE", "true")
+        }
     }
 
     compileOptions {
@@ -54,12 +73,11 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     lint {
         abortOnError = true
         checkDependencies = false
-        // Sideloaded test builds, not Play Store releases (see README).
-        disable += setOf("ExpiredTargetSdkVersion")
     }
     testOptions {
         unitTests.isReturnDefaultValues = true

@@ -347,6 +347,18 @@ expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 
+log "Scenario 7f: SOS from the notification while the phone is unlocked"
+# The notification action starts the service with the SOS action (root may start it directly).
+reset_log
+sh am startservice -n "$PKG/.GuardService" -a com.taiyeb.pocketguard.SOS >/dev/null
+expect_log "phase=SIREN .*trigger=SOS" 6 "the notification's SOS action sounds the SOS alarm"
+expect_no_phase WAITING_FOR_POCKET 3 "started unlocked, SOS keeps sounding (the unlock it began in doesn't stop it)"
+screen_off
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "lock and unlock stops it"
+sleep 2
+
 # --- 6. Setup requirement: the phone must lock immediately ----------------------------------------
 
 log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"

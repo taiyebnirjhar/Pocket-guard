@@ -46,6 +46,14 @@ object Notifications {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         builder.setContentText(context.getString(phase.hintRes()))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        // One tap from the lock screen, no unlock needed: the Play-safe way to call for help.
+        if (phase != Phase.OFF && !phase.isAlarm) {
+            val sos = PendingIntent.getService(
+                context, 7, GuardService.sosIntent(context),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(R.drawable.ic_warning, context.getString(R.string.action_sos), sos)
+        }
         return builder.build()
     }
 

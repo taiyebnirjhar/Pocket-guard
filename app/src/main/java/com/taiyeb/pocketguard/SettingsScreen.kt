@@ -2,10 +2,12 @@ package com.taiyeb.pocketguard
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -50,6 +52,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
+/** Public, as Google Play requires; also linked in the Play listing. */
+const val PRIVACY_POLICY_URL = "https://taiyebnirjhar.github.io/Pocket-guard/privacy.html"
+
 @Composable
 fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
     val context = LocalContext.current
@@ -84,6 +89,18 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
         SectionLabel(stringResource(R.string.settings_help))
         GlassCard {
             SettingRow(R.drawable.ic_help, stringResource(R.string.main_guide), null, Modifier.clickable(role = Role.Button, onClick = onOpenGuide)) {
+                Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
+            }
+            SettingRow(
+                R.drawable.ic_lock,
+                stringResource(R.string.settings_privacy),
+                null,
+                Modifier.clickable(role = Role.Button) {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+                    }
+                },
+            ) {
                 Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
             }
         }

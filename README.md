@@ -97,6 +97,11 @@ Unlock to stop both. The recordings are in History, to play or share; they stay 
 private storage, out of the gallery. Recording people without consent is against the law in
 some places.
 
+Other ways to start SOS while armed, none of which needs the Accessibility setting: the **SOS**
+button on the Pocket Guard notification (on the lock screen, no unlock), the **SOS** tile in
+Quick Settings (swipe down on the lock screen and tap), and the SOS card on Home. Started from an
+unlocked phone, "I'm the owner" on the alarm screen stops it, or lock and unlock.
+
 Setup (Triggers → SOS): allow Camera and Microphone, and turn on **Pocket Guard SOS buttons** in
 Accessibility (the app explains what it sees and asks first). It watches the volume keys and
 nothing else, and every key still works as usual. Why press power first: with the screen off,
@@ -253,12 +258,18 @@ You need JDK 17 and the Android SDK (Android Studio works).
 ```sh
 git clone https://github.com/taiyebnirjhar/pocket-guard.git
 cd pocket-guard
-./gradlew testDebugUnitTest lintDebug assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew testFullDebugUnitTest lintFullDebug assembleFullDebug
+adb install -r app/build/outputs/apk/full/debug/app-full-debug.apk
 ```
 
 Without the official key the build is signed with your local debug key, so it can't install over an
 official release (uninstall that first).
+
+There are two builds of the same code. **full** is what GitHub releases ship. **play** is for
+Google Play and leaves out what Play restricts for this kind of app: it doesn't declare the
+battery-optimisation permission (setup opens the battery list instead). CI builds the Play bundle
+with `./gradlew bundlePlayRelease` and attaches it to each release as `PocketGuard-vX.Y.Z-play.aab`.
+The privacy policy is `site/privacy.html`, published to GitHub Pages by `.github/workflows/pages.yml`.
 
 **Signing official builds.** CI signs with a key stored in two repository secrets:
 `SIGNING_KEYSTORE_BASE64` (the keystore, base64) and `SIGNING_PASSWORD`. A fork can make its own

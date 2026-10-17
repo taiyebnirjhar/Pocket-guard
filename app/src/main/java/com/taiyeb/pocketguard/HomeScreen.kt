@@ -154,6 +154,12 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
                 Modifier.weight(1f),
             )
         }
+        if (phase != Phase.OFF && !phase.isAlarm) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard(onClick = { GuardService.requestSos("app") }) {
+                SettingRow(R.drawable.ic_warning, stringResource(R.string.home_sos), stringResource(R.string.tile_sos_ready), tint = Red)
+            }
+        }
         if (left > 0) {
             Spacer(Modifier.height(12.dp))
             GlassCard(onClick = { onOpenSetup(false) }) {

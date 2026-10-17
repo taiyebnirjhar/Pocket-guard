@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The GitHub build only: permissions Google Play restricts for this kind of app. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- One tap to exempt the guard from battery optimisation (Play allows only listed uses). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+</manifest>

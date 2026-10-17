@@ -202,4 +202,16 @@
     <string name="sos_keys_disclosure_title">SOS বাটন Accessibility ব্যবহার করে</string>
     <string name="sos_keys_disclosure">Pocket Guard ভলিউম + আর − একসাথে ৩ সেকেন্ড চেপে ধরা চিনতে Accessibility সার্ভিস ব্যবহার করে, SOS অ্যালার্ম আর রেকর্ডিং শুরু করার জন্য, লক স্ক্রিনে আর অ্যাপ বন্ধ থাকলেও। এটি শুধু ভলিউম বাটন দেখে: আপনার স্ক্রিন পড়ে না, আপনি যা টাইপ করেন তা সংগ্রহ করে না, কোনো সেটিং বদলায় না, আর বাটন আগের মতোই কাজ করে। এর দেখা কিছুই ফোনের বাইরে যায় না। Accessibility সেটিংসে যেকোনো সময় বন্ধ করতে পারেন।</string>
     <string name="sos_keys_agree">রাজি, সেটিংস খুলুন</string>
+    <string name="action_sos">SOS</string>
+    <string name="tile_sos_ready">সাহায্য চাইতে চাপুন</string>
+    <string name="home_sos">SOS: সাহায্য চান</string>
+    <string name="disclose_title">অনুমতি দেওয়ার আগে</string>
+    <string name="disclose_continue">চালিয়ে যান</string>
+    <string name="disclose_not_now">এখন না</string>
+    <string name="disclose_camera">চুরির সাইরেন বাজলে যে আপনার ফোন ধরে আছে তার ছবি তুলতে Pocket Guard ক্যামেরা ব্যবহার করে, অ্যাপ বন্ধ বা ফোন লক থাকলেও। ছবি আপনার ফোনেই, ইতিহাসে থাকে, আর সেখান থেকে মুছে যায়।</string>
+    <string name="disclose_sos_record">আপনি SOS চালু করলে আনলক না করা পর্যন্ত শব্দসহ ভিডিও রেকর্ড করতে Pocket Guard ক্যামেরা আর মাইক্রোফোন ব্যবহার করে, ফোন লক থাকলেও। রেকর্ডিং আপনার ফোনেই, ইতিহাসে থাকে; শেয়ার করবেন কিনা আর কার সাথে, তা আপনি ঠিক করেন।</string>
+    <string name="disclose_bluetooth">কোন ইয়ারবাড বা ঘড়ি গণ্য হবে তা বেছে নিতে Pocket Guard আপনার পেয়ার করা ব্লুটুথ ডিভাইসের নাম ব্যবহার করে, সেগুলো ফোন হারালে সতর্ক করতে আর যুক্ত হলে গার্ড চালুর কথা মনে করাতে। এটি আপনার ফোনেই থাকে।</string>
+    <string name="disclose_activity">বাস বা ট্রেনে থাকলে গার্ড চালুর কথা মনে করাতে Pocket Guard শারীরিক কার্যকলাপ ব্যবহার করে, অ্যাপ বন্ধ থাকলেও। কিছুই জমা বা শেয়ার করা হয় না।</string>
+    <string name="sos_other_ways">লক স্ক্রিন থেকেও: Pocket Guard নোটিফিকেশনের SOS বাটন, বা কুইক সেটিংসের SOS টাইল। স্ক্রিন বন্ধ থাকলে ফোনের নিজস্ব জরুরি SOS (পাওয়ার ৫ বার চাপুন) ব্যবহার করুন, যা ফোনের সেফটি সেটিংসে চালু করা যায়।</string>
+    <string name="settings_privacy">গোপনীয়তা নীতি</string>
 </resources>

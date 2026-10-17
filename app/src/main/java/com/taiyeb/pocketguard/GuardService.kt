@@ -49,6 +49,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     companion object {
         const val TAG = "PocketGuard"
         private const val ACTION_ARM = "com.taiyeb.pocketguard.ARM"
+        private const val ACTION_SOS = "com.taiyeb.pocketguard.SOS"
         private const val EXTRA_AUTO = "auto"
         private const val WAKE_LOCK_MS = 2 * 60 * 60_000L
         private const val WAKE_LOCK_RENEW_MS = 60 * 60_000L
@@ -90,6 +91,17 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         /** Both volume keys held [SosHold.HOLD_MS] (from [source]). Main thread. */
         fun onSosHold(source: String) {
             instance?.sosHold(source)
+        }
+
+        /** Started by the SOS action on the status notification. */
+        fun sosIntent(context: Context): Intent = Intent(context, GuardService::class.java).setAction(ACTION_SOS)
+
+        /** SOS from the tile or the app. False when the guard isn't armed (SOS needs it running). */
+        fun requestSos(source: String): Boolean = instance?.sos(source) ?: false
+
+        /** "I'm the owner" on an SOS alarm started while the phone was unlocked: nothing to unlock. */
+        fun ownerStopSos() {
+            instance?.ownerStopSos()
         }
 
         /**
@@ -174,8 +186,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         override fun run() {
             val current = engine ?: return
             if (!current.phase.isAlarm) return
+            if (keyguardManager.isKeyguardLocked) lockedSinceAlarm = true
             val unlocked = powerManager.isInteractive && !keyguardManager.isKeyguardLocked
-            if (unlocked && GuardState.unlockStopsAlarm.value) {
+            // An SOS started from the unlocked app isn't stopped by that same unlocked state.
+            if (unlocked && lockedSinceAlarm && GuardState.unlockStopsAlarm.value) {
                 Log.i(TAG, "unlock detected without USER_PRESENT")
                 onUnlocked(current)
                 return
@@ -279,6 +293,15 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        if (intent?.action == ACTION_SOS) {
+            // Only reachable from the notification of a running guard.
+            if (engine == null) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            sos("notification")
+            return START_STICKY
+        }
         if (!goForeground()) {
             // Android refused (e.g. a background restart without the battery exemption): ask the user.
             Notifications.showRearm(this)
@@ -487,18 +510,30 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     private var sosWanted = false
 
-    /** Both volume keys held: the SOS alarm, if it is on and the phone locked. */
+    /** Both volume keys held: the SOS alarm, if the SOS buttons are on. */
     private fun sosHold(source: String) {
-        val current = engine ?: return
         if (!Prefs.sosButtons(this)) return
-        if (!isLocked()) {
-            log("SOS hold ignored: unlocked")
-            return
-        }
-        log("SOS: both volume keys held (${source})")
+        sos("both volume keys held ($source)")
+    }
+
+    /** The owner called for help: a buzz, then the SOS alarm from any armed state. */
+    private fun sos(source: String): Boolean {
+        val current = engine ?: return false
+        log("SOS: $source")
         alarm.tick()
         current.onSos()
+        return true
     }
+
+    private fun ownerStopSos() {
+        val current = engine ?: return
+        if (current.phase.isAlarm && GuardState.alarmTrigger.value == Trigger.SOS && !keyguardManager.isKeyguardLocked) {
+            current.onOwnerUnlocked()
+        }
+    }
+
+    /** The phone has been locked at some point since the alarm began (so an unlock is an unlock). */
+    private var lockedSinceAlarm = true
 
     /** The call for help is spoken on the alarm stream, in Bangla when the app shows Bangla and a voice exists. */
     private fun setUpSpeech() {
@@ -664,7 +699,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             } + if (from.isAlarm && !to.isAlarm) " (alarm ended)" else "",
         )
         if (to.isAlarm && !from.isAlarm) {
-            GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
+            // SOS is the owner's own call, so their unlock always ends it; a theft alarm trusts an
+            // unlock only if the phone was PIN-locked when it began.
+            GuardState.unlockStopsAlarm.value = trigger == Trigger.SOS || keyguardManager.isDeviceLocked
+            lockedSinceAlarm = keyguardManager.isKeyguardLocked
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
             Prefs.setAlarmActive(this, true) // A restart during the warning comes back screaming too.
             if (!GuardState.unlockStopsAlarm.value) handler.post(lockWatch)

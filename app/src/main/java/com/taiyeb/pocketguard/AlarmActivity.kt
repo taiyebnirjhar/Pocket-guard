@@ -63,7 +63,13 @@ class AlarmActivity : ComponentActivity() {
             }
             PocketGuardTheme {
                 AlarmScreen(onOwner = {
-                    getSystemService(KeyguardManager::class.java).requestDismissKeyguard(this@AlarmActivity, null)
+                    val keyguard = getSystemService(KeyguardManager::class.java)
+                    // An SOS started while unlocked has no lock screen to dismiss: the owner is here.
+                    if (!keyguard.isKeyguardLocked && GuardState.alarmTrigger.value == Trigger.SOS) {
+                        GuardService.ownerStopSos()
+                    } else {
+                        keyguard.requestDismissKeyguard(this@AlarmActivity, null)
+                    }
                 })
             }
         }

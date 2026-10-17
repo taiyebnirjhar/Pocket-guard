@@ -203,4 +203,16 @@
     <string name="sos_keys_disclosure_title">SOS buttons use Accessibility</string>
     <string name="sos_keys_disclosure">Pocket Guard uses the Accessibility service to detect volume + and − held together for 3 seconds, to start the SOS alarm and recording, even on the lock screen and when the app is closed. It only watches the volume buttons: it does not read your screen, collect what you type, or change any settings, and the buttons keep working as usual. Nothing it sees leaves your phone. You can turn it off any time in Accessibility settings.</string>
     <string name="sos_keys_agree">I agree, open settings</string>
+    <string name="action_sos">SOS</string>
+    <string name="tile_sos_ready">Tap to call for help</string>
+    <string name="home_sos">SOS: call for help</string>
+    <string name="disclose_title">Before you allow this</string>
+    <string name="disclose_continue">Continue</string>
+    <string name="disclose_not_now">Not now</string>
+    <string name="disclose_camera">Pocket Guard uses the camera to take photos of whoever is holding your phone when the theft siren starts, even when the app is closed or the phone is locked. The photos stay on your phone, in History, and are deleted with it.</string>
+    <string name="disclose_sos_record">Pocket Guard uses the camera and microphone to record video with sound when you start SOS, until you unlock, even when the phone is locked. The recordings stay on your phone, in History; you choose if and with whom to share them.</string>
+    <string name="disclose_bluetooth">Pocket Guard uses the names of your paired Bluetooth devices so you can pick which earbuds or watch count, to warn you when they lose the phone and to offer arming when they connect. This stays on your phone.</string>
+    <string name="disclose_activity">Pocket Guard uses physical activity (being on a bus or train) to remind you to arm the guard, even when the app is closed. Nothing is stored or shared.</string>
+    <string name="sos_other_ways">Also from the lock screen: the SOS button on the Pocket Guard notification, or the SOS tile in Quick Settings. With the screen off, use your phone\'s own Emergency SOS (press power 5 times), which you can set up in your phone\'s Safety settings.</string>
+    <string name="settings_privacy">Privacy policy</string>
 </resources>
