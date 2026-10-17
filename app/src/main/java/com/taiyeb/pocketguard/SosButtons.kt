@@ -206,7 +206,6 @@ class SosButtons(
         val value = intent.getIntExtra(EXTRA_VALUE, -1)
         val prev = intent.getIntExtra(EXTRA_PREV, -1)
         val hold = holdAt
-        android.util.Log.i("PocketGuard", "sos volume event: $prev -> $value (hold $hold, silence ${silence?.playState})")
         // Above the held volume is a press, even one that lands before the last was put back;
         // putting it back never goes above it.
         if (if (hold != null) value > hold else value > prev) {

@@ -65,10 +65,12 @@ fun TriggersScreen(refreshKey: Int) {
                 tableGuard = it
                 Prefs.setTableGuard(context, it)
             }
-            ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
-                sosButtons = it
-                Prefs.setSosButtons(context, it)
-                GuardService.refreshSos()
+            if (Prefs.SOS_AVAILABLE) {
+                ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
+                    sosButtons = it
+                    Prefs.setSosButtons(context, it)
+                    GuardService.refreshSos()
+                }
             }
             ToggleRow(R.drawable.ic_flight, stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
                 airplane = it

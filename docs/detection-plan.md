@@ -48,8 +48,7 @@ still, uncovered, locked with the screen black (face-up on a table, on a seat), 
 ON_TABLE straight away with the full T-rules, in any orientation. Table entry needs the keyguard,
 not a credential lock (an alarm that began without one already ignores the unlock). The rocking
 test now measures swing to swing on each axis, so a test that starts mid-swing no longer halves
-the breathing it sees. The SOS buttons play silence while locked and count media volume steps,
-since Android routes screen-off volume keys only to playing media.
+the breathing it sees. SOS stays hidden in v1.4.0 while it moves to a two-key hold with recording.
 
 **Not yet** (later steps): the gyroscope, the edge-based owner check and display-state
 DisplayListener ranks, the call-state pause and charger watch, the hand (H) rules in shadow mode,

@@ -87,8 +87,11 @@ object Prefs {
 
     fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
 
+    /** SOS is being reworked (both volume keys held, with recording): hidden until it ships. */
+    const val SOS_AVAILABLE = false
+
     /** SOS: volume up five times quickly sounds a call for help, while armed. */
-    fun sosButtons(context: Context) = get(context, "sos_buttons", true)
+    fun sosButtons(context: Context) = SOS_AVAILABLE && get(context, "sos_buttons", true)
     fun setSosButtons(context: Context, value: Boolean) = put(context, "sos_buttons", value)
 
     /** Guard a phone lying face-down on a table, not only one in a pocket. */

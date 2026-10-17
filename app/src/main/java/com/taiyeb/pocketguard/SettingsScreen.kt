@@ -237,9 +237,10 @@ private fun LanguagePicker() {
 private fun HowToTest() {
     GlassCard {
         Text(stringResource(R.string.test_title), color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        listOf(
+        listOfNotNull(
             R.string.test_1, R.string.test_2, R.string.test_3, R.string.test_4, R.string.test_5,
-            R.string.test_6, R.string.test_7, R.string.test_8, R.string.test_9, R.string.test_10,
+            R.string.test_6, R.string.test_7, R.string.test_8, R.string.test_9,
+            R.string.test_10.takeIf { Prefs.SOS_AVAILABLE },
         ).forEachIndexed { i, step -> TestStep(i + 1, step) }
     }
 }
