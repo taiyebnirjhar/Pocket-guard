@@ -50,3 +50,18 @@ Deno.test("the function's own HEAD and DELETE are signed like the AWS SDK's", as
     `AWS4-HMAC-SHA256 ${scope}, Signature=73a0b35d1ce3e7e0b96ba8c08aed8d0e546accb94a0f1be49514753d513bb9b8`,
   );
 });
+
+Deno.test("listing a folder (for account deletion) is signed like the AWS SDK's", async () => {
+  const list = await signedHeaders("GET", "", store, now, {
+    "list-type": "2",
+    prefix: "u/ab-12/",
+    "continuation-token": "1+x=",
+  });
+  assertEquals(list.url, `${base}?continuation-token=1%2Bx%3D&list-type=2&prefix=u%2Fab-12%2F`);
+  assertEquals(
+    list.headers.Authorization,
+    "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20261017/auto/s3/aws4_request, " +
+      "SignedHeaders=host;x-amz-content-sha256;x-amz-date, " +
+      "Signature=c0f7febbba6516b196de167685ede9a15d12e1c39fcd457f149c95dd9330cc65",
+  );
+});

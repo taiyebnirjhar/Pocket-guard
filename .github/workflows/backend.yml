@@ -3,10 +3,13 @@ name: Backend
 # Deploys supabase/ to the Supabase project: database changes, the functions and their keys (Brevo,
 # R2), and the sign-in settings. Then checks the live deployment end to end with a throwaway
 # account, including an upload to R2 and its removal.
+# Only code that passed CI on main goes live: it runs when CI's run for main succeeds (which
+# includes the backend tests against a local stack), or by hand.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths: ["supabase/**", ".github/workflows/backend.yml"]
   workflow_dispatch:
 
 permissions:
@@ -24,10 +27,14 @@ env:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # The commit CI tested, not whatever main is by now.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: supabase/setup-cli@v1
         with:
@@ -36,6 +43,7 @@ jobs:
       - name: Database
         run: |
           supabase link --project-ref "$PROJECT_REF"
+          supabase db push --dry-run
           supabase db push
 
       - name: Function keys
