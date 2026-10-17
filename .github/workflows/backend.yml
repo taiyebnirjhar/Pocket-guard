@@ -1,7 +1,8 @@
 name: Backend
 
-# Deploys supabase/ to the Supabase project: database changes, the functions and their keys, and
-# the sign-in settings. Then checks the live deployment end to end with a throwaway account.
+# Deploys supabase/ to the Supabase project: database changes, the functions and their keys (Brevo,
+# R2), and the sign-in settings. Then checks the live deployment end to end with a throwaway
+# account, including an upload to R2 and its removal.
 on:
   push:
     branches: [main]
@@ -41,9 +42,15 @@ jobs:
         env:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           supabase secrets set --project-ref "$PROJECT_REF" \
-            BREVO_API_KEY="$BREVO_API_KEY" BREVO_SENDER_EMAIL="$BREVO_SENDER_EMAIL" LIVE_PAGE_URL="$LIVE_PAGE_URL"
+            BREVO_API_KEY="$BREVO_API_KEY" BREVO_SENDER_EMAIL="$BREVO_SENDER_EMAIL" LIVE_PAGE_URL="$LIVE_PAGE_URL" \
+            R2_ENDPOINT="https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com" \
+            R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" R2_BUCKET="$R2_BUCKET"
 
       - name: Functions
         run: supabase functions deploy --project-ref "$PROJECT_REF" --use-api

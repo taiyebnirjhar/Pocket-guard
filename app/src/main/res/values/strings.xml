@@ -210,7 +210,7 @@
     <string name="disclose_continue">Continue</string>
     <string name="disclose_not_now">Not now</string>
     <string name="disclose_camera">Pocket Guard uses the camera to take photos of whoever is holding your phone when the theft siren starts, even when the app is closed or the phone is locked. The photos stay on your phone, in History, and are deleted with it.</string>
-    <string name="disclose_sos_record">Pocket Guard uses the camera and microphone to record video with sound when you start SOS, until you unlock, even when the phone is locked. The recordings stay on your phone, in History; you choose if and with whom to share them.</string>
+    <string name="disclose_sos_record">Pocket Guard uses the camera and microphone to record video with sound when you start SOS, until you unlock, even when the phone is locked. The recordings are saved on your phone, in History. When your SOS alert with the live location link is on, the video is also uploaded so the people you approved can watch it from that link; otherwise you choose if and with whom to share it.</string>
     <string name="disclose_bluetooth">Pocket Guard uses the names of your paired Bluetooth devices so you can pick which earbuds or watch count, to warn you when they lose the phone and to offer arming when they connect. This stays on your phone.</string>
     <string name="disclose_activity">Pocket Guard uses physical activity (being on a bus or train) to remind you to arm the guard, even when the app is closed. Nothing is stored or shared.</string>
     <string name="sos_other_ways">Also from the lock screen: the SOS button on the Pocket Guard notification, or the SOS tile in Quick Settings. With the screen off, use your phone\'s own Emergency SOS (press power 5 times), which you can set up in your phone\'s Safety settings.</string>
@@ -252,12 +252,12 @@
     <string name="contacts_email">Email (optional)</string>
     <string name="contacts_edit">Edit contact</string>
     <string name="contacts_save">Save</string>
-    <string name="contacts_confirm_live">While SOS runs, your location is also shared through Pocket Guard\'s server: the message carries a private link to a live map, which works until a day after SOS ends. People with an email address get the alert by email too. Shared locations are deleted after 90 days.</string>
+    <string name="contacts_confirm_live">While SOS runs, your location and the video it records are also shared through Pocket Guard\'s server: the message carries a private link to a live map with the recordings, which works until a day after SOS ends. People with an email address get the alert by email too. Shared locations and videos are deleted after 90 days.</string>
     <string name="online_title">Online</string>
     <string name="online_live">Live location link</string>
-    <string name="online_live_sub">During SOS, share your location through Pocket Guard\'s server, with a link your contacts can follow, and email the contacts who have an address. Off: SMS only.</string>
+    <string name="online_live_sub">During SOS, share your location and the video it records through Pocket Guard\'s server, with a link your contacts can follow, and email the contacts who have an address. Off: SMS only.</string>
     <string name="online_delete">Delete my online data</string>
-    <string name="online_delete_sub">Deletes this phone\'s anonymous account and every location it shared.</string>
+    <string name="online_delete_sub">Deletes this phone\'s anonymous account and every location and video it shared.</string>
     <string name="online_delete_confirm">Delete everything Pocket Guard stored online for this phone? Live links you already sent stop working.</string>
     <string name="online_delete_action">Delete</string>
     <string name="online_deleted">Deleted. Nothing from this phone is stored online.</string>

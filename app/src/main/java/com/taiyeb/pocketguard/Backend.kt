@@ -3,6 +3,7 @@ package com.taiyeb.pocketguard
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -16,6 +17,7 @@ import java.net.URL
 object Backend {
     private const val PREFS = "backend"
     private const val TIMEOUT_MS = 10_000
+    private const val UPLOAD_TIMEOUT_MS = 120_000
 
     data class Incident(val id: String, val viewerToken: String)
     data class Fix(val lat: Double, val lng: Double, val accuracy: Float?, val time: Long)
@@ -137,6 +139,50 @@ object Backend {
         if (battery != null) body.put("battery", battery)
         if (body.length() == 0) return true
         return call(context, "PATCH", "/rest/v1/incidents?id=eq.$incidentId", body, token, "return=minimal").ok
+    }
+
+    // --- Recordings ----------------------------------------------------------------------------
+
+    /** Uploads one SOS video piece to the store through a link signed for it; true when stored. */
+    fun uploadVideo(context: Context, incidentId: String, file: File): Boolean {
+        val token = token(context) ?: return false
+        val bytes = file.length()
+        if (bytes <= 0) return true
+        val ask = call(
+            context,
+            "POST",
+            "/functions/v1/media",
+            JSONObject().put("action", "upload").put("incident_id", incidentId).put("kind", "video")
+                .put("bytes", bytes).put("content_type", "video/mp4"),
+            token,
+        )
+        if (!ask.ok) return ask.code in 400..499 && ask.code != 401 // Refused (too big, too many): don't retry.
+        val (mediaId, url) = try {
+            val o = JSONObject(ask.body)
+            o.getLong("media_id") to o.getString("url")
+        } catch (e: Exception) {
+            return false
+        }
+        if (!put(url, file)) return false
+        return call(context, "POST", "/functions/v1/media", JSONObject().put("action", "done").put("media_id", mediaId), token).ok
+    }
+
+    private fun put(url: String, file: File): Boolean {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "PUT"
+            conn.connectTimeout = TIMEOUT_MS
+            conn.readTimeout = UPLOAD_TIMEOUT_MS
+            conn.doOutput = true
+            conn.setFixedLengthStreamingMode(file.length())
+            conn.setRequestProperty("Content-Type", "video/mp4") // Signed into the link, with the size.
+            file.inputStream().use { input -> conn.outputStream.use { input.copyTo(it) } }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            false
+        } finally {
+            conn.disconnect()
+        }
     }
 
     // --- Email and account ---------------------------------------------------------------------

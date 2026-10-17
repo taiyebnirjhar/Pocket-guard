@@ -390,7 +390,7 @@ cat >"$OUT/contacts.xml" <<CONTACTS
 <map>
     <string name="contacts">[{&quot;name&quot;:&quot;Mom&quot;,&quot;phone&quot;:&quot;+15555215554&quot;,&quot;email&quot;:&quot;mom@example.com&quot;}]</string>
     <string name="name">Taiyeb</string>
-    <string name="approved">2|$MODE|Taiyeb|Mom=+15555215554,mom@example.com</string>
+    <string name="approved">3|$MODE|Taiyeb|Mom=+15555215554,mom@example.com</string>
 </map>
 CONTACTS
 adb push "$OUT/contacts.xml" /data/local/tmp/pg-contacts.xml >/dev/null
@@ -433,6 +433,14 @@ if [ "$LIVE" = true ]; then
   expect_true 'view_incident "$LIVE_TOKEN" | grep -q "\"status\": *\"false_alarm\""' "the live page shows the false alarm"
   for _ in $(seq 1 20); do [ "$(wc -l <"$OUT/brevo.jsonl")" -ge 2 ] && break; sleep 0.5; done
   expect_true 'tail -n 1 "$OUT/brevo.jsonl" | grep -q "false alarm"' "the emailed contact hears it was a false alarm"
+  # The recording's last piece is saved on unlock and still goes up after SOS has ended.
+  expect_log "Live location: video uploaded" 60 "the SOS video is uploaded (after SOS ended, too)"
+  MEDIA_ID=$(view_incident "$LIVE_TOKEN" | python3 -c 'import sys,json;m=json.load(sys.stdin)["media"];print(m[0][0] if m else "")')
+  expect_true '[ -n "$MEDIA_ID" ]' "the live page lists the recording"
+  VIDEO_URL=$(curl -s -X POST "$E2E_API_URL/functions/v1/media" -H "apikey: $E2E_PUBLISHABLE_KEY" -H "Content-Type: application/json" \
+    -d "{\"action\":\"view\",\"token\":\"$LIVE_TOKEN\",\"media_id\":${MEDIA_ID:-0}}" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("url",""))')
+  curl -s -o "$OUT/uploaded.mp4" "$VIDEO_URL"
+  expect_true '[ "$(stat -c %s "$OUT/uploaded.mp4" 2>/dev/null || echo 0)" -gt 10000 ] && head -c 12 "$OUT/uploaded.mp4" | grep -q ftyp' "the live page's link plays the uploaded video (an MP4, $(stat -c %s "$OUT/uploaded.mp4" 2>/dev/null || echo 0) bytes)"
 fi
 sleep 2
 

@@ -24,8 +24,9 @@
 <p>Pocket Guard is an anti-theft and personal-safety app. It works on your phone, with no ads, no
 analytics and no account to create. The only data that leaves your phone is the SOS alert you set
 up and approved: sent by SMS from your phone to the emergency contacts you chose, and, unless you
-switch off "Live location link", your location during SOS and your contacts' email addresses, sent
-to Pocket Guard's server so your contacts can follow you on a live map and get the alert by email.
+switch off "Live location link", your location and the video recorded during SOS, and your
+contacts' email addresses, sent to Pocket Guard's server so your contacts can follow you on a live
+map, watch the recording and get the alert by email.
 This policy explains what the app uses and why.</p>
 
 <h2>What the app uses, and why</h2>
@@ -37,8 +38,9 @@ This policy explains what the app uses and why.</p>
   <li><b>Camera (photos)</b>: when the theft siren starts, to take a few photos of whoever holds the
     phone. They are saved on the phone, in History.</li>
   <li><b>Camera and microphone (video with sound)</b>: only after you start SOS, until you unlock,
-    to record what happens. Recordings are saved on the phone, in History. They leave the phone
-    only if you share them yourself.</li>
+    to record what happens. Recordings are saved on the phone, in History. When "Live location
+    link" is on and your alert is approved, they are also uploaded for your contacts (see below);
+    otherwise they leave the phone only if you share them yourself.</li>
   <li><b>Emergency contacts</b>: the names and phone numbers you pick (through the system's contact
     picker, which hands the app only the contact you choose) or type in. Stored on the phone.</li>
   <li><b>Location</b>: only while SOS is running, to put it in the alert to your emergency contacts,
@@ -68,14 +70,17 @@ alert, starting SOS also does this:</p>
   <li>It opens an <b>SOS record</b> with the name you entered for alerts, your battery level, and the
     start and end time, and uploads your <b>location</b> (position, accuracy and time) every
     15 seconds while SOS runs.</li>
-  <li>The SMS carries a <b>private link</b> to a live map of that location. Anyone with the link can
-    see it, without signing in, until one day after SOS ends.</li>
+  <li>The <b>video</b> recorded during SOS is uploaded in one-minute pieces (480p, with sound) as
+    they are saved, to storage that is not public.</li>
+  <li>The SMS carries a <b>private link</b> to a live map of that location, with the recordings.
+    Anyone with the link can see it, and play a recording through a link that works for
+    10 minutes, without signing in, until one day after SOS ends.</li>
   <li>Emergency contacts who have an <b>email address</b> get the alert by email, sent through our
     email provider. The addresses are used to send that email and are not stored on the server (Brevo keeps its
     usual delivery logs).</li>
 </ul>
-<p>The server is run on Supabase (database and sign-in, hosted in Singapore) and emails are sent
-through Brevo. Both process the data only to provide this service. The data is used for nothing
+<p>The server is run on Supabase (database and sign-in, hosted in Singapore), recordings are
+stored on Cloudflare R2 (Asia-Pacific), and emails are sent through Brevo. Both process the data only to provide this service. The data is used for nothing
 else: not for advertising, profiling or sale.</p>
 
 <h2>Sharing</h2>
@@ -87,8 +92,8 @@ WhatsApp), it goes only to the app or person you pick. Personal data is never so
 <p>On the phone, everything stays in the app's private storage. History keeps warnings for 7 days
 and alarms for 90 days, then deletes them with their photos and recordings. You can clear History
 at any time, and uninstalling the app deletes all of its data on the phone.</p>
-<p>On the server, SOS records and their locations are deleted after 90 days (the live link stops
-working one day after SOS ends). To delete them sooner, use <b>Settings, Online, Delete my online
+<p>On the server, SOS records, their locations and their recordings are deleted after 90 days
+(the live link stops working one day after SOS ends). To delete them sooner, use <b>Settings, Online, Delete my online
 data</b>: it deletes this phone's anonymous account and everything stored with it, at once. If you
 no longer have the app, open an issue (below) with the approximate date of your SOS and we will
 delete it.</p>

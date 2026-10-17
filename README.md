@@ -109,6 +109,10 @@ SMS on its own only with an approved exception). "Share on WhatsApp" opens Whats
 **Live location link and alert emails** (Settings → Online → Live location link, on by default):
 the SMS also carries a private link to a live map (`…/Pocket-guard/live/#t=<token>`), and
 contacts with an email address get the alert by email, then "false alarm" if you stop right away.
+The SOS video is recorded at 480p (about 12 MB a minute) and each one-minute piece is uploaded to
+R2 as it's saved, through a link the server signs for that piece; the live page lists the
+recordings and plays one through a 10-minute link. Pieces still uploading when SOS ends carry on
+for up to 30 minutes.
 The phone signs in anonymously (no email or password), opens an SOS record and uploads its
 location every 15 s while SOS runs; the page refreshes every 10 s and stops working a day after
 SOS ends, and the server deletes everything after 90 days. "Delete my online data" removes the
@@ -203,8 +207,8 @@ required step is missing brings it back, and arms the guard once it's done.
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
 | `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
-| `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record and its live location, alert emails. |
-| `supabase/` | The backend: database and its access rules (`migrations/`), the email and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
+| `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record with its live location and video, alert emails. |
+| `supabase/` | The backend: database and its access rules (`migrations/`), the email, recordings (R2 signed links) and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
 | `site/` | GitHub Pages: the privacy policy and the live location page (`site/live/`). |
 
 ## CI pipeline
@@ -239,7 +243,8 @@ required step is missing brings it back, and arms the guard once it's done.
    signed with the official key, and only for a new version.
 
 `.github/workflows/backend.yml` deploys `supabase/` to the real project when it changes on `main`,
-then checks the deployment with a throwaway account. `.github/workflows/check-backend.yml` checks
+then checks the deployment with a throwaway account (including an upload to R2 and its removal).
+`.github/workflows/daily.yml` keeps the free Supabase project awake and posts a usage report. `.github/workflows/check-backend.yml` checks
 that every backend secret still works (run it from the Actions tab after replacing a key).
 
 ## Releasing
