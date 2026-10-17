@@ -130,7 +130,45 @@ private fun IncidentCard(incident: Incident) {
                 incident.photos.forEach { name -> Thumbnail(File(History.photosDir(context), name)) }
             }
         }
+        val videos = incident.videos.map { File(History.videosDir(context), it) }.filter { it.exists() }
+        if (videos.isNotEmpty()) {
+            Text(stringResource(R.string.sos_recordings), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                videos.forEachIndexed { i, file ->
+                    TextButton(onClick = { openVideo(context, file) }) {
+                        Text("▶ ${i + 1}", color = Purple, fontSize = 14.sp)
+                    }
+                }
+                TextButton(onClick = { shareVideos(context, videos) }) {
+                    Text(stringResource(R.string.history_share), color = Purple, fontSize = 14.sp)
+                }
+            }
+        }
     }
+}
+
+private fun videoUri(context: android.content.Context, file: File) =
+    androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+
+/** Plays one SOS recording in the phone's video player. */
+private fun openVideo(context: android.content.Context, file: File) {
+    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+        .setDataAndType(videoUri(context, file), "video/mp4")
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { context.startActivity(intent) }
+}
+
+/** Sends the recordings anywhere: police, family, a cloud drive. */
+private fun shareVideos(context: android.content.Context, files: List<File>) {
+    val uris = ArrayList(files.map { videoUri(context, it) })
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE)
+        .setType("video/mp4")
+        .putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { context.startActivity(android.content.Intent.createChooser(intent, null)) }
 }
 
 @Composable

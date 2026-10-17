@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -101,6 +102,15 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             fontSize = 20.sp,
             textAlign = TextAlign.Center,
         )
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val canRecord = remember {
+            context.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (sos && canRecord) {
+            // Said out loud on the screen too: being recorded makes people back off.
+            Spacer(Modifier.height(12.dp))
+            Text("● " + stringResource(R.string.alarm_help_recording), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
         val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
         if (!unlockStops) {
             Spacer(Modifier.height(16.dp))

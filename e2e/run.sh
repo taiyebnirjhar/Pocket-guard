@@ -303,6 +303,50 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
+log "Scenario 7e: SOS, power pressed, then volume + and - held together for 3 s"
+A11Y="$PKG/.SosAccessibilityService"
+# Real key events written to the input device that owns the volume keys (root, emulator only):
+# accessibility key filters never see keys injected with "adb shell input" (those count as
+# already filtered), so the test must press them the way the hardware does. With the screen off
+# Android shows volume keys to no app at all, so the gesture starts with power to wake the screen.
+adb root >/dev/null 2>&1; sleep 2; adb wait-for-device
+KEYDEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/add device/ { d = $4 } /KEY_VOLUMEUP/ { print d; exit }')
+hw_key() {
+  local code
+  case "$1" in KEY_VOLUMEUP) code=115 ;; KEY_VOLUMEDOWN) code=114 ;; esac
+  adb shell "sendevent $KEYDEV 1 $code $2; sendevent $KEYDEV 0 0 0" >/dev/null 2>&1
+}
+hold_both() {
+  hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
+  sleep "$(awk "BEGIN { print $1 / 1000 }")"
+  hw_key KEY_VOLUMEDOWN 0; hw_key KEY_VOLUMEUP 0
+}
+expect_true '[ -n "$KEYDEV" ]' "found the input device with the volume keys ($KEYDEV)"
+reset_log
+sh settings put secure enabled_accessibility_services "$A11Y"
+sh settings put secure accessibility_enabled 1
+expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) connects"
+screen_off
+sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed: the lock screen shows.
+reset_log
+hold_both 800
+expect_no_phase SIREN 3 "a short squeeze of both keys is not SOS"
+reset_log
+hold_both 3500
+expect_log "phase=SIREN .*trigger=SOS" 6 "both keys held 3 s on the lock screen sounds the SOS alarm"
+expect_log "SOS video recording" 10 "recording starts with the SOS alarm"
+sleep 3
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+expect_log "SOS video saved" 10 "the recording is saved when it stops"
+for _ in $(seq 1 20); do grep -q '\.mp4' <<<"$(history)" && break; sleep 0.25; done
+expect_true 'grep -q "\.mp4" <<<"$(history)"' "history links the SOS recording"
+VIDEOS=$(adb shell run-as $PKG ls -l files/sos 2>/dev/null | grep -c mp4)
+expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
+sh settings delete secure enabled_accessibility_services >/dev/null
+sleep 2
+
 # --- 6. Setup requirement: the phone must lock immediately ----------------------------------------
 
 log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"

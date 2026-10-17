@@ -82,9 +82,22 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             return true
         }
 
-        /** The SOS setting changed: apply it to a running guard. */
+        /** The SOS setting, or the key watcher's state, changed: apply it to a running guard. */
         fun refreshSos() {
             instance?.updateSos()
+        }
+
+        /** Both volume keys held [SosHold.HOLD_MS] (from [source]). Main thread. */
+        fun onSosHold(source: String) {
+            instance?.sosHold(source)
+        }
+
+        /**
+         * Permissions were just granted in the app (so it is in the foreground, where Android lets
+         * a service add the camera and microphone): re-declare the service's types.
+         */
+        fun refreshForeground() {
+            instance?.let { if (it.engine != null) it.goForeground() }
         }
 
         fun disarm(context: Context) {
@@ -306,7 +319,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (Build.VERSION.SDK_INT >= 30 && granted(Manifest.permission.CAMERA)) {
             withCamera = withCamera or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
         }
-        for (types in listOf(withCamera, base).distinct()) {
+        // SOS records sound with its video; the microphone, like the camera, must be declared now.
+        var withMicrophone = withCamera
+        if (Build.VERSION.SDK_INT >= 30 && Prefs.sosButtons(this) && granted(Manifest.permission.RECORD_AUDIO)) {
+            withMicrophone = withMicrophone or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        }
+        for (types in listOf(withMicrophone, withCamera, base).distinct()) {
             try {
                 ServiceCompat.startForeground(this, Notifications.STATUS_ID, notification, types)
                 return true
@@ -405,8 +423,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         sensorManager.unregisterListener(this)
         displayManager.unregisterDisplayListener(displayListener)
         handler.removeCallbacks(accelHealth)
-        sos?.stop()
-        sos = null
         tts?.shutdown()
         tts = null
         try {
@@ -451,20 +467,37 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     // --- SOS --------------------------------------------------------------------------------------
 
-    private var sos: SosButtons? = null
     private var tts: TextToSpeech? = null
     private var sosPhrase = ""
 
-    /** Starts or stops the SOS buttons to match the setting (armed only). */
+    /** Logs what the SOS buttons can do now: the key watcher is the only way to see the keys. */
     fun updateSos() {
         val want = engine != null && Prefs.sosButtons(this)
-        if (want && sos == null) {
-            sos = SosButtons(this, ::log) { engine?.onSos() }.also { it.start() }
-        } else if (!want && sos != null) {
-            sos?.stop()
-            sos = null
-            log("SOS buttons off")
+        if (want != sosWanted) {
+            sosWanted = want
+            log(
+                when {
+                    !want -> "SOS off"
+                    SosAccessibilityService.connected -> "SOS on: watching the volume keys"
+                    else -> "SOS on, but the key watcher is off: turn it on in Accessibility"
+                },
+            )
         }
+    }
+
+    private var sosWanted = false
+
+    /** Both volume keys held: the SOS alarm, if it is on and the phone locked. */
+    private fun sosHold(source: String) {
+        val current = engine ?: return
+        if (!Prefs.sosButtons(this)) return
+        if (!isLocked()) {
+            log("SOS hold ignored: unlocked")
+            return
+        }
+        log("SOS: both volume keys held (${source})")
+        alarm.tick()
+        current.onSos()
     }
 
     /** The call for help is spoken on the alarm stream, in Bangla when the app shows Bangla and a voice exists. */
