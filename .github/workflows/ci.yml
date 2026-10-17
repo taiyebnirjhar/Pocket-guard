@@ -144,6 +144,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
+      # Private repositories get smaller runners (2 cores, little free disk): the emulator's data
+      # partition alone needs over 7 GB. Remove toolchains this job never uses first.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /usr/local/lib/android/sdk/ndk /opt/hostedtoolcache/CodeQL /usr/local/share/powershell \
+            /usr/local/julia* /usr/share/swift
+          docker image prune -af >/dev/null 2>&1 || true
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
@@ -172,6 +183,9 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          # A smaller data partition (the test needs well under 1 GB) and more time to boot on 2 cores.
+          disk-size: 3G
+          emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-front emulated -camera-back emulated
           script: bash e2e/run.sh dist/PocketGuard-${{ github.run_number }}.apk
 
