@@ -58,20 +58,24 @@ class TableMonitor(private val m: MotionProcessor) {
         /**
          * A vehicle pulling away pushes one way for seconds (a hand accelerates and stops). After
          * [DRIVE_MS] of that the phone is a vehicle suspect: slow-hand rules pause, tilt, uncover
-         * and fall stay armed. It leaves table mode only once confirmed by road or engine
-         * vibration, or by a push lasting [DRIVE_CONFIRM_MS]; otherwise it goes back to normal.
+         * and fall stay armed. It never leaves table mode for it: a hand can look like a car, and
+         * a silent exit would drop protection. Confirmed by road or engine vibration, or by a push
+         * lasting [DRIVE_CONFIRM_MS], the pause holds until the phone has been still for
+         * [PARKED_MS] (parked), and the angle it rests at then becomes the placement pose;
+         * otherwise it ends [SUSPECT_MS] after it began, once the phone is still.
          */
         const val DRIVE_ACCEL = 0.2f
         const val DRIVE_MS = 2000L
         const val DRIVE_CONFIRM_MS = 5000L
         const val SUSPECT_MS = 10_000L
+        const val PARKED_MS = 30_000L
         const val VEHICLE_SIGMA = 0.12f
         const val VEHICLE_VIBRATION_MS = 3000L
 
         /**
          * An engine shakes the phone without moving it: vibration this long while it lies within
          * [VEHICLE_STEADY_DEG] of where it rested makes it a vehicle suspect before it drives off.
-         * A hand can't hold it that steady. Leaving table mode still takes a push.
+         * A hand can't hold it that steady. Confirming a vehicle still takes a push.
          */
         const val VEHICLE_IDLE_MS = 3000L
         const val VEHICLE_STEADY_DEG = 1f
@@ -83,7 +87,7 @@ class TableMonitor(private val m: MotionProcessor) {
         const val OWN_BUZZ_SETTLE_MS = 1500L
     }
 
-    enum class Signal { NONE, TILT, LIFT, HELD, POSE, FALL, UNCOVER, SLIDE, DRIVE_OFF }
+    enum class Signal { NONE, TILT, LIFT, HELD, POSE, FALL, UNCOVER, SLIDE }
 
     // --- Placement latch and entry ------------------------------------------------------------
 
@@ -222,6 +226,7 @@ class TableMonitor(private val m: MotionProcessor) {
     private var driveZ = 0f
     private var driveMeasured = 0f
     private var driveExpected = 0f
+    private var driveH = 0f
     private var driveLowSince = -1L
     private var suspectSince = -1L
     private var vibrationSince = -1L
@@ -230,7 +235,10 @@ class TableMonitor(private val m: MotionProcessor) {
     /** The suspect state has seen a push, not just vibration: vibration may then confirm it. */
     private var suspectPushed = false
 
-    /** A vehicle pulling away is suspected: slow-hand rules pause until it is confirmed or not. */
+    /** A vehicle is confirmed: the slow-hand rules stay paused until it has been parked a while. */
+    private var inVehicle = false
+
+    /** A vehicle is suspected (or confirmed): the slow-hand rules pause while it lasts. */
     val vehicleSuspect get() = suspectSince >= 0
 
     /** Enters table watch: the reference pose is where it lies now. */
@@ -246,6 +254,7 @@ class TableMonitor(private val m: MotionProcessor) {
         vibrationSince = -1L
         shakeSince = -1L
         suspectPushed = false
+        inVehicle = false
         poseCheckedFor = m.restSince
         ignoreUntil = t + OWN_VIBRATION_MS
     }
@@ -289,7 +298,12 @@ class TableMonitor(private val m: MotionProcessor) {
 
         // Vehicles: a steady one-way push, then road or engine vibration.
         val pushing = trackDrive(t)
-        if (pushing && vehicleSuspect) suspectPushed = true
+        // Only a push of [DRIVE_MS] or more lets vibration confirm a vehicle, and only vibration
+        // after it counts: shaking before a grab says nothing about the grab.
+        if (pushing && vehicleSuspect && t - driveSince >= DRIVE_MS && !suspectPushed) {
+            suspectPushed = true
+            vibrationSince = -1L
+        }
         if (events and MotionProcessor.Event.FRAME != 0) {
             val shaking = m.lastSigma >= VEHICLE_SIGMA
             if (shaking && m.fastAngleTo(baseX, baseY, baseZ) < VEHICLE_STEADY_DEG && !m.walkedWithin(t, 3000L)) {
@@ -301,25 +315,36 @@ class TableMonitor(private val m: MotionProcessor) {
             } else {
                 shakeSince = -1L
             }
-            if (vehicleSuspect && shaking) {
+            // Walking shakes it too, and is no vehicle.
+            if (vehicleSuspect && suspectPushed && shaking && !m.walkedWithin(t, 3000L)) {
                 if (vibrationSince < 0) vibrationSince = t
             } else {
                 vibrationSince = -1L
             }
         }
         if (vehicleSuspect) {
-            val confirmed = (suspectPushed && vibrationSince >= 0 && t - vibrationSince >= VEHICLE_VIBRATION_MS) ||
+            if ((suspectPushed && vibrationSince >= 0 && t - vibrationSince >= VEHICLE_VIBRATION_MS) ||
                 (pushing && t - driveSince >= DRIVE_CONFIRM_MS)
-            if (confirmed) {
-                suspectSince = -1L
-                burstActive = false
-                return Signal.DRIVE_OFF
+            ) {
+                inVehicle = true
             }
-            // Not a vehicle after all: full rules again. Only once still, since a car between
-            // pushes keeps it moving.
-            if (t - suspectSince >= SUSPECT_MS && !pushing && m.atRest) {
+            // Full rules again once still: a car between pushes keeps it moving. After a drive it
+            // was parked somewhere new, so the angle it rests at now is where it was put.
+            val ended = !pushing && m.atRest && if (inVehicle) {
+                t - m.restSince >= PARKED_MS
+            } else {
+                t - suspectSince >= SUSPECT_MS
+            }
+            if (ended) {
+                if (inVehicle) {
+                    refX = m.restX; refY = m.restY; refZ = m.restZ
+                    refG0 = m.g0
+                    poseCheckedFor = m.restSince
+                } else {
+                    poseCheckedFor = -1L
+                }
                 suspectSince = -1L
-                poseCheckedFor = -1L
+                inVehicle = false
                 vibrationSince = -1L
                 shakeSince = -1L
             }
@@ -367,13 +392,21 @@ class TableMonitor(private val m: MotionProcessor) {
 
         // Lifted: acceleration along gravity, integrated twice, rises >= 3 cm within a second. A
         // push pauses it only while |a| rose about as much as a push explains; a lift raises it more.
-        val liftPaused = vehicleSuspect || (pushing && driveMeasured <= 2f * driveExpected + 0.5f)
+        // A car speeding up a slope rises too, by tan(slope) of its push: with the phone flat in the
+        // car that is no more than the tilt it rests at, so a lift must rise more than that.
+        val nb = sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ).coerceAtLeast(1e-3f)
+        val cb = (abs(baseZ) / nb).coerceAtLeast(0.5f)
+        val slopeRise = (sqrt(1f - cb * cb) / cb + 0.05f) * driveH
+        val liftPaused = vehicleSuspect || (pushing && (driveMeasured <= 2f * driveExpected + 0.5f ||
+            driveMeasured - driveExpected < slopeRise))
         if (!liftPaused && !liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
             liftDone = true
             return Signal.LIFT
         }
-        // Held in a hand: never still again, and tilted from where it last lay.
-        if (!slowRulesPaused && elapsed >= HELD_MS && m.fastAngleTo(baseX, baseY, baseZ) >= HELD_DEG && !m.atRest) {
+        // Held in a hand: never still again, and tilted both from where it last lay and from where
+        // it was placed (a prop taken away drops it back flat).
+        val heldTilt = minOf(m.fastAngleTo(baseX, baseY, baseZ), tilt)
+        if (!slowRulesPaused && elapsed >= HELD_MS && heldTilt >= HELD_DEG && !m.atRest) {
             burstActive = false
             return Signal.HELD
         }
@@ -424,9 +457,14 @@ class TableMonitor(private val m: MotionProcessor) {
                 driveX = hx; driveY = hy; driveZ = hz
                 driveMeasured = 0f
                 driveExpected = 0f
+                driveH = 0f
             } else {
                 driveMeasured += m.magnitude - baseG0
                 driveExpected += h * h / (2f * baseG0)
+                driveH += h
+                // A push only adds to |a|. Once that excess is gone (a tilt, or a lift and its stop)
+                // it was no push: start over, so a later step can't revive it.
+                if (t - driveSince >= 500L && driveMeasured < 0.25f * driveExpected) driveSince = -1L
             }
         } else if (driveSince >= 0 && h < DRIVE_ACCEL / 2) {
             if (driveLowSince < 0) driveLowSince = t

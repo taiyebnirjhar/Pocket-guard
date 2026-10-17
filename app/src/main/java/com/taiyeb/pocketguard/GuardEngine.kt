@@ -96,8 +96,11 @@ class GuardEngine(
         const val GAIT_UNCOVERED_MS = 3000L
         const val GAIT_RECENT_MS = 2000L
 
-        /** A jolt this soon after the uncover, while standing still, is the pull itself. */
+        /** A jolt this soon after the uncover, while standing still, is the pull itself... */
         const val PULL_JOLT_MS = 1000L
+
+        /** ...and the phone turned into a hand this soon after it shows whose hand. */
+        const val PULL_TURN_MS = 3000L
 
         /** Turned to look: this far from the pocket posture, with the screen woken as it turned. */
         const val TILT_OUT_DEG = 45f
@@ -432,16 +435,16 @@ class GuardEngine(
         }
         val motionAt = lastMotionAt
         // Steps are jolts too: only one after the walking stopped counts. The pull itself, made
-        // while standing still, still counts when steps follow at once (a thief hurrying off):
-        // once they stop, or once the phone has been turned into a hand.
+        // while standing still, counts even with steps after it (a thief hurrying off) once the
+        // phone was turned into a hand right after it; the owner's own first steps don't turn it.
         val pull = pullJoltAt
+        val pulledIntoHand = hasMotionData && pull != null && peakHeld && peakHeldAt - pull in 0L..PULL_TURN_MS
         val jolted = (motionAt != null && now - motionAt < MOTION_WINDOW_MS &&
-            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)) ||
-            (hasMotionData && pull != null && (!motion.walkedWithin(now, GAIT_RECENT_MS) || peakHeld))
+            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)) || pulledIntoHand
         if (hasMotionSensor && !jolted) return RemovalCheck.None
         var since = uncoveredAt ?: now
         var needed = uncoveredConfirmMs
-        if (hasMotionData && motion.walkedWithin(now, GAIT_RECENT_MS)) {
+        if (hasMotionData && motion.walkedWithin(now, GAIT_RECENT_MS) && !pulledIntoHand) {
             if (motion.walking(now)) return RemovalCheck.WaitLonger(RECHECK_MS)
             needed = maxOf(needed, GAIT_UNCOVERED_MS)
             since = maxOf(since, motion.lastGaitAt)
@@ -480,6 +483,7 @@ class GuardEngine(
     private var pathDeg = 0f
     private var peakSince = -1L
     private var peakHeld = false
+    private var peakHeldAt = -1L
     private var tiltOutSince = -1L
     private var cueInEpisode = false
 
@@ -519,6 +523,7 @@ class GuardEngine(
         pathDeg = 0f
         peakSince = -1L
         peakHeld = false
+        peakHeldAt = -1L
         tiltOutSince = -1L
         rebaseSince = -1L
         rebased = false
@@ -557,7 +562,10 @@ class GuardEngine(
 
         if (theta >= OUT_AND_IN_PEAK_DEG) {
             if (peakSince < 0) peakSince = t
-            if (t - peakSince >= OUT_AND_IN_PEAK_HOLD_MS) peakHeld = true
+            if (t - peakSince >= OUT_AND_IN_PEAK_HOLD_MS && !peakHeld) {
+                peakHeld = true
+                peakHeldAt = t
+            }
         } else {
             peakSince = -1L
         }
@@ -704,11 +712,6 @@ class GuardEngine(
                 val oldest = slideTimes[slideCount % slideTimes.size]
                 val burst = slideCount >= slideTimes.size && t - oldest <= SLIDE_BURST_WINDOW_MS
                 host.tableChirp(burst)
-            }
-            TableMonitor.Signal.DRIVE_OFF -> {
-                // A car pulling away, not a hand: back to pocket rules, silently.
-                table.clearLatch()
-                go(Phase.IN_POCKET)
             }
             TableMonitor.Signal.TILT -> tableAlarm(t, Evidence.TABLE_TILT)
             TableMonitor.Signal.LIFT -> tableAlarm(t, Evidence.TABLE_LIFT)
