@@ -30,10 +30,9 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
      is brighter.
    - **Jolt**: a push or pull over 2.5 m/s² (measured as |a| away from 1 g, so turning the phone
-     can't fake it; a sideways pull, which barely changes |a|, counts when the phone ends up
-     facing the way it was) plus the sensor staying uncovered for 1.5 s. While walking, every
-     step is a jolt, so then only a jolt after the steps stop counts, and it takes 3 s uncovered
-     after they stop.
+     or shifting in a chair can't fake it) plus the sensor staying uncovered for 1.5 s. While
+     walking, every step is a jolt, so then only a jolt after the steps stop counts (or the pull
+     itself, if you were standing still when it came), and it takes 3 s uncovered after they stop.
    - **Turned to look**: no jolt (a careful, gentle pull), but the phone turns 45° or more away
      from its pocket posture and the screen wakes as it turns.
    - **Into another pocket**: out for at least a second, turned 60° or more, then covered again
@@ -71,19 +70,20 @@ or a body never counts, because they rock, sink or breathe). Then:
 |---|---|
 | Tilted 20° or more, turned over to look | Warning |
 | Lifted 3 cm or more, even level | Warning |
-| Picked up slowly and held (never still again, tilted 4°+) | Warning after 3 s |
+| Picked up slowly and held (never still again, tilted 6°+) | Warning after 3 s |
 | Comes to rest at a new angle (8°+), like on a hand or a book | Warning |
 | Pushed off the edge (falling, without the kick of a bump) | Warning |
 | Sensor uncovered together with any lift-like motion | Warning |
 | Slid across the table (10 cm or more) | One beep; repeated slides beep for 3 s |
 | Knocked, bumped, a cup put down, its own vibration | Nothing |
-| A car pulling away with it on the seat | Leaves table mode silently, once road or engine vibration (or a 5 s push) shows it's a vehicle |
+| A car pulling away with it on the seat | An idling engine already pauses the slow-hand rules; it leaves table mode silently once it drives off (a push with road or engine vibration, or a 5 s push) |
 | Picked up to answer a call, even in silent mode | Your pick-up: back to armed, silently |
 
 Table warnings and "turned to look" warnings stay silent for their first 1.5 s, so picking up your
 own phone and unlocking it with a fingerprint makes no sound. They beep on the alarm stream (heard
 in silent mode) without vibrating, so a phone put back down can tell it is still; a table siren
-starts vibrating after 10 s. Put it back down flat and still within the grace period and the
+starts vibrating once it can no longer be put back (10 s after the pick-up). Put it back down flat
+and still within the grace period and the
 warning stops by itself (3 times per 10 min at most). With no
 delay set, a table pick-up still gets these 1.5 s before the siren. Table mode can be switched
 off under Triggers.

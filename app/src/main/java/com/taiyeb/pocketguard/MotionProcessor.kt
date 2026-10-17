@@ -27,19 +27,6 @@ class MotionProcessor {
         const val FREE_FALL = 3f
         const val FREE_FALL_MS = 100L
 
-        /**
-         * A push across gravity barely changes |a| (2.6 m/s² sideways adds 0.34), so it is measured
-         * against the gravity from just before it. A turn moves that too, so it only counts if
-         * |a| rose a little with it and gravity is back where it was within a second: a turn stays
-         * turned. Steps swing the phone back and forth, so not while walking.
-         */
-        const val SIDE_EXCESS = 0.3f
-        const val SIDE_EXCESS_MS = 200L
-        const val SIDE_RETURN_DEG = 10f
-        const val SIDE_RETURN_MS = 1000L
-        const val SIDE_CAP_MS = 3000L
-        const val SIDE_NO_GAIT_MS = 5000L
-
         /** A hop (a fist on the table) kicks up before it falls; a push off the edge doesn't. */
         const val KICK = 5f
         const val KICK_WINDOW_MS = 60L
@@ -226,19 +213,6 @@ class MotionProcessor {
     private var fallReported = false
     private var lastKickAt = Long.MIN_VALUE / 2
 
-    // --- Sideways jolts ------------------------------------------------------------------------
-
-    /** Gated gravity at the last three frame ends: the oldest is from 200-300 ms ago. */
-    private val gHist = FloatArray(9)
-    private var gHistN = 0
-    private var sideActive = false
-    private var sideAt = 0L
-    private var sideLastAt = 0L
-    private var sideExcess = false
-    private var sideX = 0f
-    private var sideY = 0f
-    private var sideZ = 0f
-
     // --- Steps ---------------------------------------------------------------------------------
 
     private val stepTimes = LongArray(5)
@@ -256,8 +230,6 @@ class MotionProcessor {
         falling = false
         stepCount = 0
         inImpact = false
-        gHistN = 0
-        sideActive = false
     }
 
     /** Feeds one sample. Returns the [Event] flags it caused. */
@@ -278,8 +250,6 @@ class MotionProcessor {
             hasData = true
             falling = false
             stepCount = 0
-            gHistN = 0
-            sideActive = false
         }
         val dt = (t - lastSampleAt).coerceIn(0L, GAP_RESET_MS)
         lastSampleAt = t
@@ -304,7 +274,6 @@ class MotionProcessor {
             events = events or Event.JOLT
         }
         if (m - g0 >= KICK) lastKickAt = t
-        if (trackSideways(t, x, y, z, m)) events = events or Event.JOLT
 
         // Free fall: >= 100 ms near zero g. A kick just before means a hop, not a push off an edge.
         if (m < FREE_FALL) {
@@ -330,46 +299,6 @@ class MotionProcessor {
         }
         addToFrame(x, y, z, m)
         return events
-    }
-
-    /** The sideways branch; true when a sideways jolt is confirmed ([lastJoltAt] is when it began). */
-    private fun trackSideways(t: Long, x: Float, y: Float, z: Float, m: Float): Boolean {
-        if (!sideActive) {
-            if (gHistN < 3) return false
-            val i = (gHistN % 3) * 3
-            val dx = x - gHist[i]
-            val dy = y - gHist[i + 1]
-            val dz = z - gHist[i + 2]
-            if (dx * dx + dy * dy + dz * dz < JOLT * JOLT) return false
-            sideActive = true
-            sideAt = t
-            sideLastAt = t
-            sideExcess = false
-            sideX = gHist[i]; sideY = gHist[i + 1]; sideZ = gHist[i + 2]
-        }
-        // Already counted by |a|, or gone on too long to be one push.
-        if (lastJoltAt >= sideAt || t - sideAt > SIDE_CAP_MS) {
-            sideActive = false
-            return false
-        }
-        val dx = x - sideX
-        val dy = y - sideY
-        val dz = z - sideZ
-        if (dx * dx + dy * dy + dz * dz >= JOLT * JOLT) sideLastAt = t
-        if (t - sideAt <= SIDE_EXCESS_MS && abs(m - g0) >= SIDE_EXCESS) sideExcess = true
-        if (t - sideLastAt < FRAME_MS) return false
-        if (!sideExcess) {
-            sideActive = false // |a| stayed at 1 g: a turn and back.
-            return false
-        }
-        if (angle(gx, gy, gz, sideX, sideY, sideZ) <= SIDE_RETURN_DEG) {
-            sideActive = false
-            if (walkedWithin(t, SIDE_NO_GAIT_MS)) return false
-            lastJoltAt = sideAt
-            return true
-        }
-        if (t - sideLastAt > SIDE_RETURN_MS) sideActive = false // Turned and stayed turned.
-        return false
     }
 
     private fun trackSteps(t: Long, m: Float) {
@@ -427,9 +356,6 @@ class MotionProcessor {
 
     private fun closeFrame(t: Long): Int {
         if (frameN == 0) return Event.FRAME
-        val h = (gHistN % 3) * 3
-        gHist[h] = gx; gHist[h + 1] = gy; gHist[h + 2] = gz
-        gHistN++
         val i = frameIndex
         sumN[i] = frameN
         sumX[i] = frameSx; sumY[i] = frameSy; sumZ[i] = frameSz

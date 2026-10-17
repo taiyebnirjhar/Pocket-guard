@@ -106,45 +106,16 @@ class MotionProcessorTest {
     }
 
     @Test
-    fun sidewaysPushIsAJolt() {
-        val m = MotionProcessor()
-        val s = Signal()
-        feed(m, s, 2000) { floatArrayOf(0f, 0f, Signal.G) }
-        val start = s.t
-        // 2.6 m/s² across gravity, then braking: |a| rises only 0.34, below the |a| rule.
-        var events = feed(m, s, 200) { floatArrayOf(2.6f, 0f, Signal.G) }
-        events = events or feed(m, s, 200) { floatArrayOf(-2.6f, 0f, Signal.G) }
-        events = events or feed(m, s, 600) { floatArrayOf(0f, 0f, Signal.G) }
-        assertTrue(events and MotionProcessor.Event.JOLT != 0)
-        assertTrue("dated to the push", m.lastJoltAt - start in 0L..60L)
-    }
-
-    @Test
-    fun turnAndBackIsNotASidewaysJolt() {
+    fun turnAndBackIsNotAJolt() {
         for (seed in 1L..5L) {
             val m = MotionProcessor()
             val s = Signal(seed = seed, offset = 0.3f, noise = 0.02f)
             feed(m, s, 2000) { Signal.uprightTurned(0f) }
-            // 25 degrees and back in 400 ms: far from the old gravity, but |a| stays at 1 g.
+            // 25 degrees and back in 400 ms: |a| stays at 1 g.
             var events = feed(m, s, 400) { t -> Signal.uprightTurned(25f * sin(PI.toFloat() * t / 400f)) }
             events = events or feed(m, s, 1500) { Signal.uprightTurned(0f) }
             assertEquals("seed $seed", 0, events and MotionProcessor.Event.JOLT)
         }
-    }
-
-    @Test
-    fun noSidewaysJoltsWhileWalking() {
-        val m = MotionProcessor()
-        val s = Signal(noise = 0.03f)
-        // Soft steps (below the |a| rule) and a sideways sway that would pass the sideways one.
-        val walk = { t: Long ->
-            val phase = (t % 550) / 550f
-            floatArrayOf(3f * sin(2 * PI.toFloat() * phase), Signal.G + if (phase < 0.12f) 2f else 0f, 0f)
-        }
-        feed(m, s, 3000, walk)
-        assertTrue(m.walking(s.t))
-        val events = feed(m, s, 5000) { walk(it + 3000) }
-        assertEquals(0, events and MotionProcessor.Event.JOLT)
     }
 
     @Test

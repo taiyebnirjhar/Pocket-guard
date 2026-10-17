@@ -43,7 +43,7 @@ class TableMonitor(private val m: MotionProcessor) {
         const val LIFT_CM = 3f
         const val LIFT_WINDOW_MS = 1000L
         const val HELD_MS = 3000L
-        const val HELD_DEG = 4f
+        const val HELD_DEG = 6f
         const val POSE_DEG = 8f
 
         /** Uncover counts when there was a lift-like motion within this of the uncover. */
@@ -68,8 +68,19 @@ class TableMonitor(private val m: MotionProcessor) {
         const val VEHICLE_SIGMA = 0.12f
         const val VEHICLE_VIBRATION_MS = 3000L
 
+        /**
+         * An engine shakes the phone without moving it: vibration this long while it lies within
+         * [VEHICLE_STEADY_DEG] of where it rested makes it a vehicle suspect before it drives off.
+         * A hand can't hold it that steady. Leaving table mode still takes a push.
+         */
+        const val VEHICLE_IDLE_MS = 3000L
+        const val VEHICLE_STEADY_DEG = 1f
+
         /** After the app's own buzz, motion is ignored this long. */
         const val OWN_VIBRATION_MS = 500L
+
+        /** A buzz before the placement settled gives it this long after the buzz to be still. */
+        const val OWN_BUZZ_SETTLE_MS = 1500L
     }
 
     enum class Signal { NONE, TILT, LIFT, HELD, POSE, FALL, UNCOVER, SLIDE, DRIVE_OFF }
@@ -84,6 +95,9 @@ class TableMonitor(private val m: MotionProcessor) {
     private var latchY = 0f
     private var latchZ = 0f
     private var settled = false
+
+    /** Stillness must have begun by this time; the app's own buzz pushes it back. */
+    private var settleDeadline = 0L
 
     // Hard-surface test over the current stretch of stillness.
     private var testRestSince = -1L
@@ -102,6 +116,7 @@ class TableMonitor(private val m: MotionProcessor) {
         }
         latched = true
         latchAt = t
+        settleDeadline = t + LATCH_SETTLE_MS
         latchX = m.fx; latchY = m.fy; latchZ = m.fz
         settled = false
         testRestSince = -1L
@@ -118,17 +133,17 @@ class TableMonitor(private val m: MotionProcessor) {
     }
 
     /**
-     * Every sample while not alarming: the settle check. Judged as soon as stillness arrives, so
-     * the app's own pocket buzz a moment later can't spoil it. The pose it settled in becomes the
-     * placement pose: it may have been covered at an angle, or still at one just before it was
-     * laid flat, so any stillness that began within the settle time counts.
+     * Every sample while not alarming: the settle check. Judged as soon as stillness arrives; the
+     * app's own pocket buzz restarts the stillness window, so it extends the deadline. The pose it
+     * settled in becomes the placement pose: it may have been covered at an angle, or still at one
+     * just before it was laid flat, so any stillness that began by the deadline counts.
      */
     fun trackSettle(t: Long) {
         if (!latched) return
-        if (m.atRest && m.restSince <= latchAt + LATCH_SETTLE_MS) {
+        if (m.atRest && m.restSince <= settleDeadline) {
             settled = true
             latchX = m.restX; latchY = m.restY; latchZ = m.restZ
-        } else if (!settled && t - latchAt > LATCH_SETTLE_MS) {
+        } else if (!settled && t > settleDeadline) {
             latched = false
         }
     }
@@ -189,6 +204,7 @@ class TableMonitor(private val m: MotionProcessor) {
     private var baseX = 0f
     private var baseY = 0f
     private var baseZ = 0f
+    private var baseG0 = MotionProcessor.G
     private var ignoreUntil = 0L
 
     private var burstActive = false
@@ -209,6 +225,10 @@ class TableMonitor(private val m: MotionProcessor) {
     private var driveLowSince = -1L
     private var suspectSince = -1L
     private var vibrationSince = -1L
+    private var shakeSince = -1L
+
+    /** The suspect state has seen a push, not just vibration: vibration may then confirm it. */
+    private var suspectPushed = false
 
     /** A vehicle pulling away is suspected: slow-hand rules pause until it is confirmed or not. */
     val vehicleSuspect get() = suspectSince >= 0
@@ -218,11 +238,14 @@ class TableMonitor(private val m: MotionProcessor) {
         refX = m.restX; refY = m.restY; refZ = m.restZ
         baseX = refX; baseY = refY; baseZ = refZ
         refG0 = m.g0
+        baseG0 = m.g0
         burstActive = false
         tiltSince = -1L
         driveSince = -1L
         suspectSince = -1L
         vibrationSince = -1L
+        shakeSince = -1L
+        suspectPushed = false
         poseCheckedFor = m.restSince
         ignoreUntil = t + OWN_VIBRATION_MS
     }
@@ -230,6 +253,8 @@ class TableMonitor(private val m: MotionProcessor) {
     /** The app is about to vibrate the phone itself; don't mistake that for a hand. */
     fun ownVibration(t: Long, durationMs: Long) {
         ignoreUntil = max(ignoreUntil, t + durationMs + OWN_VIBRATION_MS)
+        // A stillness window (up to 1.2 s at 25 Hz) has to pass again after the buzz.
+        if (latched && !settled) settleDeadline = max(settleDeadline, t + durationMs + OWN_BUZZ_SETTLE_MS)
     }
 
     /** Tilt of the phone now away from where it lay. */
@@ -264,24 +289,39 @@ class TableMonitor(private val m: MotionProcessor) {
 
         // Vehicles: a steady one-way push, then road or engine vibration.
         val pushing = trackDrive(t)
-        if (events and MotionProcessor.Event.FRAME != 0 && vehicleSuspect) {
-            if (m.lastSigma >= VEHICLE_SIGMA) {
+        if (pushing && vehicleSuspect) suspectPushed = true
+        if (events and MotionProcessor.Event.FRAME != 0) {
+            val shaking = m.lastSigma >= VEHICLE_SIGMA
+            if (shaking && m.fastAngleTo(baseX, baseY, baseZ) < VEHICLE_STEADY_DEG && !m.walkedWithin(t, 3000L)) {
+                if (shakeSince < 0) shakeSince = t
+                if (t - shakeSince >= VEHICLE_IDLE_MS && !vehicleSuspect) {
+                    suspectSince = t
+                    suspectPushed = false
+                }
+            } else {
+                shakeSince = -1L
+            }
+            if (vehicleSuspect && shaking) {
                 if (vibrationSince < 0) vibrationSince = t
             } else {
                 vibrationSince = -1L
             }
         }
         if (vehicleSuspect) {
-            val confirmed = (vibrationSince >= 0 && t - vibrationSince >= VEHICLE_VIBRATION_MS) ||
+            val confirmed = (suspectPushed && vibrationSince >= 0 && t - vibrationSince >= VEHICLE_VIBRATION_MS) ||
                 (pushing && t - driveSince >= DRIVE_CONFIRM_MS)
             if (confirmed) {
                 suspectSince = -1L
                 burstActive = false
                 return Signal.DRIVE_OFF
             }
-            if (t - suspectSince >= SUSPECT_MS && !pushing) {
-                suspectSince = -1L // Not a vehicle after all: full rules again.
+            // Not a vehicle after all: full rules again. Only once still, since a car between
+            // pushes keeps it moving.
+            if (t - suspectSince >= SUSPECT_MS && !pushing && m.atRest) {
+                suspectSince = -1L
                 poseCheckedFor = -1L
+                vibrationSince = -1L
+                shakeSince = -1L
             }
         }
         val slowRulesPaused = pushing || vehicleSuspect
@@ -296,6 +336,7 @@ class TableMonitor(private val m: MotionProcessor) {
                 val excess = m.g0 - refG0
                 if (excess >= 0.05f && excess >= 0.8f * fakeTiltExcess(moved)) {
                     suspectSince = t
+                    suspectPushed = true
                     return Signal.NONE
                 }
                 return Signal.POSE
@@ -309,6 +350,7 @@ class TableMonitor(private val m: MotionProcessor) {
         if (!burstActive) {
             if (m.atRest) {
                 baseX = m.restX; baseY = m.restY; baseZ = m.restZ
+                baseG0 = m.g0
             }
             if (deviationFromBase() >= BURST_START) {
                 burstActive = true
@@ -323,17 +365,17 @@ class TableMonitor(private val m: MotionProcessor) {
         val elapsed = t - burstStart
         if (burst.up * 100f >= 1f) lastLiftLikeAt = t
 
-        if (!slowRulesPaused) {
-            // Lifted: acceleration along gravity, integrated twice, rises >= 3 cm within a second.
-            if (!liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
-                liftDone = true
-                return Signal.LIFT
-            }
-            // Held in a hand: never still again, and tilted.
-            if (elapsed >= HELD_MS && tilt >= HELD_DEG && !m.atRest) {
-                burstActive = false
-                return Signal.HELD
-            }
+        // Lifted: acceleration along gravity, integrated twice, rises >= 3 cm within a second. A
+        // push pauses it only while |a| rose about as much as a push explains; a lift raises it more.
+        val liftPaused = vehicleSuspect || (pushing && driveMeasured <= 2f * driveExpected + 0.5f)
+        if (!liftPaused && !liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
+            liftDone = true
+            return Signal.LIFT
+        }
+        // Held in a hand: never still again, and tilted from where it last lay.
+        if (!slowRulesPaused && elapsed >= HELD_MS && m.fastAngleTo(baseX, baseY, baseZ) >= HELD_DEG && !m.atRest) {
+            burstActive = false
+            return Signal.HELD
         }
 
         // The burst ends when it is still again (or at the cap): a slide if it travelled far.
@@ -360,13 +402,15 @@ class TableMonitor(private val m: MotionProcessor) {
      * 1 g by about h² / 2g, while a real tilt leaves it at 1 g. True while such a push is on.
      */
     private fun trackDrive(t: Long): Boolean {
-        val n = sqrt(refX * refX + refY * refY + refZ * refZ).coerceAtLeast(1e-3f)
-        val ux = refX / n
-        val uy = refY / n
-        val uz = refZ / n
-        val ex = m.ax - refX
-        val ey = m.ay - refY
-        val ez = m.az - refZ
+        // From the latest resting reading: a phone propped at a small angle is not a push, however
+        // its sensor offset shifts |a|.
+        val n = sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ).coerceAtLeast(1e-3f)
+        val ux = baseX / n
+        val uy = baseY / n
+        val uz = baseZ / n
+        val ex = m.ax - baseX
+        val ey = m.ay - baseY
+        val ez = m.az - baseZ
         val along = ex * ux + ey * uy + ez * uz
         val hx = ex - along * ux
         val hy = ey - along * uy
@@ -381,8 +425,8 @@ class TableMonitor(private val m: MotionProcessor) {
                 driveMeasured = 0f
                 driveExpected = 0f
             } else {
-                driveMeasured += m.magnitude - refG0
-                driveExpected += h * h / (2f * refG0)
+                driveMeasured += m.magnitude - baseG0
+                driveExpected += h * h / (2f * baseG0)
             }
         } else if (driveSince >= 0 && h < DRIVE_ACCEL / 2) {
             if (driveLowSince < 0) driveLowSince = t
@@ -390,7 +434,10 @@ class TableMonitor(private val m: MotionProcessor) {
         }
         val pushing = driveSince >= 0 && t - driveSince >= 500L && driveExpected > 0f &&
             driveMeasured >= 0.5f * driveExpected
-        if (pushing && t - driveSince >= DRIVE_MS && suspectSince < 0) suspectSince = t
+        if (pushing && t - driveSince >= DRIVE_MS && suspectSince < 0) {
+            suspectSince = t
+            suspectPushed = true
+        }
         return pushing
     }
 
