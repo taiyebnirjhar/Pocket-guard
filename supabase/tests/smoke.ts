@@ -29,7 +29,12 @@ function check(ok: boolean, what: string, detail: unknown = "") {
   }
 }
 
-const signup = await call("/auth/v1/signup", null, {});
+// Right after a deploy changes the sign-in settings, they take a moment to apply.
+let signup = await call("/auth/v1/signup", null, {});
+for (let i = 0; i < 18 && signup.body?.error_code === "anonymous_provider_disabled"; i++) {
+  await new Promise((r) => setTimeout(r, 5000));
+  signup = await call("/auth/v1/signup", null, {});
+}
 check(signup.status === 200, "anonymous sign-in", signup);
 const token = signup.body.access_token;
 

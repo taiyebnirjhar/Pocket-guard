@@ -82,6 +82,14 @@ jolt() { emu sensor set acceleration 6:6:18; sleep 0.4; still; }
 covered_off_with_light() { uncovered; emu sensor set light 400; }
 pull_out() { jolt & covered_off_with_light; wait; }
 calm_down() { still; sleep 3.5; } # let the motion window (3 s) expire
+# Pocketed, then locked. The emulator can deliver the proximity change after the screen goes off,
+# and an uncovered phone lying still when locked is (rightly) on a table, so wait until the app
+# has seen the cover (after a reset_log) before pressing power.
+pocket_and_lock() {
+  pocket
+  for _ in $(seq 1 15); do app_log | grep -q "log: covered" && break; sleep 0.2; done
+  screen_off
+}
 
 # Settings are written straight into the app's device-protected storage (debug build: run-as).
 # Grace is 15 s so the scripted PIN entry (several seconds on CI) fits inside it.
@@ -202,8 +210,7 @@ sleep 2
 
 log "Scenario 3: owner pulls it out and unlocks in time"
 reset_log
-pocket
-screen_off
+pocket_and_lock
 expect_phase IN_POCKET 6 "pocketed again"
 calm_down
 reset_log
@@ -215,8 +222,7 @@ expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
 
 log "Scenario 4: uncovered with no movement or light (a careful pull) still warns"
 reset_log
-pocket
-screen_off
+pocket_and_lock
 expect_phase IN_POCKET 6 "pocketed for the careful pull"
 calm_down
 reset_log
@@ -228,8 +234,7 @@ expect_phase WAITING_FOR_POCKET 6 "unlock after the careful-pull warning"
 
 log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
 reset_log
-pocket
-screen_off
+pocket_and_lock
 expect_phase IN_POCKET 6 "pocketed for the flicker test"
 calm_down
 reset_log
@@ -315,8 +320,7 @@ still
 
 log "Scenario 7c: gentle pull with no jolt and no light, turned to look"
 reset_log
-pocket
-screen_off
+pocket_and_lock
 expect_phase IN_POCKET 6 "pocketed for the gentle pull"
 calm_down
 reset_log
