@@ -160,6 +160,10 @@ emu sensor set light 400
 # --- 1. Pickpocket with evidence ------------------------------------------------------------------
 
 log "Scenario 1: pickpocket, intruder photos, history"
+# Slower runners (private repositories: 2 cores) can reach this point with the screen already
+# timed out and locked behind the new PIN; this scenario starts from an unlocked phone.
+sh input keyevent KEYCODE_WAKEUP; sleep 0.7
+if keyguard_showing; then unlock; fi
 reset_log
 arm "arming from the app"
 pocket
