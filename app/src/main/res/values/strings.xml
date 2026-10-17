@@ -216,11 +216,11 @@
     <string name="sos_other_ways">Also from the lock screen: the SOS button on the Pocket Guard notification, or the SOS tile in Quick Settings. With the screen off, use your phone\'s own Emergency SOS (press power 5 times), which you can set up in your phone\'s Safety settings.</string>
     <string name="settings_privacy">Privacy policy</string>
     <string name="contacts_section">Emergency contacts</string>
-    <string name="contacts_title">SMS alerts on SOS</string>
-    <string name="contacts_sub">When you start SOS, these people get an SMS with your location, 5 s later unless you cancel, then updates if you move.</string>
+    <string name="contacts_title">Alerts on SOS</string>
+    <string name="contacts_sub">When you start SOS, these people get your location by SMS (and by email, if you add an address), 5 s later unless you cancel, then updates if you move.</string>
     <string name="contacts_name">Your name in alerts</string>
     <string name="contacts_add_pick">Add from contacts</string>
-    <string name="contacts_add_number">Add a number</string>
+    <string name="contacts_add_number">Add by hand</string>
     <string name="contacts_add">Add</string>
     <string name="contacts_contact_name">Name</string>
     <string name="contacts_number">Phone number</string>
@@ -236,8 +236,8 @@
     <string name="contacts_confirm">When you start SOS, Pocket Guard will send this SMS to %1$s, %3$d seconds later unless you cancel, and an update if you move:
 
 %2$s</string>
-    <string name="disclose_location">Pocket Guard uses your location only while SOS is running, to put it in the alerts to your emergency contacts, even when the phone is locked. It is not used at any other time and not stored.</string>
-    <string name="disclose_location_sms">Pocket Guard uses your location only while SOS is running, and sends it by SMS from your phone to the emergency contacts you approved, even when the phone is locked. It is not used at any other time and not stored.</string>
+    <string name="disclose_location">Pocket Guard uses your location only while SOS is running, to put it in the alerts to your emergency contacts (and on the private live map their link opens, when that is on), even when the phone is locked. It is not used at any other time.</string>
+    <string name="disclose_location_sms">Pocket Guard uses your location only while SOS is running, and sends it by SMS from your phone to the emergency contacts you approved (and to the private live map their link opens, when that is on), even when the phone is locked. It is not used at any other time.</string>
     <string name="alert_countdown">Alerting %1$s in %2$d s</string>
     <string name="alert_cancel">Cancel alerts</string>
     <string name="alert_sent">Alert sent to %1$s</string>
@@ -248,4 +248,18 @@
     <string name="alert_text_update">%1$s, location at %2$s: %3$s</string>
     <string name="alert_text_false">%1$s: false alarm, I\'m safe. Sorry!</string>
     <string name="alert_text_test">Test from Pocket Guard, nothing is wrong. An SOS alert would read:</string>
+    <string name="alert_text_live">Live location: %1$s</string>
+    <string name="contacts_email">Email (optional)</string>
+    <string name="contacts_edit">Edit contact</string>
+    <string name="contacts_save">Save</string>
+    <string name="contacts_confirm_live">While SOS runs, your location is also shared through Pocket Guard\'s server: the message carries a private link to a live map, which works until a day after SOS ends. People with an email address get the alert by email too. Shared locations are deleted after 90 days.</string>
+    <string name="online_title">Online</string>
+    <string name="online_live">Live location link</string>
+    <string name="online_live_sub">During SOS, share your location through Pocket Guard\'s server, with a link your contacts can follow, and email the contacts who have an address. Off: SMS only.</string>
+    <string name="online_delete">Delete my online data</string>
+    <string name="online_delete_sub">Deletes this phone\'s anonymous account and every location it shared.</string>
+    <string name="online_delete_confirm">Delete everything Pocket Guard stored online for this phone? Live links you already sent stop working.</string>
+    <string name="online_delete_action">Delete</string>
+    <string name="online_deleted">Deleted. Nothing from this phone is stored online.</string>
+    <string name="online_delete_failed">Couldn\'t reach the server. Try again when you\'re online.</string>
 </resources>

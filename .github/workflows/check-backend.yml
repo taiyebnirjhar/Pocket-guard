@@ -1,0 +1,111 @@
+name: Check backend secrets
+
+# Confirms each backend secret works, without changing anything (the R2 check writes one test
+# file and deletes it again). Run it from the Actions tab after adding or replacing a key.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+      BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
+      BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - name: Check every secret
+        shell: bash
+        run: |
+          failed=0
+          ok()   { echo "✅ $1"; echo "| ✅ | $1 |" >> "$GITHUB_STEP_SUMMARY"; }
+          bad()  { echo "❌ $1"; echo "| ❌ | $1 |" >> "$GITHUB_STEP_SUMMARY"; failed=1; }
+          echo "| | Check |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          for name in SUPABASE_URL SUPABASE_PROJECT_REF SUPABASE_ANON_KEY SUPABASE_ACCESS_TOKEN \
+            SUPABASE_DB_PASSWORD BREVO_API_KEY BREVO_SENDER_EMAIL BREVO_SMTP_LOGIN BREVO_SMTP_KEY \
+            CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
+            [ -n "${!name}" ] || bad "$name is empty or missing"
+          done
+
+          # --- Supabase -------------------------------------------------------------------------
+          api() { curl -s -o /tmp/body -w '%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com$1"; }
+          code=$(api "/v1/projects/$SUPABASE_PROJECT_REF")
+          if [ "$code" = 200 ]; then
+            ok "SUPABASE_ACCESS_TOKEN opens project $(jq -r .name /tmp/body) in $(jq -r .region /tmp/body), status $(jq -r .status /tmp/body)"
+          else
+            bad "SUPABASE_ACCESS_TOKEN or SUPABASE_PROJECT_REF: project lookup returned HTTP $code"
+          fi
+
+          if [ "${SUPABASE_URL%/}" = "https://$SUPABASE_PROJECT_REF.supabase.co" ]; then
+            ok "SUPABASE_URL matches SUPABASE_PROJECT_REF"
+          else
+            bad "SUPABASE_URL is not https://<SUPABASE_PROJECT_REF>.supabase.co"
+          fi
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "apikey: $SUPABASE_ANON_KEY" "${SUPABASE_URL%/}/auth/v1/settings")
+          [ "$code" = 200 ] && ok "SUPABASE_ANON_KEY is accepted" || bad "SUPABASE_ANON_KEY rejected (HTTP $code)"
+
+          code=$(api "/v1/projects/$SUPABASE_PROJECT_REF/config/database/pooler")
+          host=$(jq -r 'if type=="array" then .[0].db_host else .db_host end' /tmp/body 2>/dev/null)
+          port=$(jq -r 'if type=="array" then .[0].db_port else .db_port end' /tmp/body 2>/dev/null)
+          if [ "$code" = 200 ] && [ -n "$host" ] && [ "$host" != null ]; then
+            if PGPASSWORD="$SUPABASE_DB_PASSWORD" PGCONNECT_TIMEOUT=15 psql \
+              "host=$host port=$port dbname=postgres user=postgres.$SUPABASE_PROJECT_REF sslmode=require" \
+              -tAc 'select 1' >/dev/null 2>/tmp/pgerr; then
+              ok "SUPABASE_DB_PASSWORD signs in to the database"
+            else
+              bad "SUPABASE_DB_PASSWORD: $(head -c 200 /tmp/pgerr)"
+            fi
+          else
+            bad "Could not read the database address (HTTP $code), so the password was not checked"
+          fi
+
+          # --- Brevo ----------------------------------------------------------------------------
+          code=$(curl -s -o /tmp/body -w '%{http_code}' -H "api-key: $BREVO_API_KEY" https://api.brevo.com/v3/account)
+          [ "$code" = 200 ] && ok "BREVO_API_KEY is accepted (plan: $(jq -r '[.plan[].type] | join(", ")' /tmp/body))" \
+            || bad "BREVO_API_KEY rejected (HTTP $code)"
+
+          code=$(curl -s -o /tmp/body -w '%{http_code}' -H "api-key: $BREVO_API_KEY" https://api.brevo.com/v3/senders)
+          active=$(jq -r --arg e "$BREVO_SENDER_EMAIL" '[.senders[]? | select((.email|ascii_downcase)==($e|ascii_downcase))][0].active' /tmp/body 2>/dev/null)
+          if [ "$active" = true ]; then ok "BREVO_SENDER_EMAIL is a verified, active sender"
+          else bad "BREVO_SENDER_EMAIL is not an active sender in Brevo (found: $active)"; fi
+
+          if python3 - <<'PY'
+          import os, smtplib
+          with smtplib.SMTP("smtp-relay.brevo.com", 587, timeout=20) as s:
+              s.starttls()
+              s.login(os.environ["BREVO_SMTP_LOGIN"], os.environ["BREVO_SMTP_KEY"])
+          PY
+          then ok "BREVO_SMTP_LOGIN and BREVO_SMTP_KEY sign in to Brevo SMTP"
+          else bad "BREVO_SMTP_LOGIN / BREVO_SMTP_KEY: SMTP sign-in failed"; fi
+
+          # --- Cloudflare R2 --------------------------------------------------------------------
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
+          r2="https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com"
+          key="ci-check/$GITHUB_RUN_ID.txt"
+          echo "Pocket Guard secret check" > /tmp/check.txt
+          if aws s3api put-object --endpoint-url "$r2" --bucket "$R2_BUCKET" --key "$key" --body /tmp/check.txt >/dev/null 2>/tmp/r2err \
+            && aws s3api get-object --endpoint-url "$r2" --bucket "$R2_BUCKET" --key "$key" /tmp/back.txt >/dev/null 2>>/tmp/r2err \
+            && cmp -s /tmp/check.txt /tmp/back.txt \
+            && aws s3api delete-object --endpoint-url "$r2" --bucket "$R2_BUCKET" --key "$key" >/dev/null 2>>/tmp/r2err; then
+            ok "R2 keys can write, read and delete in $R2_BUCKET (CLOUDFLARE_ACCOUNT_ID is right)"
+          else
+            bad "R2 (CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET): $(head -c 200 /tmp/r2err)"
+          fi
+
+          exit $failed

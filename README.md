@@ -6,8 +6,7 @@ Android anti-pickpocket alarm. Arm it before you get into a crowd. If the phone 
 pocket or bag without your unlock, it beeps (in your earbuds if connected), then sounds a
 full-volume siren the thief can't silence, and the front camera photographs whoever is holding it.
 
-English and Bangla. Android 8.0+ (minSdk 26). No SMS, location or accessibility permissions, so
-it can be installed outside the Play Store without the strictest Play Protect checks.
+English and Bangla. Android 8.0+ (minSdk 26).
 
 ## Screens
 
@@ -107,6 +106,15 @@ location is read only while SOS runs; an update follows when you move 200 m (at 
 sends the SMS itself; the Play build fills in the SMS app and you tap Send (Play allows sending
 SMS on its own only with an approved exception). "Share on WhatsApp" opens WhatsApp with the alert.
 
+**Live location link and alert emails** (Settings → Online → Live location link, on by default):
+the SMS also carries a private link to a live map (`…/Pocket-guard/live/#t=<token>`), and
+contacts with an email address get the alert by email, then "false alarm" if you stop right away.
+The phone signs in anonymously (no email or password), opens an SOS record and uploads its
+location every 15 s while SOS runs; the page refreshes every 10 s and stops working a day after
+SOS ends, and the server deletes everything after 90 days. "Delete my online data" removes the
+account and all of it at once. Approving the alert covers this too, so switching it on or off
+asks for approval again. Without the backend built in (forks, local builds) the app is SMS-only.
+
 Other ways to start SOS while armed, none of which needs the Accessibility setting: the **SOS**
 button on the Pocket Guard notification (on the lock screen, no unlock), the **SOS** tile in
 Quick Settings (swipe down on the lock screen and tap), and the SOS card on Home. Started from an
@@ -159,8 +167,7 @@ proximity sensor.
 - **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
 - **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90.
 
-Both stay on the phone, for when it's recovered. An internet alert to another device is the
-planned replacement for the SMS alerts of earlier builds.
+Both stay on the phone, for when it's recovered.
 
 ## Test mode
 
@@ -195,6 +202,10 @@ required step is missing brings it back, and arms the guard once it's done.
 | `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
+| `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
+| `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record and its live location, alert emails. |
+| `supabase/` | The backend: database and its access rules (`migrations/`), the email and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
+| `site/` | GitHub Pages: the privacy policy and the live location page (`site/live/`). |
 
 ## CI pipeline
 
@@ -217,11 +228,19 @@ required step is missing brings it back, and arms the guard once it's done.
    - the lock check: a lock delay caught on screen timeout, kept after a power-button lock,
      cleared by Fix and passing once the lock is immediate
    - the alarm resuming after a reboot, before the first unlock
+   - SOS alerts against a local backend: the SMS with the live link, the email (to a stand-in for
+     Brevo), the uploaded trail and the false alarm, then the live page rendered in Chrome
    - every screen opened and screenshotted, and monkey crash fuzzing
 
    Screenshots, the app log and keyguard state are uploaded for each failure.
-4. **Release**: only for `main`, only after all of the above pass, only when the build was
+4. **Backend tests** (`supabase/tests/`, against a local Supabase): who can read and write what,
+   the live page's view, the email function's limits and wording, and account deletion.
+5. **Release**: only for `main`, only after all of the above pass, only when the build was
    signed with the official key, and only for a new version.
+
+`.github/workflows/backend.yml` deploys `supabase/` to the real project when it changes on `main`,
+then checks the deployment with a throwaway account. `.github/workflows/check-backend.yml` checks
+that every backend secret still works (run it from the Actions tab after replacing a key).
 
 ## Releasing
 

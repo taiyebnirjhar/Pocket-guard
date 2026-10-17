@@ -12,6 +12,8 @@
         android:name="android.hardware.sensor.proximity"
         android:required="false" />
 
+    <!-- Live location and alert emails during SOS (Backend.kt). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />

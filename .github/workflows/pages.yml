@@ -1,6 +1,7 @@
 name: Pages
 
-# Publishes site/ (the privacy policy Google Play links to) to GitHub Pages.
+# Publishes site/ to GitHub Pages: the privacy policy Google Play links to, and the live
+# location page the SOS alerts link to.
 on:
   push:
     branches: [main]
@@ -25,6 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # The live page reads the trail with the project's public (publishable) key.
+      - name: Point the live page at the backend
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "SUPABASE_URL or SUPABASE_ANON_KEY is missing; the live page will say the link doesn't work."
+          else
+            printf 'window.POCKET_GUARD = { url: "%s", key: "%s" };\n' "${SUPABASE_URL%/}" "$SUPABASE_ANON_KEY" > site/live/config.js
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

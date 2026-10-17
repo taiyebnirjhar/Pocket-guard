@@ -1,0 +1,80 @@
+name: Backend
+
+# Deploys supabase/ to the Supabase project: database changes, the functions and their keys, and
+# the sign-in settings. Then checks the live deployment end to end with a throwaway account.
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/**", ".github/workflows/backend.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend
+  cancel-in-progress: false
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+  PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+  LIVE_PAGE_URL: https://taiyebnirjhar.github.io/Pocket-guard/live/
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Database
+        run: |
+          supabase link --project-ref "$PROJECT_REF"
+          supabase db push
+
+      - name: Function keys
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+        run: |
+          supabase secrets set --project-ref "$PROJECT_REF" \
+            BREVO_API_KEY="$BREVO_API_KEY" BREVO_SENDER_EMAIL="$BREVO_SENDER_EMAIL" LIVE_PAGE_URL="$LIVE_PAGE_URL"
+
+      - name: Functions
+        run: supabase functions deploy --project-ref "$PROJECT_REF" --use-api
+
+      # Anonymous sign-in for the phones, and Brevo for any sign-in email Supabase sends.
+      - name: Sign-in settings
+        env:
+          SMTP_USER: ${{ secrets.BREVO_SMTP_LOGIN }}
+          SMTP_PASS: ${{ secrets.BREVO_SMTP_KEY }}
+          SENDER: ${{ secrets.BREVO_SENDER_EMAIL }}
+        run: |
+          body=$(jq -n --arg user "$SMTP_USER" --arg pass "$SMTP_PASS" --arg sender "$SENDER" --arg site "$LIVE_PAGE_URL" '{
+            external_anonymous_users_enabled: true,
+            site_url: $site,
+            smtp_host: "smtp-relay.brevo.com", smtp_port: "587",
+            smtp_user: $user, smtp_pass: $pass,
+            smtp_admin_email: $sender, smtp_sender_name: "Pocket Guard"
+          }')
+          code=$(curl -s -o /tmp/auth.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" -d "$body")
+          echo "Auth settings: HTTP $code"
+          [ "$code" = 200 ] || { head -c 500 /tmp/auth.json; exit 1; }
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Check the live backend
+        env:
+          API_URL: ${{ secrets.SUPABASE_URL }}
+          PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        working-directory: supabase
+        run: deno run --allow-net --allow-env tests/smoke.ts

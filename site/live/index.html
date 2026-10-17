@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Pocket Guard Live Location</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root { --bg: #ffffff; --fg: #1d1b20; --muted: #5f5b66; --card: #f4f1fa; --accent: #6a4fd1;
+          --sos: #c62828; --safe: #2e7d32; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161618; --fg: #f2f0f5; --muted: #a09ea6; --card: #232227; --accent: #aa90ea;
+            --sos: #ef5350; --safe: #66bb6a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif;
+         display: flex; flex-direction: column; }
+  header { padding: 14px 16px 10px; }
+  #status { display: inline-block; font-weight: 700; font-size: 14px; letter-spacing: .02em;
+            padding: 4px 12px; border-radius: 999px; color: #fff; background: var(--muted); }
+  #status.sos { background: var(--sos); }
+  #status.safe { background: var(--safe); }
+  h1 { font-size: 22px; margin: 8px 0 2px; }
+  #facts { color: var(--muted); font-size: 14px; margin: 0; }
+  #map { flex: 1; min-height: 260px; }
+  footer { padding: 10px 16px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  footer a.btn { background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
+                 padding: 10px 16px; border-radius: 12px; }
+  footer p { width: 100%; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  #message { padding: 32px 16px; font-size: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="message" class="hidden"></div>
+<header id="head" class="hidden">
+  <span id="status"></span>
+  <h1 id="title"></h1>
+  <p id="facts"></p>
+</header>
+<div id="map" class="hidden"></div>
+<footer id="actions" class="hidden">
+  <a class="btn" id="gmaps" target="_blank" rel="noopener noreferrer"></a>
+  <a class="btn" id="directions" target="_blank" rel="noopener noreferrer"></a>
+  <p id="note"></p>
+</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="config.js"></script>
+<script src="live.js"></script>
+</body>
+</html>

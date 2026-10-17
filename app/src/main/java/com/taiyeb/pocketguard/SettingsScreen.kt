@@ -24,10 +24,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +75,11 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
             }
         }
 
+        if (Backend.configured(context)) {
+            SectionLabel(stringResource(R.string.online_title))
+            OnlineSettings()
+        }
+
         SectionLabel(stringResource(R.string.setup_title))
         SetupChecklist(setup)
 
@@ -105,6 +113,59 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
             }
         }
         HowToTest()
+    }
+}
+
+/** The live location link during SOS, and deleting what was stored online. */
+@Composable
+private fun OnlineSettings() {
+    val context = LocalContext.current
+    var live by remember { mutableStateOf(Prefs.liveLocation(context)) }
+    var confirming by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Int?>(null) }
+    GlassCard {
+        ToggleRow(R.drawable.ic_shield, stringResource(R.string.online_live), stringResource(R.string.online_live_sub), live) {
+            live = it
+            Prefs.setLiveLocation(context, it)
+            GuardService.refreshForeground()
+        }
+        SettingRow(
+            R.drawable.ic_delete,
+            stringResource(R.string.online_delete),
+            stringResource(result ?: R.string.online_delete_sub),
+            Modifier.clickable(role = Role.Button, enabled = !busy) { confirming = true },
+        ) {
+            Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
+        }
+    }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.online_delete)) },
+            text = { Text(stringResource(R.string.online_delete_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    busy = true
+                    val app = context.applicationContext
+                    Thread {
+                        val ok = Backend.deleteAccount(app)
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            busy = false
+                            result = if (ok) R.string.online_deleted else R.string.online_delete_failed
+                        }
+                    }.start()
+                }) { Text(stringResource(R.string.online_delete_action), color = Purple, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
+            },
+            containerColor = CardColor,
+            titleContentColor = TextPrimary,
+            textContentColor = Muted,
+            shape = RoundedCornerShape(28.dp),
+        )
     }
 }
 

@@ -52,10 +52,10 @@ Owner: **C** = Claude writes it · **T** = Taiyeb does it (accounts, consoles, p
 | 4.0 | Create Supabase, Cloudflare and Brevo accounts; add the keys to GitHub Secrets | T | Secrets in place (guide in docs/setup-backend.md) |
 | 4.1 | Database schema and row-level security (profiles, contacts, incidents, locations, media) | C | Migrations deploy from CI |
 | 4.2 | Edge functions: start incident, notify (Brevo), viewer token | C | Deployed from CI |
-| 4.3 | Sign-in in the app (optional; alerts work without it) | C | e2e against a test project |
-| 4.4 | Account deletion in the app and on a web page | C | Deletes all rows and media |
-| 4.5 | Live page: map, trail, battery, last seen; no login | C | Cloudflare Pages |
-| 4.6 | Location upload every 15 s during SOS, 1/min for 30 min after; "Sharing" notification with Stop | C | Tests |
+| 4.3 | Anonymous sign-in per install (no email or password); alerts still work offline | C | e2e against a local backend |
+| 4.4 | "Delete my online data" in the app; by request for people without the app | C | Deletes all rows |
+| 4.5 | Live page: map, trail, battery, last seen; no login | C | GitHub Pages (`site/live/`) |
+| 4.6 | Location upload every 15 s during SOS (queued offline) | C | Tests |
 | 4.7 | Alert emails under the same confirm rules | C | Received in a test inbox |
 | 4.8 | Demo account for Play reviewers | C+T | Works |
 
