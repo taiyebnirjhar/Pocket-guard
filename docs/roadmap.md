@@ -64,10 +64,10 @@ Owner: **C** = Claude writes it · **T** = Taiyeb does it (accounts, consoles, p
 | ID | Task | Owner | Done when |
 |---|---|---|---|
 | 5.1 | Signed R2 upload URLs from an edge function (no keys in the app) | C | Deployed |
-| 5.2 | Upload queue: location, then photos every 10 s, then 480p video pieces; retry when offline | C | Tests |
+| 5.2 | Upload queue: location first, 480p video pieces on their own thread; retry when offline | C | Tests |
 | 5.3 | Media on the live page through short-lived links | C | Works |
 | 5.4 | Retention: R2 lifecycle 90 days; database cleanup; per-user cap | C | Daily job |
-| 5.5 | Daily GitHub job: Supabase keep-alive, cleanup, usage report | C | Scheduled workflow |
+| 5.5 | Daily GitHub job: Supabase keep-alive and usage report (cleanup runs in the database) | C | Scheduled workflow |
 
 ## WP6 · Play Store submission
 

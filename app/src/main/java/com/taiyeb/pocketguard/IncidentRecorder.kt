@@ -47,9 +47,12 @@ class IncidentRecorder(
         if (trigger == Trigger.SOS) {
             // A call for help: record what happens instead of photographing the owner.
             if (storageUnlocked) {
-                video.start(History.videosDir(context), "s${incident.id}") { file ->
+                // Shared live: smaller pieces, so they upload quickly over mobile data.
+                val live = LiveShare.current
+                video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null) { file ->
                     incident.videos += file.name
                     History.save(context, incident)
+                    live?.addVideo(file)
                 }
             }
         } else if (Prefs.intruderPhotos(context) && storageUnlocked) {

@@ -107,13 +107,22 @@ jobs:
         working-directory: supabase
         run: deno fmt --check functions tests && deno lint functions tests
 
+      # A stand-in for R2 (s3rver; it doesn't check signatures, tests/signing_test.ts does).
       - name: Start a local backend
         env:
           BREVO_API_KEY: test
           BREVO_API_URL: http://host.docker.internal:9999/v3
           BREVO_SENDER_EMAIL: alerts@example.com
           LIVE_PAGE_URL: https://taiyebnirjhar.github.io/Pocket-guard/live/
+          R2_ENDPOINT: http://host.docker.internal:9000
+          R2_PUBLIC_ENDPOINT: http://127.0.0.1:9000
+          R2_ACCESS_KEY_ID: S3RVER
+          R2_SECRET_ACCESS_KEY: S3RVER
+          R2_BUCKET: pocket-guard-media
         run: |
+          mkdir -p "$RUNNER_TEMP/s3"
+          nohup npx -y s3rver@3.7.1 -d "$RUNNER_TEMP/s3" -a 0.0.0.0 -p 9000 --no-vhost-buckets \
+            --configure-bucket pocket-guard-media >"$RUNNER_TEMP/s3rver.log" 2>&1 &
           supabase start -x vector,logflare,supavisor,postgres-meta,mailpit,imgproxy,storage-api,realtime,studio
           supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' | sed 's/"//g' >> "$GITHUB_ENV"
 

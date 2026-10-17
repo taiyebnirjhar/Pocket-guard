@@ -14,6 +14,8 @@
     note: "পাতাটি প্রতি ১০ সেকেন্ডে হালনাগাদ হয়। যোগাযোগ করতে না পারলে জরুরি নম্বরে (বাংলাদেশে ৯৯৯) কল করুন।",
     gone: "এই লিংকটি আর কাজ করে না। SOS শেষ হওয়ার এক দিন পর অবস্থান মুছে যায়।",
     offline: "সংযোগ নেই, আবার চেষ্টা হচ্ছে…",
+    recordings: "রেকর্ডিং (SOS চালু হওয়ার পর থেকে)", video: function (n, t) { return "▶ ভিডিও " + n + " · " + t; },
+    loading: "খুলছে…", failed: "খোলা গেল না, আবার চাপুন",
   } : {
     title: function (n) { return n + "'s location"; },
     sos: "SOS ACTIVE", ended: "SOS ENDED", safe: "FALSE ALARM, THEY'RE SAFE",
@@ -24,18 +26,21 @@
     note: "Updates every 10 seconds. If you can't reach them, call your local emergency number.",
     gone: "This link no longer works. The location is deleted a day after the SOS ends.",
     offline: "No connection, trying again…",
+    recordings: "Recordings (from when SOS started)", video: function (n, t) { return "▶ Video " + n + " · " + t; },
+    loading: "Opening…", failed: "Couldn't open it, tap to try again",
   };
   if (bn) document.documentElement.lang = "bn";
 
   var $ = function (id) { return document.getElementById(id); };
   var token = (location.hash.match(/[#&]t=([0-9a-f]{48})/) || [])[1];
   var map = null, trail = null, marker = null, circle = null, fitted = false, timer = null;
+  var listed = {};
 
   function show(id, on) { $(id).classList.toggle("hidden", !on); }
   function message(text) {
     $("message").textContent = text;
     show("message", true);
-    ["head", "map", "actions"].forEach(function (id) { show(id, false); });
+    ["head", "map", "actions", "media"].forEach(function (id) { show(id, false); });
   }
   function time(iso) {
     return new Date(iso).toLocaleTimeString(bn ? "bn-BD" : undefined, { hour: "numeric", minute: "2-digit" });
@@ -60,6 +65,7 @@
     if (v.battery != null) facts.push(T.battery + " " + v.battery + "%");
     $("facts").textContent = facts.join(" · ");
     $("note").textContent = last ? T.note : T.waiting;
+    renderMedia(v.media || []);
 
     if (!map) {
       map = L.map("map", { zoomControl: true });
@@ -94,6 +100,47 @@
     $("gmaps").textContent = T.gmaps;
     $("directions").href = "https://www.google.com/maps/dir/?api=1&destination=" + q;
     $("directions").textContent = T.directions;
+  }
+
+  // Recordings: listed by id; a tap asks for a link that works for a few minutes, then plays it.
+  function renderMedia(items) {
+    show("media", items.length > 0);
+    $("media-title").textContent = T.recordings;
+    items.forEach(function (m, i) {
+      var id = m[0];
+      if (listed[id]) return;
+      var item = document.createElement("div");
+      item.className = "item";
+      var button = document.createElement("button");
+      var label = T.video(i + 1, time(m[2]));
+      button.textContent = label;
+      button.onclick = function () { play(id, item, button, label); };
+      item.appendChild(button);
+      $("media-list").appendChild(item);
+      listed[id] = true;
+    });
+  }
+
+  function play(id, item, button, label) {
+    button.textContent = T.loading;
+    fetch(cfg.url + "/functions/v1/media", {
+      method: "POST",
+      headers: { apikey: cfg.key, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "view", token: token, media_id: id }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (res) {
+      var video = document.createElement("video");
+      video.controls = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      video.src = res.url;
+      item.replaceChild(video, button);
+    }).catch(function () {
+      button.textContent = T.failed;
+      setTimeout(function () { button.textContent = label; }, 4000);
+    });
   }
 
   function load() {

@@ -31,6 +31,9 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     companion object {
         const val PIECE_MS = 60_000L
         const val MAX_PIECES = 15
+
+        /** 480p at this rate is about 12 MB a minute with the sound. */
+        private const val LOW_RES_BITRATE = 1_500_000
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -45,8 +48,11 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
 
     private val nextPiece = Runnable { recording?.stop() } // Finalize starts the next one.
 
-    /** [onPiece] runs on the main thread for every piece saved. */
-    fun start(dir: File, prefix: String, onPiece: (File) -> Unit) {
+    /**
+     * [onPiece] runs on the main thread for every piece saved. [lowRes]: 480p at a modest bitrate,
+     * for pieces that are uploaded while SOS runs.
+     */
+    fun start(dir: File, prefix: String, lowRes: Boolean = false, onPiece: (File) -> Unit) {
         if (active) return
         if (!granted(Manifest.permission.CAMERA)) {
             Log.w(GuardService.TAG, "SOS video: no camera permission")
@@ -60,9 +66,16 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             if (!active) return@addListener
-            val built = Recorder.Builder()
-                .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
-                .build()
+            val built = if (lowRes) {
+                Recorder.Builder()
+                    .setQualitySelector(QualitySelector.from(Quality.SD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+                    .setTargetVideoEncodingBitRate(LOW_RES_BITRATE)
+                    .build()
+            } else {
+                Recorder.Builder()
+                    .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+                    .build()
+            }
             val cameras = try {
                 future.get()
             } catch (e: Exception) {

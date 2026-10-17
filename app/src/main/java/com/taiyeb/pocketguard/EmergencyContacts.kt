@@ -21,7 +21,7 @@ object EmergencyContacts {
     private const val KEY_APPROVED = "approved"
 
     /** Bump when the alert wording changes, so the owner approves the new text. */
-    private const val TEXT_VERSION = 2
+    private const val TEXT_VERSION = 3
 
     private fun prefs(context: Context) =
         context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)

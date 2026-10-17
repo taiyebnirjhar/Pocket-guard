@@ -1,5 +1,6 @@
-// Checks a deployed backend end to end with a throwaway anonymous account, then deletes it.
-// Sends no email (the notify call uses an address it must refuse).
+// Checks a deployed backend end to end with a throwaway anonymous account, then deletes it, with
+// a 16-byte recording uploaded to R2 and removed again. Sends no email (the notify call uses an
+// address it must refuse).
 //
 //   cd supabase && API_URL=https://<ref>.supabase.co PUBLISHABLE_KEY=... deno run --allow-net --allow-env tests/smoke.ts
 
@@ -55,8 +56,31 @@ check(view.status === 200 && view.body?.points?.length === 1, "the live page rea
 const notify = await call("/functions/v1/notify", token, { kind: "test", emails: ["not-an-address"], name: "Smoke" });
 check(notify.status === 400, "notify is deployed and checks the sign-in (refused a bad address)", notify);
 
+const bytes = new TextEncoder().encode("pocket guard ok\n");
+const up = await call("/functions/v1/media", token, {
+  action: "upload",
+  incident_id: id,
+  kind: "video",
+  bytes: bytes.length,
+  content_type: "video/mp4",
+});
+check(up.status === 200, "get a signed upload link", up);
+const put = await fetch(up.body.url, { method: "PUT", headers: up.body.headers, body: bytes });
+check(put.ok, "upload to R2 through it", { status: put.status, body: await put.text() });
+const done = await call("/functions/v1/media", token, { action: "done", media_id: up.body.media_id });
+check(done.status === 200, "the function finds the file in R2", done);
+const listed = await call("/rest/v1/rpc/view_incident", null, { token: viewer_token });
+const mediaId = listed.body?.media?.[0]?.[0];
+const play = await call("/functions/v1/media", null, { action: "view", token: viewer_token, media_id: mediaId });
+check(play.status === 200, "the live page gets a link to play it", play);
+const played = new Uint8Array(await (await fetch(play.body.url)).arrayBuffer());
+check(new TextDecoder().decode(played) === "pocket guard ok\n", "the link plays the same file", played.length);
+
 const del = await call("/functions/v1/delete-account", token, {});
 check(del.status === 200, "delete the account", del);
+const after = await fetch(play.body.url);
+await after.body?.cancel();
+check(after.status === 404, "its recording is gone from R2", after.status);
 
 const gone = await call("/rest/v1/rpc/view_incident", null, { token: viewer_token });
 check(gone.status === 200 && gone.body === null, "its live page is gone", gone);

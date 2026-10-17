@@ -193,3 +193,86 @@ Deno.test("deleting the account removes the incidents and the live page", async 
 });
 
 globalThis.addEventListener("unload", () => brevo.shutdown());
+
+// --- Recordings (needs a stand-in for R2 on port 9000: s3rver, see .github/workflows/ci.yml) -----
+
+async function media(token: string | null, body: Record<string, unknown>) {
+  const res = await call("/functions/v1/media", token, body);
+  return { status: res.status, body: await res.json() };
+}
+
+Deno.test("a recording goes up through a signed link and plays from the live page", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const video = new Uint8Array(4096).map((_, i) => i % 251);
+
+  const up = await media(t, {
+    action: "upload",
+    incident_id: inc.id,
+    kind: "video",
+    bytes: video.length,
+    content_type: "video/mp4",
+  });
+  assertEquals(up.status, 200, JSON.stringify(up.body));
+  // Not listed until confirmed.
+  const before = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assertEquals(before.media, []);
+
+  // (That the link takes only the announced size, and stops working when changed, is R2's part:
+  // the stand-in doesn't check signatures, so signing_test.ts checks them against the AWS SDK.)
+  const put = await fetch(up.body.url, { method: "PUT", headers: up.body.headers, body: video });
+  assert(put.ok, `upload: ${put.status} ${await put.text()}`);
+
+  const done = await media(t, { action: "done", media_id: up.body.media_id });
+  assertEquals(done.status, 200, JSON.stringify(done.body));
+  const after = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assertEquals(after.media.length, 1);
+  assertEquals(after.media[0][1], "video");
+
+  const view = await media(null, { action: "view", token: inc.viewer_token, media_id: after.media[0][0] });
+  assertEquals(view.status, 200, JSON.stringify(view.body));
+  const got = new Uint8Array(await (await fetch(view.body.url)).arrayBuffer());
+  assertEquals(got, video);
+
+  // A wrong token gets nothing.
+  const wrong = await media(null, { action: "view", token: "0".repeat(48), media_id: after.media[0][0] });
+  assertEquals(wrong.status, 404);
+});
+
+Deno.test("uploads are refused for other people's incidents, wrong types and oversize pieces", async () => {
+  const t = await signIn();
+  const other = await signIn();
+  const inc = await openIncident(t);
+  const ok = { action: "upload", incident_id: inc.id, kind: "video", bytes: 100, content_type: "video/mp4" };
+  assertEquals((await media(null, ok)).status, 401);
+  assertEquals((await media(other, ok)).status, 404);
+  assertEquals((await media(t, { ...ok, content_type: "text/html" })).status, 400);
+  assertEquals((await media(t, { ...ok, bytes: 26 * 1024 * 1024 })).status, 413);
+  const notUp = await media(t, ok);
+  assertEquals((await media(t, { action: "done", media_id: notUp.body.media_id })).status, 409);
+  assertEquals((await media(other, { action: "done", media_id: notUp.body.media_id })).status, 404);
+});
+
+Deno.test("deleting the account removes its recordings from storage", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const up = await media(t, {
+    action: "upload",
+    incident_id: inc.id,
+    kind: "video",
+    bytes: 10,
+    content_type: "video/mp4",
+  });
+  await (await fetch(up.body.url, { method: "PUT", headers: up.body.headers, body: new Uint8Array(10) })).body
+    ?.cancel();
+  await media(t, { action: "done", media_id: up.body.media_id });
+  const before = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  const view = await media(null, { action: "view", token: inc.viewer_token, media_id: before.media[0][0] });
+  const link = view.body.url as string;
+  assertEquals(await fetch(link).then((r) => (r.body?.cancel(), r.status)), 200);
+
+  assertEquals((await call("/functions/v1/delete-account", t, {})).status, 200);
+  const gone = await fetch(link);
+  await gone.body?.cancel();
+  assertEquals(gone.status, 404);
+});

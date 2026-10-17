@@ -1,0 +1,53 @@
+name: Daily
+
+# Once a day: a request to the backend so Supabase's free plan doesn't pause it (it pauses after
+# 7 days without activity), and a short usage report in the run summary.
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Keep the backend awake
+        run: |
+          # The live page's own call, with a token that matches nothing: it reaches the database.
+          code=$(curl -s -o /tmp/r -w '%{http_code}' -X POST "${SUPABASE_URL%/}/rest/v1/rpc/view_incident" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Content-Type: application/json" -d "{\"token\":\"$(printf '0%.0s' {1..48})\"}")
+          echo "Backend answered HTTP $code: $(head -c 100 /tmp/r)"
+          [ "$code" = 200 ]
+
+      - name: Usage report
+        run: |
+          query='select
+            (select count(*) from public.incidents) as incidents,
+            (select count(*) from public.incidents where started_at > now() - interval '"'"'1 day'"'"') as incidents_today,
+            (select count(*) from public.locations) as locations,
+            (select count(*) from public.media where uploaded) as recordings,
+            (select coalesce(round(sum(bytes) / 1048576.0), 0) from public.media where uploaded) as recordings_mb,
+            (select count(*) from public.email_log where sent_at > now() - interval '"'"'1 day'"'"') as email_sends_today,
+            (select pg_size_pretty(pg_database_size(current_database()))) as database_size'
+          curl -s -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+            -d "$(jq -n --arg q "$query" '{query: $q}')" > /tmp/usage.json
+          {
+            echo "### Pocket Guard usage"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            jq -r '.[0] | to_entries[] | "| \(.key) | \(.value) |"' /tmp/usage.json
+            echo
+            echo "Free limits: database 500 MB, R2 10 GB (recordings), Brevo 300 emails a day."
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
