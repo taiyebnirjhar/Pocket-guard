@@ -291,7 +291,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         powerManager = getSystemService(PowerManager::class.java)
         keyguardManager = getSystemService(KeyguardManager::class.java)
         audioManager = getSystemService(AudioManager::class.java)
-        alarm = AlarmPlayer(this)
+        alarm = AlarmPlayer(this, ::log)
         recorder = IncidentRecorder(this, this) {
             if (engine?.phase == Phase.SIREN) alarm.startTorch()
         }
@@ -434,7 +434,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 ", light " + (if (lightSensor != null) "yes" else "no") +
                 ", accelerometer " + (if (motionSensor != null) "yes" else "MISSING") +
                 ", table guard " + (if (Prefs.tableGuard(this)) "on" else "off") +
-                ", delay ${Prefs.graceSeconds(this)} s",
+                ", delay ${Prefs.graceSeconds(this)} s" +
+                (if (Prefs.testMode(this)) ", TEST MODE (siren at 30% volume)" else ""),
         )
         updateSos()
         tts = TextToSpeech(this) { status -> if (status == TextToSpeech.SUCCESS) setUpSpeech() }

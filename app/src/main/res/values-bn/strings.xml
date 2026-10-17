@@ -4,6 +4,7 @@
     <string name="action_open_settings">সেটিংস খুলুন</string>
     <string name="action_turn_on">চালু করুন</string>
     <string name="action_review">দেখুন</string>
+    <string name="action_app_info">অ্যাপের তথ্য</string>
     <string name="action_fix">ঠিক করুন</string>
     <string name="action_open">খুলুন</string>
     <string name="alarm_stolen">এই ফোনটি চুরি হয়েছে</string>
@@ -189,9 +190,9 @@
     <string name="sos_speech">বাঁচাও! থামো! বাঁচাও!</string>
     <string name="alarm_help">আমার সাহায্য দরকার</string>
     <string name="alarm_help_sub">এই ব্যক্তি সাহায্য চেয়েছেন। অনুগ্রহ করে পাশে থাকুন, বা জরুরি নম্বরে (বাংলাদেশে ৯৯৯) কল করুন।</string>
-    <string name="triggers_sos">SOS: পাওয়ার চাপুন, তারপর ভলিউম + আর − চেপে ধরুন</string>
-    <string name="triggers_sos_sub">গার্ড চালু আর ফোন লক থাকলে: স্ক্রিন জাগাতে পাওয়ার চাপুন, তারপর দুটি ভলিউম বাটন ৩ সেকেন্ড চেপে ধরুন। জোরে বাঁশি আর মুখে সাহায্যের ডাক, আর আনলক না করা পর্যন্ত শব্দসহ ভিডিও রেকর্ড হবে।</string>
-    <string name="test_10">SOS: গার্ড চালু আর ফোন লক অবস্থায় পাওয়ার চাপুন, তারপর ভলিউম + আর − একসাথে ৩ সেকেন্ড চেপে ধরুন: কম্পন, বাঁশি আর মুখে সাহায্যের ডাক, আর রেকর্ডিং শুরু। থামাতে আনলক করুন; ভিডিও ইতিহাসে থাকবে।</string>
+    <string name="triggers_sos">SOS: ভলিউম + আর − ৩ সেকেন্ড চেপে ধরুন</string>
+    <string name="triggers_sos_sub">গার্ড চালু থাকলে, স্ক্রিন জাগানো অবস্থায় (লক বা আনলক, তাই আঙুলের ছাপে জাগানোও চলবে): দুটি ভলিউম বাটন ৩ সেকেন্ড চেপে ধরুন। জোরে বাঁশি আর মুখে সাহায্যের ডাক, আর আনলক না করা পর্যন্ত শব্দসহ ভিডিও রেকর্ড হবে।</string>
+    <string name="test_10">SOS: গার্ড চালু অবস্থায় স্ক্রিন জাগান (আঙুলের ছাপে আনলক হলেও চলবে), তারপর ভলিউম + আর − একসাথে ৩ সেকেন্ড চেপে ধরুন: কম্পন, বাঁশি আর মুখে সাহায্যের ডাক, আর রেকর্ডিং শুরু। থামাতে আনলক করুন; ভিডিও ইতিহাসে থাকবে।</string>
     <string name="trigger_table">টেবিল থেকে তোলা হয়েছে</string>
     <string name="history_put_back">বাতিল: আবার নামিয়ে রাখা হয়েছে</string>
     <string name="triggers_table">টেবিলে উপুড় করে রাখা</string>
@@ -200,6 +201,7 @@
     <string name="sos_accessibility_label">Pocket Guard SOS বাটন</string>
     <string name="sos_accessibility_description">স্ক্রিন বন্ধ থাকলেও দুটি ভলিউম বাটন একসাথে ৩ সেকেন্ড চেপে ধরা Pocket Guard দেখতে পায়, SOS অ্যালার্ম বাজানোর জন্য। এটি শুধু ভলিউম বাটন দেখে: স্ক্রিনের কিছু পড়ে না, আর সব বাটন আগের মতোই কাজ করে।</string>
     <string name="sos_keys_off">SOS বাটন ব্যবহার করতে Accessibility-তে \"Pocket Guard SOS বাটন\" চালু করুন।</string>
+    <string name="sos_keys_restricted">ধূসর হয়ে আছে, \"Controlled by restricted setting\"? Play Store-এর বাইরে থেকে ইনস্টল করা অ্যাপে Android এটা আটকায়। একবার চালু করার চেষ্টা করুন, তারপর App info খুলে ⋮ (উপরে ডানে) → Allow restricted settings চাপুন, আর আবার চালু করুন।</string>
     <string name="sos_shortcut_clash">আপনার ফোনের অ্যাক্সেসিবিলিটি শর্টকাটও ভলিউম + আর − চেপে ধরা ব্যবহার করে। শর্টকাট বন্ধ করুন, নইলে SOS সেটিও খুলবে।</string>
     <string name="permission_sos_record">রেকর্ডিংয়ের জন্য ক্যামেরা আর মাইক্রোফোনের অনুমতি লাগবে।</string>
     <string name="sos_legal">কিছু জায়গায় অনুমতি ছাড়া কাউকে রেকর্ড করা বেআইনি।</string>
