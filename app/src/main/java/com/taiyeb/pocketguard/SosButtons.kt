@@ -16,17 +16,19 @@ import android.os.SystemClock
 import androidx.core.content.ContextCompat
 
 /**
- * The SOS trigger: volume up pressed [PRESSES] times within [WINDOW_MS] while the guard runs and
- * the phone is locked (screen off, or on the lock screen).
+ * The SOS fallback when the key watcher ([SosAccessibilityService]) is off: both volume keys
+ * held together, read from the volume steps they make while the phone is locked (screen off, or
+ * on the lock screen). Pressing both gives one step from the first key, then the second key's
+ * auto-repeat: a steady run of steps the other way. That run lasting [SosHold.HOLD_MS] from the
+ * first step is the hold; one key held alone, or taps, are not.
  *
  * Android gives volume keys to no app with the screen off; it only lets them change the media
  * volume while media is playing. So while it listens, and nothing else plays, it plays silence,
- * counts the media volume going up, and puts the volume straight back: the press changes nothing
+ * reads the media volume's steps, and puts the volume straight back: the press changes nothing
  * the owner can hear, and nothing else on the phone sees a difference. At full volume a press
  * would change nothing, so the volume is held one step below it while listening and restored
- * after. When another app plays media, the keys are that app's: presses still count, and the
- * volume is left where the owner puts it. Holding the key doesn't count: its repeats come faster
- * than anyone taps.
+ * after (likewise one step above silent, so a step down shows). When another app plays media,
+ * the keys are that app's: steps still count, and the volume is left where the owner puts it.
  */
 class SosButtons(
     private val context: Context,
@@ -34,32 +36,31 @@ class SosButtons(
     private val onSos: () -> Unit,
 ) {
     companion object {
-        const val PRESSES = 5
-        const val WINDOW_MS = 3000L
+        /** The second key starts within this of the first. */
+        const val CHORD_MS = 500L
 
-        /**
-         * A held button repeats ~20 times a second; nobody taps that fast. Three steps this close
-         * together is a hold, and it counts for nothing until the steps stop for [HOLD_QUIET_MS].
-         */
-        const val HOLD_SPAN_MS = 250L
-        const val HOLD_QUIET_MS = 500L
+        /** Longest pause in a held key's steps: the repeat starts ~0.5 s after the press. */
+        const val REPEAT_GAP_MS = 800L
         private const val MEDIA_CHECK_MS = 2000L
         private const val SAMPLE_RATE = 8000
 
-        private const val VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
-        private const val EXTRA_STREAM = "android.media.EXTRA_VOLUME_STREAM_TYPE"
-        private const val EXTRA_VALUE = "android.media.EXTRA_VOLUME_STREAM_VALUE"
-        private const val EXTRA_PREV = "android.media.EXTRA_PREV_VOLUME_STREAM_VALUE"
+        /**
+         * The volume is read this often. Android's volume-changed broadcast arrives late and
+         * merged (four presses came as one "8 -> 9" on the emulator), so it can't time a hold.
+         */
+        const val POLL_MS = 50L
     }
 
     private val audio = context.getSystemService(AudioManager::class.java)
     private val power = context.getSystemService(PowerManager::class.java)
     private val keyguard = context.getSystemService(KeyguardManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
-    private val taps = LongArray(PRESSES)
-    private var tapCount = 0
-    private var lastRaiseAt = Long.MIN_VALUE / 2
-    private var holding = false
+    /** The run of steps in progress: when its first opposite step came, and its direction. */
+    private var firstStepAt = Long.MIN_VALUE / 2
+    private var firstUp = false
+    private var runUp: Boolean? = null
+    private var lastStepAt = Long.MIN_VALUE / 2
+    private var fired = false
     private var started = false
     private var listening = false
     private var silence: AudioTrack? = null
@@ -71,11 +72,17 @@ class SosButtons(
     private var ownerVolume: Int? = null
 
     private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, intent: Intent) {
-            when (intent.action) {
-                VOLUME_CHANGED -> onVolumeChanged(intent)
-                else -> update()
-            }
+        override fun onReceive(c: Context, intent: Intent) = update()
+    }
+
+    /** The last volume seen while another app's media owns it (null: holding it ourselves). */
+    private var seen: Int? = null
+
+    private val poll = object : Runnable {
+        override fun run() {
+            if (!listening) return
+            readSteps()
+            handler.postDelayed(this, POLL_MS)
         }
     }
 
@@ -91,7 +98,6 @@ class SosButtons(
         if (started) return
         started = true
         val filter = IntentFilter().apply {
-            addAction(VOLUME_CHANGED)
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
@@ -109,7 +115,8 @@ class SosButtons(
         handler.removeCallbacksAndMessages(null)
         runCatching { context.unregisterReceiver(receiver) }
         stopListening()
-        tapCount = 0
+        firstStepAt = Long.MIN_VALUE / 2
+        lastStepAt = Long.MIN_VALUE / 2
     }
 
     private fun locked() = !power.isInteractive || keyguard.isKeyguardLocked
@@ -133,7 +140,8 @@ class SosButtons(
         }
         if (!listening) {
             listening = true
-            log("SOS buttons listening (volume up ×$PRESSES)")
+            log("SOS buttons listening (volume + and − held)")
+            handler.post(poll)
         }
         val other = otherMediaPlaying()
         if (other && silence != null) {
@@ -147,11 +155,12 @@ class SosButtons(
     private fun startSilence() {
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        if (now >= max) {
+        if (now >= max || now <= 0) {
             ownerVolume = now
-            audio.setStreamVolume(AudioManager.STREAM_MUSIC, max - 1, 0)
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC, now.coerceIn(1, max - 1), 0)
         }
         holdAt = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        seen = null
         val frames = SAMPLE_RATE / 2
         val track = runCatching {
             AudioTrack.Builder()
@@ -187,6 +196,7 @@ class SosButtons(
         silence?.let { runCatching { it.stop() }; it.release() }
         silence = null
         holdAt = null
+        seen = null
         restoreOwnerVolume()
     }
 
@@ -198,40 +208,50 @@ class SosButtons(
     private fun stopListening() {
         if (!listening) return
         listening = false
+        handler.removeCallbacks(poll)
         stopSilence()
     }
 
-    private fun onVolumeChanged(intent: Intent) {
-        if (!listening || intent.getIntExtra(EXTRA_STREAM, -1) != AudioManager.STREAM_MUSIC) return
-        val value = intent.getIntExtra(EXTRA_VALUE, -1)
-        val prev = intent.getIntExtra(EXTRA_PREV, -1)
+    /** Steps since the last read: away from the held volume, or from the last one seen. */
+    private fun readSteps() {
+        val value = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         val hold = holdAt
-        // Above the held volume is a press, even one that lands before the last was put back;
-        // putting it back never goes above it.
-        if (if (hold != null) value > hold else value > prev) {
-            log("SOS buttons: volume up")
-            onRaise()
-        }
+        val from = hold ?: seen ?: value
+        if (hold == null) seen = value
+        if (value == from) return
         // Put it straight back: with only silence playing, the press should change nothing.
-        if (hold != null && value != hold) audio.setStreamVolume(AudioManager.STREAM_MUSIC, hold, 0)
+        if (hold != null) audio.setStreamVolume(AudioManager.STREAM_MUSIC, hold, 0)
+        repeat(kotlin.math.abs(value - from)) { onStep(value > from) }
     }
 
-    private fun onRaise() {
+    private fun onStep(up: Boolean) {
         val now = SystemClock.elapsedRealtime()
-        val gap = now - lastRaiseAt
-        lastRaiseAt = now
-        if (holding && gap < HOLD_QUIET_MS) return
-        holding = false
-        taps[tapCount % PRESSES] = now
-        tapCount++
-        if (tapCount >= 3 && now - taps[(tapCount - 3) % PRESSES] < HOLD_SPAN_MS) {
-            holding = true // Held down: not the pattern.
-            tapCount = 0
+        val gap = now - lastStepAt
+        lastStepAt = now
+        if (gap > REPEAT_GAP_MS) {
+            // A fresh press: the first key of a possible hold.
+            firstStepAt = now
+            firstUp = up
+            runUp = null
+            fired = false
             return
         }
-        if (tapCount >= PRESSES && now - taps[tapCount % PRESSES] <= WINDOW_MS) {
-            tapCount = 0
-            log("SOS: volume up ×$PRESSES")
+        if (runUp == null) {
+            // The second key must start soon after the first, the other way.
+            if (up == firstUp || now - firstStepAt > CHORD_MS) {
+                firstStepAt = now
+                firstUp = up
+                return
+            }
+            runUp = up
+        } else if (up != runUp) {
+            runUp = null // Not a steady hold.
+            firstStepAt = now
+            firstUp = up
+            return
+        }
+        if (!fired && now - firstStepAt >= SosHold.HOLD_MS) {
+            fired = true
             onSos()
         }
     }

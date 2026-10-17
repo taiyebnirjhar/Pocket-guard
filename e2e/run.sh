@@ -303,6 +303,47 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
+log "Scenario 7e: SOS, volume + and - held together for 3 s with the screen off"
+A11Y="$PKG/.SosAccessibilityService"
+hold_both() { sh input keycombination -t "$1" KEYCODE_VOLUME_UP KEYCODE_VOLUME_DOWN; }
+reset_log
+sh settings put secure enabled_accessibility_services "$A11Y"
+sh settings put secure accessibility_enabled 1
+expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) connects"
+screen_off
+reset_log
+hold_both 800
+expect_no_phase SIREN 3 "a short squeeze of both keys is not SOS"
+reset_log
+hold_both 3500
+expect_log "phase=SIREN .*trigger=SOS" 6 "both keys held 3 s with the screen off sounds the SOS alarm"
+expect_log "SOS video recording" 10 "recording starts with the SOS alarm"
+if ! grep -q "trigger=SOS" <<<"$(app_log)"; then
+  adb logcat -d | grep -iE 'SOS key watcher|KeyCombination|AccessibilityInputFilter|keycombination' | tail -n 30 | sed 's/^/    /'
+fi
+sleep 3
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+expect_log "SOS video saved" 10 "the recording is saved when it stops"
+for _ in $(seq 1 20); do grep -q '\.mp4' <<<"$(history)" && break; sleep 0.25; done
+expect_true 'grep -q "\.mp4" <<<"$(history)"' "history links the SOS recording"
+VIDEOS=$(adb shell run-as $PKG ls -l files/sos 2>/dev/null | grep -c mp4)
+expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
+
+log "Scenario 7f: SOS without the key watcher (diagnostic: what the volume steps show)"
+sh settings delete secure enabled_accessibility_services >/dev/null
+sleep 2
+screen_off
+reset_log
+hold_both 3500
+sleep 3
+if grep -q "trigger=SOS" <<<"$(app_log)"; then log "  fallback: SOS sounded"; else log "  fallback: no SOS"; fi
+app_log | grep -iE "SOS" | tail -n 10 | sed 's/^/    /'
+reset_log
+unlock
+sleep 2
+
 # --- 6. Setup requirement: the phone must lock immediately ----------------------------------------
 
 log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"

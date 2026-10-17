@@ -17,6 +17,8 @@ data class Incident(
     /** Cancelled because the pocket shifted over the sensor, not a removal. */
     var flicker: Boolean = false,
     val photos: MutableList<String> = mutableListOf(),
+    /** SOS recordings, in order (file names in [History.videosDir]). */
+    val videos: MutableList<String> = mutableListOf(),
 )
 
 /** Theft history, newest first, stored as JSON in app-private storage. */
@@ -33,6 +35,8 @@ object History {
     val version = MutableStateFlow(0)
 
     fun photosDir(context: Context) = File(context.filesDir, "intruders").apply { mkdirs() }
+
+    fun videosDir(context: Context) = File(context.filesDir, "sos").apply { mkdirs() }
 
     fun load(context: Context): List<Incident> = read(context) ?: emptyList()
 
@@ -72,6 +76,10 @@ object History {
             photosDir(context).listFiles()
                 ?.filter { it.name !in keptPhotos && !it.name.startsWith("i${incident.id}") }
                 ?.forEach { it.delete() }
+            val keptVideos = kept.flatMap { it.videos }.toSet()
+            videosDir(context).listFiles()
+                ?.filter { it.name !in keptVideos && !it.name.startsWith("s${incident.id}") }
+                ?.forEach { it.delete() }
             write(context, kept)
         } catch (e: Exception) {
             // Storage locked before the first unlock; the alarm and SMS still work.
@@ -82,6 +90,7 @@ object History {
         try {
             File(context.filesDir, FILE).delete()
             photosDir(context).listFiles()?.forEach { it.delete() }
+            videosDir(context).listFiles()?.forEach { it.delete() }
         } catch (e: Exception) {
             // Storage locked.
         }
@@ -107,11 +116,13 @@ object History {
         put("ownerStopped", incident.ownerStopped)
         put("flicker", incident.flicker)
         put("photos", JSONArray().apply { incident.photos.forEach { put(it) } })
+        put("videos", JSONArray().apply { incident.videos.forEach { put(it) } })
     }
 
     private fun fromJson(json: JSONObject): Incident? {
         val trigger = Trigger.entries.firstOrNull { it.name == json.optString("trigger") } ?: return null
         val photos = json.optJSONArray("photos")
+        val videos = json.optJSONArray("videos")
         return Incident(
             id = json.getLong("id"),
             startedAt = json.getLong("startedAt"),
@@ -121,6 +132,7 @@ object History {
             ownerStopped = json.optBoolean("ownerStopped"),
             flicker = json.optBoolean("flicker"),
             photos = (0 until (photos?.length() ?: 0)).map { photos!!.getString(it) }.toMutableList(),
+            videos = (0 until (videos?.length() ?: 0)).map { videos!!.getString(it) }.toMutableList(),
         )
     }
 }
