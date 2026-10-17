@@ -309,7 +309,8 @@ reset_log
 for i in 1 2 3 4 5; do sh input keyevent KEYCODE_VOLUME_UP; sleep 0.25; done
 expect_log "phase=SIREN .*trigger=SOS" 6 "volume up five times sounds the SOS alarm"
 if ! grep -q "trigger=SOS" <<<"$(app_log)"; then
-  sh dumpsys audio | grep -iE 'STREAM_MUSIC|Current:|player piid|state:started' | head -n 30 | sed 's/^/    /'
+  sh dumpsys audio | grep -iE 'adjustSuggested|adjustStream|setStreamVolume|VOL_ADJUST|ACTIVE_MEDIA|music active|key' | tail -n 40 | sed 's/^/    /'
+  adb logcat -d | grep -iE 'sos volume|MediaSessionService|VolumeDialog|AudioService.*(adjust|volume)' | tail -n 40 | sed 's/^/    /'
 fi
 reset_log
 unlock
