@@ -74,7 +74,8 @@ class MainActivity : ComponentActivity() {
                             val firstTime = !Prefs.onboarded(this@MainActivity)
                             Prefs.setOnboarded(this@MainActivity, true)
                             // First run goes straight on to the permissions, while the user is paying attention.
-                            screen = if (firstTime && missingRequired(this@MainActivity) > 0) Screen.SETUP else Screen.MAIN
+                            // Optional steps too (SOS buttons, recording, contacts), so nothing is left to find later.
+                            screen = if (firstTime && setupSteps(this@MainActivity).any { !it.done }) Screen.SETUP else Screen.MAIN
                         })
                     }
                     Screen.SETUP -> {
@@ -93,6 +94,10 @@ class MainActivity : ComponentActivity() {
                                     leave()
                                 },
                                 onSkip = leave,
+                                onOpenContacts = {
+                                    leave()
+                                    tab = Tab.TRIGGERS
+                                },
                             )
                         }
                     }

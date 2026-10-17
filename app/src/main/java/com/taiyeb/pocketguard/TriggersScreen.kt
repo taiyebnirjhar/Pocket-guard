@@ -9,17 +9,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +53,7 @@ fun TriggersScreen(refreshKey: Int) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
-    var keysDisclosure by rememberSaveable { mutableStateOf(false) }
+    val setUpKeys = rememberSosKeysSetup(refreshKey)
     val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
     val askRecord = rememberDisclosedPermission(
         R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
@@ -88,18 +84,11 @@ fun TriggersScreen(refreshKey: Int) {
                     sosButtons = it
                     Prefs.setSosButtons(context, it)
                     GuardService.refreshSos()
-                    if (it && (!camera || !microphone)) askRecord()
+                    if (it && (!camera || !microphone)) askRecord() else if (it && !sosKeys) setUpKeys()
                 }
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
-                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { keysDisclosure = true }
-                    // Android 13+ greys out Accessibility for apps installed outside an app store
-                    // ("Controlled by restricted setting") until it's allowed in App info.
-                    if (!sosKeys && Build.VERSION.SDK_INT >= 33 && !BuildConfig.PLAY_STORE) {
-                        PermissionWarning(stringResource(R.string.sos_keys_restricted), stringResource(R.string.action_app_info)) {
-                            openAppSettings(context)
-                        }
-                    }
+                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { setUpKeys() }
                     if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash), stringResource(R.string.action_open_settings)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
@@ -120,28 +109,6 @@ fun TriggersScreen(refreshKey: Int) {
             }
         }
 
-        if (keysDisclosure) {
-            // Play policy: what the accessibility service sees and why, and an explicit yes,
-            // before sending the user to turn it on.
-            AlertDialog(
-                onDismissRequest = { keysDisclosure = false },
-                title = { Text(stringResource(R.string.sos_keys_disclosure_title)) },
-                text = { Text(stringResource(R.string.sos_keys_disclosure)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        keysDisclosure = false
-                        SosSetup.openSettings(context)
-                    }) { Text(stringResource(R.string.sos_keys_agree), color = Lavender, fontWeight = FontWeight.Bold) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { keysDisclosure = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
-                },
-                containerColor = CardColor,
-                titleContentColor = TextPrimary,
-                textContentColor = Muted,
-                shape = RoundedCornerShape(28.dp),
-            )
-        }
 
         if (Prefs.SOS_AVAILABLE) {
             SectionLabel(stringResource(R.string.contacts_section))

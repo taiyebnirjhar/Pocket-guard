@@ -83,8 +83,9 @@ siren. Table mode can be switched off under Triggers.
 
 ## SOS: a call for help
 
-For harassment in a crowd: while the guard is armed and the phone locked, **press power, then
-hold volume + and − together for 3 s** (by feel, in a pocket works). A buzz confirms it, and at once:
+For harassment in a crowd: while the guard is armed, **wake the screen (power, or a fingerprint
+unlock), then hold volume up for 5 s, or volume + and − together for 3 s** (by feel, in a pocket
+works). A buzz confirms it, and at once:
 
 - the SOS alarm: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when
   the app shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with
@@ -102,7 +103,11 @@ and "false alarm") and approve them with the list; any change asks again, includ
 language or switching the live link, and Home says when alerts are off for that reason. A number
 needs at least 6 digits. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
 screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
-SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The
+SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The SMS is
+always in English letters, English or Banglish (*"Taiyeb er shahajjo dorkar!…"*, picked on the
+contacts card), whatever language the app shows: one Bangla letter makes an SMS Unicode, which
+holds 70 characters a part instead of 160, so the alert with its two links would take 4 SMS
+instead of 2. The
 location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
 3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
 sends the SMS itself and resends one that didn't go (no signal), up to 5 tries; the Play build fills in the SMS app and you tap Send (Play allows sending
@@ -129,13 +134,17 @@ button on the Pocket Guard notification (on the lock screen, no unlock), the **S
 Quick Settings (swipe down on the lock screen and tap), and the SOS card on Home. Started from an
 unlocked phone, "I'm the owner" on the alarm screen stops it, or lock and unlock.
 
-Setup (Triggers → SOS): allow Camera and Microphone, and turn on **Pocket Guard SOS buttons** in
-Accessibility (the app explains what it sees and asks first). It watches the volume keys and
+Setup (asked in the first-run checklist, and in Triggers → SOS): allow Camera and Microphone, and
+turn on **Pocket Guard SOS buttons** in Accessibility (the app explains what it sees and asks
+first, then opens the switch itself). Installed outside the Play Store, Android 13+ greys that
+switch out ("restricted setting"); the app then shows the three steps, each with a button to the
+right screen: try the switch once, App info → ⋮ → Allow restricted settings, then turn it on. It watches the volume keys and
 nothing else, and every key still works as usual. Why press power first: with the screen off,
 Android shows the volume keys to no app at all, accessibility included; the lock screen is
 enough. Android's own Emergency SOS (power pressed 5 times) works with the screen off too. Holding + and − is also
 Android's accessibility shortcut: by default it does nothing, but if a shortcut is assigned the
-app says so, since both would start. A short squeeze, one key held, or taps don't count.
+app says so, since both would start. A short squeeze, volume down alone, or taps don't count, and
+a volume change never lasts the 5 s that volume up needs.
 
 ## Setup requirement: the phone must lock immediately
 

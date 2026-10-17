@@ -80,6 +80,19 @@ fun setupSteps(context: Context, status: SetupStatus = SetupStatus.read(context)
             ),
         )
     }
+    // SOS: asked here too, so the first run covers everything; each is optional.
+    if (Prefs.sosButtons(context)) {
+        add(SetupStep("sos_keys", R.drawable.ic_vibration, R.string.ready_sos_keys, R.string.ready_sos_keys_why, false, SosSetup.keysEnabled(context)))
+        add(
+            SetupStep(
+                "sos_record", R.drawable.ic_camera, R.string.ready_sos_record, R.string.ready_sos_record_why, false,
+                granted(context, Manifest.permission.CAMERA) && granted(context, Manifest.permission.RECORD_AUDIO),
+            ),
+        )
+    }
+    if (Prefs.SOS_AVAILABLE) {
+        add(SetupStep("contacts", R.drawable.ic_bell, R.string.ready_contacts, R.string.ready_contacts_why, false, EmergencyContacts.approved(context)))
+    }
     // From Android 15 apps can't lift the user's Do Not Disturb, so the access would do nothing.
     if (Build.VERSION.SDK_INT < 35) {
         add(SetupStep("dnd", R.drawable.ic_moon, R.string.ready_dnd, R.string.ready_dnd_why, false, status.doNotDisturb))
@@ -94,7 +107,7 @@ fun missingRequired(context: Context) = setupSteps(context).count { it.required 
  * ticking them off as they're granted. Shown after the guide, and whenever arming finds a gap.
  */
 @Composable
-fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit) {
+fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit, onOpenContacts: () -> Unit) {
     val context = LocalContext.current
     // Bumped after an in-app permission dialog, which doesn't pause the activity.
     var localKey by remember { mutableIntStateOf(0) }
@@ -104,6 +117,14 @@ fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit) {
         localKey++
     }
     val askCamera = rememberDisclosedPermission(R.string.disclose_camera, arrayOf(Manifest.permission.CAMERA)) { localKey++ }
+    val askRecord = rememberDisclosedPermission(
+        R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+    ) {
+        localKey++
+        // A running guard needs the microphone in its foreground type to record from the lock screen.
+        GuardService.refreshForeground()
+    }
+    val setUpKeys = rememberSosKeysSetup(refreshKey)
 
     val act: (SetupStep) -> Unit = { step ->
         when (step.id) {
@@ -125,6 +146,9 @@ fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit) {
             }
             "camera" -> askCamera()
             "dnd" -> SetupActions.doNotDisturb(context)
+            "sos_keys" -> setUpKeys()
+            "sos_record" -> askRecord()
+            "contacts" -> onOpenContacts()
         }
     }
 

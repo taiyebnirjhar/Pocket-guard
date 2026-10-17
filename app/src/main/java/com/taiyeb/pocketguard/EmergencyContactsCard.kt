@@ -15,12 +15,15 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -105,6 +109,36 @@ fun EmergencyContactsCard() {
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
+    // The alert's words, in English letters either way (see EmergencyContacts.SmsLanguage).
+    val smsLanguage = remember(version) { EmergencyContacts.smsLanguage(context) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.contacts_sms_language), color = TextPrimary, fontSize = 14.sp)
+            Text(stringResource(R.string.contacts_sms_language_why), color = Muted, fontSize = 12.sp)
+        }
+        listOf(
+            EmergencyContacts.SmsLanguage.ENGLISH to R.string.sms_english,
+            EmergencyContacts.SmsLanguage.BANGLISH to R.string.sms_banglish,
+        ).forEach { (language, label) ->
+            val selected = smsLanguage == language
+            Text(
+                stringResource(label),
+                color = if (selected) Color.White else Muted,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .minimumInteractiveComponentSize()
+                    .clip(CircleShape)
+                    .background(if (selected) Purple else Track)
+                    .selectable(selected = selected, role = Role.RadioButton) {
+                        EmergencyContacts.setSmsLanguage(context, language)
+                        version++
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+    }
     contacts.forEachIndexed { i, contact ->
         Row(
             Modifier.fillMaxWidth().clickable(role = Role.Button) { editing = i },
