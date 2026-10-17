@@ -128,7 +128,8 @@ object EmergencyContacts {
         val config = Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
         val english = context.createConfigurationContext(config)
         val chosen = if (smsLanguage(context) == SmsLanguage.BANGLISH) banglish[id] ?: id else id
-        return english.getString(chosen, *args)
+        // Without arguments: the template itself (the approval's fingerprint), not formatted.
+        return if (args.isEmpty()) english.getString(chosen) else english.getString(chosen, *args)
     }
 
     /** The time an SMS says, in English digits. */
