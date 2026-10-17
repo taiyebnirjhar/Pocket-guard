@@ -307,7 +307,12 @@ log "Scenario 7e: SOS, volume + and - held together for 3 s with the screen off"
 A11Y="$PKG/.SosAccessibilityService"
 # Real hardware key events through the emulator console: accessibility key filters never see
 # keys injected with "adb shell input" (those count as already filtered).
-hw_key() { emu event send "EV_KEY:$1:$2" EV_SYN:SYN_REPORT:0 >/dev/null; }
+hw_key() {
+  local out
+  out=$(adb emu event send "EV_KEY:$1:$2" 2>&1)
+  grep -q KO <<<"$out" && log "  emulator refused key $1: $out"
+  return 0
+}
 hold_both() {
   hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
   sleep "$(awk "BEGIN { print $1 / 1000 }")"
@@ -323,8 +328,7 @@ sh dumpsys accessibility | grep -iE "pocketguard|filterKeyEvents|KeyEventDispatc
 sh dumpsys input | grep -iE "InputFilterEnabled|inputFilter" | head -n 5 | sed 's/^/    /'
 sh input keyevent KEYCODE_WAKEUP; sleep 1
 reset_log
-log "  diag: emu says: $(adb emu event send EV_KEY:KEY_VOLUMEUP:1 EV_SYN:SYN_REPORT:0 2>&1 | tr '\r\n' '  ')"
-adb emu event send EV_KEY:KEY_VOLUMEUP:0 EV_SYN:SYN_REPORT:0 >/dev/null; sleep 1
+hw_key KEY_VOLUMEUP 1; hw_key KEY_VOLUMEUP 0; sleep 1
 log "  diag: screen on, one hardware key: watcher saw $(watcher_saw) events"
 sh dumpsys audio | grep -E "adjustSuggestedStreamVolume" | tail -n 2 | sed 's/^/    /'
 adb logcat -d | grep -iE "VOLUME_UP|KeyEvent.*VOLUME" | tail -n 5 | sed 's/^/    /'
