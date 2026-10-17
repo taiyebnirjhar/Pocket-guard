@@ -28,7 +28,7 @@ class GuardEngine(
         val tableGuard: Boolean = true,
     )
 
-    enum class Timer { CONFIRM_POCKET, CHECK_REMOVAL, SIREN, DECIDE, TABLE_CHECK }
+    enum class Timer { CONFIRM_POCKET, CHECK_REMOVAL, SIREN, DECIDE, TABLE_CHECK, TABLE_WATCH }
 
     interface Host {
         fun now(): Long
@@ -95,7 +95,19 @@ class GuardEngine(
         const val POWER_EXCLUSION_MS = 2000L
 
         /** Out of one pocket and into another: a big turn while out, and a new angle once covered. */
-        const val OUT_AND_IN_MIN_OUT_MS = 1000L
+        /** A jolt-confirmed warning recovers only if the phone turned less than this while out. */
+        const val FLICKER_MAX_PATH_DEG = 45f
+        const val FLICKER_MAX_TURN_DEG = 15f
+
+        /** Uncovered and still: lying flat within this of face-up or face-down counts as a table. */
+        const val FLAT_ENTRY_DEG = 15f
+
+        /** On the table, motion this old means the accelerometer stopped. */
+        const val TABLE_WATCH_MS = 2000L
+        const val TABLE_MOTION_STALE_MS = 3000L
+
+        // Below the removal filter (250 ms with no delay), so a swap too quick to warn is still judged.
+        const val OUT_AND_IN_MIN_OUT_MS = 200L
         const val OUT_AND_IN_PEAK_DEG = 60f
         const val OUT_AND_IN_PEAK_HOLD_MS = 300L
         const val OUT_AND_IN_FINAL_DEG = 30f
@@ -219,8 +231,16 @@ class GuardEngine(
         if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
         // Bright light means it really was out; covered again now is a thief's hand or pocket.
         if (confirmedByLight) return
-        // So does a pocket swap: only warnings confirmed by the uncover alone (or a jolt) recover.
+        // So does a pocket swap: only warnings confirmed by the uncover alone, or a jolt, recover.
         if (evidence != Evidence.UNCOVERED && evidence != Evidence.JOLT && evidence != Evidence.PROXIMITY_ONLY) return
+        // A jolt is fabric flicker only if the phone barely turned: a hand pulling it out and
+        // cupping the sensor or pocketing it swings it about on the way, even if it ends up at
+        // the same angle.
+        if (evidence == Evidence.JOLT && hasMotionData &&
+            (turnedDeg > FLICKER_MAX_PATH_DEG || motion.gravityAngleTo(preX, preY, preZ) > FLICKER_MAX_TURN_DEG)
+        ) {
+            return
+        }
         cancelAll()
         go(Phase.IN_POCKET)
         // Turned far while it was out: maybe the thief's own pocket, so decide as for any re-cover.
@@ -246,7 +266,8 @@ class GuardEngine(
 
     /** One raw accelerometer sample, m/s² with gravity, timestamped on the [Host.now] clock. */
     fun onAccel(t: Long, x: Float, y: Float, z: Float) {
-        if (!hasMotionSensor) return
+        // One broken sample would poison the filters for good.
+        if (!hasMotionSensor || !x.isFinite() || !y.isFinite() || !z.isFinite()) return
         val events = motion.onSample(t, x, y, z)
         if (events and MotionProcessor.Event.JOLT != 0) lastMotionAt = t
         if (!phase.isAlarm) table.trackSettle(t)
@@ -256,8 +277,10 @@ class GuardEngine(
             ) {
                 enterTable(t)
             }
-            // Locked, screen black and lying still face-up (or anywhere uncovered): protected now.
-            Phase.WAITING_FOR_POCKET -> if (near != true && motion.atRest && host.config().tableGuard &&
+            // Locked, screen black and lying still and flat, uncovered (face-up, or face-down
+            // with a sensor that reads far): protected now. Not at a tilt, as on a lap or upright
+            // in a loose pocket.
+            Phase.WAITING_FOR_POCKET -> if (near != true && motion.atRest && lyingFlat() && host.config().tableGuard &&
                 host.screenOff() && host.isLocked() && !host.inCall()
             ) {
                 host.log("locked, screen off and lying still: table protection on")
@@ -293,6 +316,12 @@ class GuardEngine(
         cancelAll()
         resetEpisode()
         go(Phase.WAITING_FOR_POCKET)
+        protectAgainWhenCovered()
+    }
+
+    /** Back to waiting while already covered (put back face-down): no new cover will come. */
+    private fun protectAgainWhenCovered() {
+        if (near == true) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
     }
 
     /**
@@ -317,6 +346,7 @@ class GuardEngine(
             Timer.SIREN -> if (phase == Phase.WARNING) siren(null)
             Timer.DECIDE -> decideOutAndIn()
             Timer.TABLE_CHECK -> checkTableUncover()
+            Timer.TABLE_WATCH -> watchTableMotion()
         }
     }
 
@@ -433,6 +463,13 @@ class GuardEngine(
     private var lastY = 0f
     private var lastZ = 0f
     private var pathDeg = 0f
+
+    // The same path on gated gravity (samples near 1 g only), so a jolt's own push doesn't count
+    // as turning: how much the phone really swung while out.
+    private var turnedDeg = 0f
+    private var lastGX = 0f
+    private var lastGY = 0f
+    private var lastGZ = 0f
     private var peakSince = -1L
     private var peakHeld = false
     private var cueInEpisode = false
@@ -456,6 +493,8 @@ class GuardEngine(
         // Woken just before it came out: the display cue for the turn that follows.
         if (cueInEpisode) displayCueAt = now
         pathDeg = 0f
+        turnedDeg = 0f
+        lastGX = motion.gx; lastGY = motion.gy; lastGZ = motion.gz
         peakSince = -1L
         peakHeld = false
         deciding = false
@@ -486,6 +525,8 @@ class GuardEngine(
         if (episodeActive || deciding || (phase.isAlarm && trigger == Trigger.POCKET_REMOVAL)) {
             pathDeg += MotionProcessor.angle(lastX, lastY, lastZ, motion.fx, motion.fy, motion.fz)
             lastX = motion.fx; lastY = motion.fy; lastZ = motion.fz
+            turnedDeg += MotionProcessor.angle(lastGX, lastGY, lastGZ, motion.gx, motion.gy, motion.gz)
+            lastGX = motion.gx; lastGY = motion.gy; lastGZ = motion.gz
         }
         if (phase != Phase.IN_POCKET || !episodeActive || near != false) return
 
@@ -515,7 +556,10 @@ class GuardEngine(
         if (!episodeActive) return
         val outMs = now - episodeStart
         episodeActive = false
-        if (!hasMotionData || outMs < OUT_AND_IN_MIN_OUT_MS || !peakHeld) return
+        if (!hasMotionData || outMs < OUT_AND_IN_MIN_OUT_MS) return
+        // Held at a big angle while out, or (too quick for the posture filter to hold one) put
+        // back in at a new angle: the decision then weighs the turn and the cues.
+        if (!peakHeld && motion.gravityAngleTo(preX, preY, preZ) < OUT_AND_IN_FINAL_DEG) return
         deciding = true
         decideCue = cueInEpisode
         host.schedule(Timer.DECIDE, OUT_AND_IN_DECIDE_MS)
@@ -558,6 +602,7 @@ class GuardEngine(
         cancelAll()
         go(Phase.ON_TABLE)
         table.start(t)
+        host.schedule(Timer.TABLE_WATCH, TABLE_WATCH_MS)
         proxTrusted = true
         glitches = 0
         // Two buzzes the first time for each placement: "it knows it's on the table".
@@ -576,6 +621,32 @@ class GuardEngine(
     }
 
     private fun tableFaceDown() = motion.gravityAngleTo(0f, 0f, -1f) <= 45f
+
+    private fun lyingFlat() =
+        motion.gravityAngleTo(0f, 0f, 1f) <= FLAT_ENTRY_DEG || motion.gravityAngleTo(0f, 0f, -1f) <= FLAT_ENTRY_DEG
+
+    /**
+     * On the table every motion rule needs the accelerometer. Some phones stop it with the screen
+     * off: then a covered phone falls back to pocket protection (an uncover still warns), and
+     * an uncovered one can't be watched, which the log says.
+     */
+    private fun watchTableMotion() {
+        if (phase != Phase.ON_TABLE) return
+        val now = host.now()
+        if (motion.hasData && now - motion.lastSampleAt <= TABLE_MOTION_STALE_MS) {
+            host.schedule(Timer.TABLE_WATCH, TABLE_WATCH_MS)
+            return
+        }
+        if (near == true) {
+            host.log("motion sensor stopped on the table: protecting as in a pocket")
+            cancelAll()
+            resetEpisode()
+            go(Phase.IN_POCKET)
+        } else {
+            host.log("motion sensor stopped on the table: a lift can't be seen")
+            host.schedule(Timer.TABLE_WATCH, TABLE_WATCH_MS)
+        }
+    }
 
     /** Uncovered on the table: real only with lift-like motion; a stalled sensor fails safe. */
     private fun checkTableUncover() {
@@ -613,13 +684,18 @@ class GuardEngine(
 
     private fun tableAlarm(t: Long, why: Evidence) {
         if (phase != Phase.ON_TABLE) return
-        // Picked up to answer a call: the owner's, as in the pocket where calls are ignored.
-        if (host.ringing() || host.inCall()) {
+        // Already in a call (answered before it moved): the owner's. A ringing phone that's
+        // picked up still warns, since an accomplice can ring it: answering stops the warning
+        // (onCallAnswered), as it shows the owner has it.
+        if (host.inCall()) {
             table.clearLatch()
             cancelAll()
             go(Phase.WAITING_FOR_POCKET)
+            protectAgainWhenCovered()
             return
         }
+        // The ring's own vibration can shake it along the table: that alone isn't a pick-up.
+        if (host.ringing() && (why == Evidence.TABLE_SLIDE || why == Evidence.TABLE_HELD)) return
         tableTriggerAt = t
         warn(Trigger.TABLE_MOVED, why)
     }
@@ -639,6 +715,7 @@ class GuardEngine(
         cancelAll()
         go(Phase.ON_TABLE)
         table.start(t)
+        host.schedule(Timer.TABLE_WATCH, TABLE_WATCH_MS)
     }
 
     // --- Alarms ---------------------------------------------------------------------------------------
@@ -666,7 +743,9 @@ class GuardEngine(
     }
 
     private fun siren(cause: Trigger?) {
-        if (phase == Phase.OFF || phase == Phase.SIREN) return
+        if (phase == Phase.OFF) return
+        // A call for help still goes through over a theft siren (its alerts and recording start).
+        if (phase == Phase.SIREN && (cause != Trigger.SOS || trigger == Trigger.SOS)) return
         cancelAll()
         go(Phase.SIREN, cause)
     }

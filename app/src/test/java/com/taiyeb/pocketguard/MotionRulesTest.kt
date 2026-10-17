@@ -714,13 +714,120 @@ class MotionRulesTest {
     }
 
     @Test
-    fun pickedUpToAnswerACallIsTheOwner() {
+    fun pickedUpToAnswerACallIsTheOwnerOnceAnswered() {
         placeOnTable()
         host.ringing = true
         stream(600) { t -> faceDownTilted(60f * t / 600f) }
         still(faceDownTilted(60f), 400)
+        // Ringing alone proves nothing (an accomplice can ring it), so it warns...
+        warnedWith(Evidence.TABLE_TILT)
+        // ...and answering shows it's the owner.
+        engine.onCallAnswered()
         assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
-        neverWarned()
+    }
+
+    @Test
+    fun anAccompliceRingingThePhoneDoesNotDisarmTheTable() {
+        placeOnTable()
+        host.ringing = true
+        stream(600) { t -> faceDownTilted(60f * t / 600f) }
+        still(faceDownTilted(60f), 400)
+        warnedWith(Evidence.TABLE_TILT)
+        still(faceDownTilted(60f), host.config.graceMs + 500)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun putBackFaceDownAfterAnAnsweredCallIsProtectedAgain() {
+        placeOnTable()
+        stream(600) { t -> faceDownTilted(60f * t / 600f) }
+        still(faceDownTilted(60f), 400)
+        engine.onCallAnswered()
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        // Still covered (the sensor never saw an uncover), and the call is over: protected.
+        stream(600) { t -> faceDownTilted(60f - 60f * t / 600f) }
+        still(faceDown, GuardEngine.POCKET_CONFIRM_MS + 1000)
+        assertTrue(engine.phase.isProtected)
+    }
+
+    @Test
+    fun aJoltThatSwungThePhoneIsNotFabricFlickerEvenIfCoveredAtOnce() {
+        host.config = host.config.copy(graceMs = 0)
+        pocketUpright()
+        engine.onProximity(false)
+        // Yanked out: a jolt while it swings through 120° and back near where it was.
+        stream(150) { floatArrayOf(6f, 6f, 18f) }
+        stream(400) { t -> uprightTurned(120f * kotlin.math.sin(PI.toFloat() * t / 400f)) }
+        assertEquals(Phase.SIREN, engine.phase)
+        engine.onProximity(true) // A hand cupping the sensor, or the thief's pocket.
+        still(uprightTurned(10f), 2000)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun aJoltWithTheFabricFlickeringStillRecovers() {
+        pocketUpright()
+        engine.onProximity(false)
+        // A step jolts the pocket and the fabric slips off the sensor; the phone barely turns.
+        stream(150) { floatArrayOf(6f, 6f, 18f) }
+        still(upright, GuardEngine.REMOVAL_CONFIRM_MS)
+        warnedWith(Evidence.JOLT)
+        engine.onProximity(true)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun sosGoesThroughOverATheftSiren() {
+        engine.onChargerUnplugged()
+        host.advance(host.config.graceMs + 10)
+        assertEquals(Phase.SIREN, engine.phase)
+        engine.onSos()
+        assertEquals(Phase.SIREN, engine.phase)
+        assertEquals(Triple(Phase.SIREN, Phase.SIREN, Trigger.SOS), host.transitions.last())
+    }
+
+    @Test
+    fun oneBrokenSampleDoesNotStopTheMotionRules() {
+        host.locked = true
+        host.screenOff = true
+        engine.onAccel(host.time, Float.NaN, 0f, 9.81f)
+        still(faceUp, 3000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+    }
+
+    @Test
+    fun uncoveredAndStillButTiltedIsNotATable() {
+        host.screenOff = true
+        // On a lap, or upright in a loose pocket with the sensor reading far.
+        still(faceDownTilted(155f), 5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        still(upright, 5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        still(faceUp, 3000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+    }
+
+    @Test
+    fun aStoppedAccelerometerOnTheTableFallsBackToPocketProtection() {
+        placeOnTable()
+        // The phone stops the sensor with the screen off: no more samples.
+        host.advance(GuardEngine.TABLE_MOTION_STALE_MS + GuardEngine.TABLE_WATCH_MS + 100)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        engine.onProximity(false)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+    }
+
+    @Test
+    fun aQuickPocketSwapTurnedRoundIsStillJudged() {
+        pocketUpright()
+        engine.onProximity(false)
+        engine.onDisplayOn() // Woken as it came out: someone is looking at it.
+        // Out for half a second (under the removal filter), turned upside down, into another pocket.
+        stream(500) { t -> uprightTurned(180f * t / 500f) }
+        engine.onProximity(true)
+        still(uprightTurned(180f), GuardEngine.OUT_AND_IN_DECIDE_MS + 500)
+        warnedWith(Evidence.OUT_AND_IN)
     }
 
     @Test
