@@ -160,8 +160,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 return
             }
             // Picked up off the table and answered: in vibrate mode no ring told us it was a call.
-            val mode = audioManager.mode
-            if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
+            // A call already on when the alarm began (on earbuds, say) says nothing about who took it.
+            if (callModeNow() && !callAtAlarmStart) {
                 current.onCallAnswered()
                 if (!current.phase.isAlarm) return
             }
@@ -444,6 +444,13 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun isLocked() = keyguardManager.isKeyguardLocked || !powerManager.isInteractive
 
+    private var callAtAlarmStart = false
+
+    private fun callModeNow(): Boolean {
+        val mode = audioManager.mode
+        return mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION
+    }
+
     /** Calls at the ear cover and uncover the proximity sensor, which looks like a pocket. */
     override fun inCall() = Audio.callAtEar(audioManager)
 
@@ -501,6 +508,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
             Prefs.setAlarmActive(this, true) // A restart during the warning comes back screaming too.
             if (!GuardState.unlockStopsAlarm.value) handler.post(lockWatch)
+            callAtAlarmStart = callModeNow()
             handler.removeCallbacks(unlockPoll)
             handler.postDelayed(unlockPoll, 1000)
         }
