@@ -167,4 +167,12 @@
     <string name="ready_camera_why">Takes intruder photos when the siren starts.</string>
     <string name="ready_dnd">Siren through Do Not Disturb</string>
     <string name="ready_dnd_why">Lets the siren sound even in total silence mode.</string>
+    <string name="phase_on_table">Protected on the table</string>
+    <string name="phase_on_table_hint">Lifting, tilting or pushing it off warns. Unlock when you pick it up.</string>
+    <string name="status_on_table">On the table</string>
+    <string name="trigger_table">Picked up from the table</string>
+    <string name="history_put_back">cancelled: put back down</string>
+    <string name="triggers_table">Face-down on a table</string>
+    <string name="triggers_table_sub">Lift, tilt or push it off the table and it warns; sliding it only beeps. Two short buzzes mean it is guarding the table.</string>
+    <string name="test_9">On a table: lay it face-down, locked, and wait for two short buzzes. Lift or tilt it: beeps after 1.5 s. Put it back down: they stop.</string>
 </resources>

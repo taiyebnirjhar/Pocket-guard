@@ -31,12 +31,20 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    the pocket:
    - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
      is brighter.
-   - **Motion** otherwise: a jolt over 2.5 m/s² plus the sensor staying uncovered for 1.5 s.
-     Many phones stop reporting light while the screen is off, so this is the usual path.
+   - **Jolt**: a push or pull over 2.5 m/s² (measured as |a| away from 1 g, so turning the phone
+     can't fake it) plus the sensor staying uncovered for 1.5 s. While walking, every step is a
+     jolt, so then it takes 3 s uncovered after the steps stop.
+   - **Turned to look**: no jolt (a careful, gentle pull), but the phone turns 45° or more away
+     from its pocket posture and the screen wakes as it turns.
+   - **Into another pocket**: out for at least a second, turned 60° or more, then covered again
+     at a new angle (30° or more from where it was). Sitting down or bending turns the phone one
+     way in one go and doesn't count; while walking, or after it rested somewhere, this also
+     needs the screen or light.
 
-   Late readings still count for 2.5 s. A motion-only warning cancels itself if the sensor is
-   covered again within 1 s (pocket fabric). A light-confirmed one doesn't, since that's a
-   thief's hand.
+   Without any of these it doesn't give up: it keeps watching how the phone turns, where it goes
+   and whether the screen wakes, until it goes back into the pocket or you unlock. A jolt-only
+   warning cancels itself if the sensor is covered again within 1 s (pocket fabric); the others
+   don't, since they mean a hand.
 4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s) and
    nothing else happens. With 0 there's no warning: the removal is confirmed faster (0.25 s
    uncovered, 0.5 s on motion alone) and the siren starts at once. A motion-only siren still
@@ -50,6 +58,32 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 Unlocking only counts as the owner if the phone was credential-locked when the alarm began. If
 Smart Lock or a screen-lock delay kept it unlocked, the alarm screen says to tap DISARM in the
 app instead. The app refuses to arm without a PIN, pattern or password.
+
+## On a table
+
+Face-down on a table the proximity sensor stays covered, so pocket rules can't see a theft. Lay
+the phone face-down while it's locked and keep it still: after about 10 s two short buzzes mean
+it is guarding the table (the phone must be flat, still and on something hard; a lap, sofa, bag
+or a body never counts, because they rock, sink or breathe). Then:
+
+| What happens | Result |
+|---|---|
+| Tilted 20° or more, turned over to look | Warning |
+| Lifted 3 cm or more, even level | Warning |
+| Picked up slowly and held (never still again, tilted 4°+) | Warning after 3 s |
+| Comes to rest at a new angle (8°+), like on a hand or a book | Warning |
+| Pushed off the edge (falling, without the kick of a bump) | Warning |
+| Sensor uncovered together with any lift-like motion | Warning |
+| Slid across the table (10 cm or more) | One beep; repeated slides beep for 3 s |
+| Knocked, bumped, a cup put down, its own vibration | Nothing |
+| A car pulling away with it on the seat | Leaves table mode silently |
+| Picked up to answer a ringing call | Your pick-up: back to armed, silently |
+
+Table warnings and "turned to look" warnings stay silent for their first 1.5 s, so picking up your
+own phone and unlocking it with a fingerprint makes no sound. Put it back down flat and still
+within the grace period and the warning stops by itself (3 times per 10 min at most). With no
+delay set, a table pick-up still gets these 1.5 s before the siren. Table mode can be switched
+off under Triggers.
 
 ## Setup requirement: the phone must lock immediately
 
@@ -116,6 +150,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | File | Role |
 |---|---|
 | `GuardEngine.kt` | Every decision as a pure state machine (no Android types). Unit tested. |
+| `MotionProcessor.kt`, `TableMonitor.kt` | Raw accelerometer to gravity direction, stillness, jolts, falls and walking; table placement and the table rules. Pure Kotlin, unit tested at 25-200 Hz with noise and sensor offsets. |
 | `GuardService.kt` | Foreground service: feeds sensors and system broadcasts to the engine, carries out its side effects, runs the lock check. Direct-boot aware. |
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
@@ -137,6 +172,8 @@ required step is missing brings it back, and arms the guard once it's done.
    with `run-as`, and fakes the cameras and the proximity, light and motion sensors. It then
    checks the app log, stored history, photo files, notifications and screen state for:
    - pickpocket: siren, intruder photos, history entry
+   - table: protected when laid face-down, tilt warns, putting it back stops it, picking it up sirens
+   - a gentle pull turned to look, and a pocket swap, with no jolt or light
    - pull-out with a frozen light sensor
    - the owner's own pull-out and unlock within grace
    - sensor flicker and walking ignored
@@ -167,6 +204,16 @@ version are tested but not released.
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
 - iPhone isn't possible: iOS gives apps no background sensor access.
+- Motion can't tell the owner from a thief until someone unlocks. A thief who pulls the phone out
+  gently, never wakes the screen and keeps it at the pocket's angle (or slips it upright into
+  their own pocket) isn't caught by motion; the light, jolt and tamper triggers still apply.
+- Without a gyroscope (budget phones) slow, level slides under about 10 cm/s aren't measured;
+  any lift or tilt that follows is.
+- A phone laid face-down on a lap while sitting very still may be taken for a table. Wait for
+  the double buzz: if you feel it in your lap, keep table mode in mind when you stand up.
+
+The full detection design, its threat model and what is planned next are in
+[docs/detection-plan.md](docs/detection-plan.md).
 
 ## Build it yourself
 

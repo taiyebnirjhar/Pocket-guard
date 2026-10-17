@@ -13,6 +13,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.hardware.Sensor
+import android.hardware.display.DisplayManager
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -24,6 +25,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.Display
 import android.service.quicksettings.TileService
 import android.util.Log
 import androidx.core.app.ServiceCompat
@@ -48,6 +50,11 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         private const val WAKE_LOCK_RENEW_MS = 60 * 60_000L
         private const val AUTO_DISARM_MS = 4 * 60 * 60_000L
         private const val CHARGER_DEBOUNCE_MS = 2_000L
+        private const val ACCEL_PERIOD_US = 20_000
+        private const val ACCEL_LATENCY_US = 100_000
+
+        /** Warnings where the owner is likely looking at the phone start this much later. */
+        private const val OWNER_SILENT_MS = 1500L
         private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
@@ -86,6 +93,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     private val handler = Handler(Looper.getMainLooper())
     private val timers = mutableMapOf<GuardEngine.Timer, Runnable>()
     private lateinit var sensorManager: SensorManager
+    private lateinit var displayManager: DisplayManager
+    private var lastDisplayState = Display.STATE_UNKNOWN
     private lateinit var powerManager: PowerManager
     private lateinit var keyguardManager: KeyguardManager
     private lateinit var audioManager: AudioManager
@@ -185,8 +194,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                     handler.removeCallbacks(lockCheck)
                     handler.postDelayed(lockCheck, LOCK_CHECK_DELAY_MS)
                 }
-                Intent.ACTION_POWER_CONNECTED -> handler.postDelayed({ lastPlugType = plugType() }, 1000)
+                Intent.ACTION_POWER_CONNECTED -> {
+                    engine.onPowerEvent()
+                    handler.postDelayed({ lastPlugType = plugType() }, 1000)
+                }
                 Intent.ACTION_POWER_DISCONNECTED -> {
+                    engine.onPowerEvent()
                     // Lifting a phone off a wireless pad is the owner picking it up, not a theft.
                     if (lastPlugType != BatteryManager.BATTERY_PLUGGED_WIRELESS) {
                         handler.removeCallbacks(chargerCheck)
@@ -212,6 +225,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         super.onCreate()
         instance = this
         sensorManager = getSystemService(SensorManager::class.java)
+        displayManager = getSystemService(DisplayManager::class.java)
         powerManager = getSystemService(PowerManager::class.java)
         keyguardManager = getSystemService(KeyguardManager::class.java)
         audioManager = getSystemService(AudioManager::class.java)
@@ -223,8 +237,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY, true)
             ?: sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-        motionSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
-            ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        // The raw accelerometer: gravity's direction is what tells a table from a pocket, and unlike
+        // fused linear acceleration it doesn't keep the gyroscope running.
+        motionSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -305,8 +320,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         lastPlugType = plugType()
         proximitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
         lightSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        // ~60 ms: the jolt of a phone pulled from a pocket lasts only a few hundred ms (NORMAL is 200 ms).
-        motionSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        // 50 Hz, delivered in batches of up to 100 ms: a pull's jolt lasts a few hundred ms.
+        motionSensor?.let { sensorManager.registerListener(this, it, ACCEL_PERIOD_US, ACCEL_LATENCY_US) }
+        displayManager.registerDisplayListener(displayListener, handler)
+        lastDisplayState = displayManager.getDisplay(Display.DEFAULT_DISPLAY)?.state ?: Display.STATE_UNKNOWN
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -350,6 +367,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         alarm.stop()
         Notifications.cancelAlarm(this)
         sensorManager.unregisterListener(this)
+        displayManager.unregisterDisplayListener(displayListener)
         try {
             unregisterReceiver(eventReceiver)
         } catch (e: IllegalArgumentException) {
@@ -381,13 +399,35 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         when (event.sensor.type) {
             Sensor.TYPE_PROXIMITY -> engine.onProximity(Detection.isNear(event.sensor, event.values[0]))
             Sensor.TYPE_LIGHT -> engine.onLight(event.values[0])
-            Sensor.TYPE_LINEAR_ACCELERATION, Sensor.TYPE_ACCELEROMETER -> engine.onMotion(
-                Detection.motion(event.values, linear = event.sensor.type == Sensor.TYPE_LINEAR_ACCELERATION),
-            )
+            Sensor.TYPE_ACCELEROMETER -> engine.onAccel(sampleTime(event), event.values[0], event.values[1], event.values[2])
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    /**
+     * When the sample was taken, on the elapsedRealtime clock the engine's timers use. Batched
+     * samples arrive late, so arrival time would squash their timing; a few phones stamp sensors
+     * on another clock, and then arrival time is the better guess.
+     */
+    private fun sampleTime(event: SensorEvent): Long {
+        val now = SystemClock.elapsedRealtime()
+        val stamped = event.timestamp / 1_000_000L
+        return if (stamped in now - 5000L..now + 100L) stamped else now
+    }
+
+    /** The screen turning on while the phone is out of the pocket: someone may be looking at it. */
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId != Display.DEFAULT_DISPLAY) return
+            val state = displayManager.getDisplay(displayId)?.state ?: return
+            if (state == Display.STATE_ON && lastDisplayState != Display.STATE_ON) engine?.onDisplayOn()
+            lastDisplayState = state
+        }
+
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+    }
 
     // --- GuardEngine.Host ---
 
@@ -403,7 +443,20 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         airplaneAlarm = Prefs.airplaneAlarm(this),
         chargerAlarm = Prefs.chargerAlarm(this),
         earbudsAlarm = Prefs.earbudsAlarm(this),
+        tableGuard = Prefs.tableGuard(this),
     )
+
+    /** Locked with a PIN, pattern or password: Smart Lock and lock delays don't count. */
+    override fun credentialLocked() = keyguardManager.isDeviceLocked
+
+    override fun ringing() = audioManager.mode == AudioManager.MODE_RINGTONE
+
+    override fun tableTick() = alarm.tableTick()
+
+    override fun tableChirp(burst: Boolean) {
+        Log.i(TAG, "table slide chirp burst=$burst")
+        alarm.chirp(burst)
+    }
 
     override fun schedule(timer: GuardEngine.Timer, delayMs: Long) {
         cancel(timer)
@@ -420,7 +473,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     }
 
     override fun onTransition(from: Phase, to: Phase, trigger: Trigger?) {
-        Log.i(TAG, "phase=$to from=$from trigger=$trigger")
+        val evidence = engine?.evidence
+        Log.i(TAG, "phase=$to from=$from trigger=$trigger" + if (to.isAlarm && evidence != null) " evidence=$evidence" else "")
         if (to.isAlarm && !from.isAlarm) {
             GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
@@ -432,7 +486,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         GuardState.phase.value = to
         when (to) {
             Phase.WARNING -> {
-                alarm.startWarning()
+                // Lifted off a table or turned to look: likely the owner's own glance, so a moment
+                // of silence lets them unlock first.
+                alarm.startWarning(silentMs = if (evidence?.ownerLikelyLooking == true) OWNER_SILENT_MS else 0)
                 trigger?.let(recorder::begin)
             }
             Phase.SIREN -> {
@@ -441,12 +497,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Notifications.showAlarm(this)
                 trigger?.let(recorder::escalate)
             }
-            Phase.OFF, Phase.WAITING_FOR_POCKET, Phase.IN_POCKET -> if (from.isAlarm) {
+            Phase.OFF, Phase.WAITING_FOR_POCKET, Phase.IN_POCKET, Phase.ON_TABLE -> if (from.isAlarm) {
                 Prefs.setAlarmActive(this, false)
                 alarm.stop()
                 Notifications.cancelAlarm(this)
-                // Alarm to IN_POCKET only happens when the pocket fabric flickered over the sensor.
-                val flicker = to == Phase.IN_POCKET
+                // Back to IN_POCKET: the pocket fabric flickered. Back to ON_TABLE: put back down.
+                val flicker = to == Phase.IN_POCKET || to == Phase.ON_TABLE
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
                 GuardState.unlockStopsAlarm.value = true
             }

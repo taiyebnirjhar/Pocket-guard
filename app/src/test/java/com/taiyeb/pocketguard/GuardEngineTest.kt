@@ -9,7 +9,7 @@ import org.junit.Test
 
 class GuardEngineTest {
 
-    private class FakeHost : GuardEngine.Host {
+    class FakeHost : GuardEngine.Host {
         var time = 1_000_000L
         var locked = true
         var call = false
@@ -20,6 +20,10 @@ class GuardEngineTest {
         val transitions = mutableListOf<Triple<Phase, Phase, Trigger?>>()
         var confirmBuzzes = 0
         var noticeBuzzes = 0
+        var credentialLocked = true
+        var ringing = false
+        var tableTicks = 0
+        val chirps = mutableListOf<Boolean>()
         lateinit var engine: GuardEngine
 
         override fun now() = time
@@ -40,6 +44,14 @@ class GuardEngineTest {
         }
         override fun noticeBuzz() {
             noticeBuzzes++
+        }
+        override fun credentialLocked() = locked && credentialLocked
+        override fun ringing() = ringing
+        override fun tableTick() {
+            tableTicks++
+        }
+        override fun tableChirp(burst: Boolean) {
+            chirps += burst
         }
 
         /** Moves the clock forward, firing due timers in order, like the real Handler would. */
@@ -183,7 +195,9 @@ class GuardEngineTest {
         host.advance(GuardEngine.MOTION_WINDOW_MS + 100)
         engine.onProximity(false)
         host.advance(GuardEngine.EVIDENCE_WINDOW_MS + 500)
-        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        // No warning, but it keeps watching instead of giving up (it may be in someone's hand).
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        assertFalse(host.transitions.any { it.second == Phase.WARNING })
     }
 
     @Test

@@ -1,0 +1,405 @@
+package com.taiyeb.pocketguard
+
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sqrt
+
+/**
+ * Face-down on a table the proximity sensor stays covered, so pocket rules never see a theft:
+ * this watches the motion instead. It decides when a covered phone is really lying on a hard
+ * surface (not in a pocket, bag or lap), and then which movements mean someone took it.
+ *
+ * Lift-type movements (lifted, tilted, held, resting at a new angle, pushed off the edge) warn.
+ * A slide across the table only chirps: taking a phone away always ends in one of the others.
+ * Pure Kotlin on top of [MotionProcessor], driven sample by sample.
+ */
+class TableMonitor(private val m: MotionProcessor) {
+
+    companion object {
+        /** Placement: face-down within this when the sensor gets covered. */
+        const val LATCH_FLAT_DEG = 20f
+
+        /**
+         * Put down on a table, a phone is still at once; pushed into a pocket it keeps getting
+         * jostled. Stillness must have begun this soon after covering (the 1 s stillness window
+         * adds its own second).
+         */
+        const val LATCH_SETTLE_MS = 2500L
+
+        /** Hard-surface test. */
+        const val TABLE_REST_MS = 8000L
+        const val TABLE_FLAT_DEG = 10f
+        const val CREEP_DEG = 0.15f
+        const val BODY_DEG = 0.3f
+
+        /** Lift-type rules. */
+        const val TILT_DEG = 20f
+        const val TILT_HOLD_MS = 300L
+        const val TILT_GATE = 0.3f
+        const val LIFT_CM = 3f
+        const val LIFT_WINDOW_MS = 1000L
+        const val HELD_MS = 3000L
+        const val HELD_DEG = 4f
+        const val POSE_DEG = 8f
+
+        /** Uncover counts when there was a lift-like motion within this of the uncover. */
+        const val UNCOVER_MOTION_MS = 1000L
+        const val UNCOVER_MOTION_DEG = 3f
+
+        /** Slides. */
+        const val BURST_START = 0.15f
+        const val BURST_CAP_MS = 3000L
+        const val SLIDE_CM = 10f
+
+        /** A vehicle pulling away: one-way horizontal acceleration this long. */
+        const val DRIVE_ACCEL = 0.2f
+        const val DRIVE_MS = 2000L
+
+        /** After the app's own buzz, motion is ignored this long. */
+        const val OWN_VIBRATION_MS = 500L
+    }
+
+    enum class Signal { NONE, TILT, LIFT, HELD, POSE, FALL, UNCOVER, SLIDE, DRIVE_OFF }
+
+    // --- Placement latch and entry ------------------------------------------------------------
+
+    /** Set when the sensor was covered with the phone face-down and still roughly flat. */
+    var latched = false
+        private set
+    private var latchAt = 0L
+    private var latchX = 0f
+    private var latchY = 0f
+    private var latchZ = 0f
+    private var settleChecked = false
+
+    // Hard-surface test over the current stretch of stillness.
+    private var testRestSince = -1L
+    private var testStartAt = 0L
+    private var testStartX = 0f
+    private var testStartY = 0f
+    private var testStartZ = 0f
+    private var testMinDeg = 0f
+    private var testMaxDeg = 0f
+
+    /** Proximity going near. Starts a latch when the phone is face-down and roughly flat. */
+    fun onCovered(t: Long) {
+        if (!m.hasData || m.fastAngleTo(0f, 0f, -1f) > LATCH_FLAT_DEG) {
+            latched = false
+            return
+        }
+        latched = true
+        latchAt = t
+        latchX = m.fx; latchY = m.fy; latchZ = m.fz
+        settleChecked = false
+        testRestSince = -1L
+    }
+
+    fun onUncovered() {
+        latched = false
+        testRestSince = -1L
+    }
+
+    fun clearLatch() {
+        latched = false
+        testRestSince = -1L
+    }
+
+    /** True once a latched placement has passed the hard-surface test. Call for every sample. */
+    fun readyToEnter(t: Long, credentialLocked: Boolean): Boolean {
+        if (!latched) return false
+        if (!settleChecked && t - latchAt >= LATCH_SETTLE_MS) {
+            settleChecked = true
+            if (!m.atRest || m.restSince > latchAt + LATCH_SETTLE_MS) {
+                latched = false
+                return false
+            }
+        }
+        if (!m.atRest) {
+            testRestSince = -1L
+            return false
+        }
+        // The pose must stay the one it was placed in.
+        if (m.gravityAngleTo(latchX, latchY, latchZ) > TABLE_FLAT_DEG) {
+            latched = false
+            return false
+        }
+        if (testRestSince != m.restSince) {
+            testRestSince = m.restSince
+            restartTest(t)
+        }
+        // Body or soft surface: the tilt keeps rocking or creeping while "still". Measured on
+        // one-second means, against a limit no lower than 8x their own noise.
+        val drift = MotionProcessor.angle(m.restX, m.restY, m.restZ, testStartX, testStartY, testStartZ)
+        testMinDeg = min(testMinDeg, drift)
+        testMaxDeg = max(testMaxDeg, drift)
+        val meanNoiseDeg = Math.toDegrees(
+            (m.noiseFloor / sqrt(m.windowSamples.coerceAtLeast(1).toFloat()) / m.g0).toDouble(),
+        ).toFloat()
+        if (testMaxDeg - testMinDeg > max(BODY_DEG, 8f * meanNoiseDeg)) {
+            restartTest(t) // Breathing, a cushion or a lap: 8 more seconds from here.
+            return false
+        }
+        if (t - testStartAt < TABLE_REST_MS) return false
+        val creep = MotionProcessor.angle(m.restX, m.restY, m.restZ, testStartX, testStartY, testStartZ)
+        if (creep > CREEP_DEG) {
+            restartTest(t)
+            return false
+        }
+        if (m.gravityAngleTo(0f, 0f, -1f) > TABLE_FLAT_DEG) return false
+        return credentialLocked
+    }
+
+    private fun restartTest(t: Long) {
+        testStartAt = t
+        testStartX = m.restX; testStartY = m.restY; testStartZ = m.restZ
+        testMinDeg = 0f
+        testMaxDeg = 0f
+    }
+
+    // --- On the table ---------------------------------------------------------------------------
+
+    private var refX = 0f
+    private var refY = 0f
+    private var refZ = 0f
+    private var refG0 = MotionProcessor.G
+    private var ignoreUntil = 0L
+
+    private var burstActive = false
+    private var burstStart = 0L
+    private val burst = Integrator()
+    private var liftDone = false
+    private var tiltSince = -1L
+    private var lastLiftLikeAt = Long.MIN_VALUE / 2
+    private var driveX = 0f
+    private var driveY = 0f
+    private var driveZ = 0f
+    private var driveSince = -1L
+    private var driveMeasured = 0f
+    private var driveExpected = 0f
+    private var poseCheckedFor = -1L
+
+    /** Enters table watch: the reference pose is where it lies now. */
+    fun start(t: Long) {
+        refX = m.restX; refY = m.restY; refZ = m.restZ
+        refG0 = m.g0
+        burstActive = false
+        tiltSince = -1L
+        driveSince = -1L
+        poseCheckedFor = m.restSince
+        ignoreUntil = t + OWN_VIBRATION_MS
+    }
+
+    /** The app is about to vibrate the phone itself; don't mistake that for a hand. */
+    fun ownVibration(t: Long, durationMs: Long) {
+        ignoreUntil = max(ignoreUntil, t + durationMs + OWN_VIBRATION_MS)
+    }
+
+    /** Tilt of the phone now away from where it lay. */
+    fun tiltDeg() = m.fastAngleTo(refX, refY, refZ)
+
+    /** Was there a lift-like motion just now: tilt, a lift, or leaving stillness? */
+    fun recentLiftLike(t: Long) = t - lastLiftLikeAt <= UNCOVER_MOTION_MS
+
+    /** Call for every sample while on the table. Returns what the movement amounts to. */
+    fun onSample(t: Long, events: Int): Signal {
+        if (t < ignoreUntil) {
+            burstActive = false
+            tiltSince = -1L
+            return Signal.NONE
+        }
+        // Falling off the edge, without the upward kick of a hop.
+        if (events and MotionProcessor.Event.FALL != 0) return Signal.FALL
+
+        val tilt = tiltDeg()
+        if (tilt >= UNCOVER_MOTION_DEG) lastLiftLikeAt = t
+
+        // Turned over or tilted up: fast gravity far from the resting pose, with |a| near 1 g so
+        // it is a real rotation rather than acceleration faking one. Faking a tilt θ takes a push
+        // that raises |a| by g (1 / cos θ - 1); sensor offsets shift |a| far less, so the gate is
+        // half of that (and at least 0.3).
+        if (tilt >= TILT_DEG && abs(m.magnitude - m.g0) <= max(TILT_GATE, 0.5f * fakeTiltExcess(tilt))) {
+            if (tiltSince < 0) tiltSince = t
+            if (t - tiltSince >= TILT_HOLD_MS) return Signal.TILT
+        } else if (tilt < TILT_DEG) {
+            tiltSince = -1L
+        }
+
+        // Resting again, but at a new angle: not lying on that table any more.
+        if (m.atRest && poseCheckedFor != m.restSince && t - m.restSince >= 0) {
+            poseCheckedFor = m.restSince
+            val moved = MotionProcessor.angle(m.restX, m.restY, m.restZ, refX, refY, refZ)
+            if (moved >= POSE_DEG) {
+                // A steady push (a car pulling away) fakes a tilt, but raises |a| above 1 g by
+                // g (1 / cos θ - 1); a real tilt leaves it at 1 g.
+                val excess = m.g0 - refG0
+                if (excess >= 0.1f && excess >= 0.8f * fakeTiltExcess(moved)) return Signal.DRIVE_OFF
+                return Signal.POSE
+            }
+            // Rocked a little and settled: follow it, within limits.
+            if (moved < 3f) {
+                refX = m.restX; refY = m.restY; refZ = m.restZ
+            }
+        }
+
+        val deviation = deviationFromRest()
+        if (!burstActive) {
+            if (deviation >= BURST_START) {
+                burstActive = true
+                burstStart = t
+                liftDone = false
+                burst.start(refX, refY, refZ, m)
+                driveSince = -1L
+            }
+            return Signal.NONE
+        }
+
+        burst.step(m)
+        val elapsed = t - burstStart
+        if (burst.up * 100f >= 1f) lastLiftLikeAt = t
+
+        // Lifted: |a| above 1 g, integrated twice, rises >= 3 cm within the first second.
+        if (!liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
+            liftDone = true
+            return Signal.LIFT
+        }
+
+        // A vehicle pulling away pushes one way for seconds; a hand accelerates and stops. Without
+        // a gyroscope a steady push looks just like a slow tilt, except that acceleration adds to
+        // gravity: |a| = sqrt(g² + h²) rises above 1 g, while a real tilt leaves it at 1 g.
+        val hx = burst.hx
+        val hy = burst.hy
+        val hz = burst.hz
+        val h = sqrt(hx * hx + hy * hy + hz * hz)
+        if (h >= DRIVE_ACCEL) {
+            val sameWay = driveSince >= 0 && MotionProcessor.angle(hx, hy, hz, driveX, driveY, driveZ) <= 30f
+            if (!sameWay) {
+                driveSince = t
+                driveX = hx; driveY = hy; driveZ = hz
+                driveMeasured = 0f
+                driveExpected = 0f
+            } else {
+                driveMeasured += m.magnitude - m.g0
+                driveExpected += h * h / (2f * m.g0)
+                if (t - driveSince >= DRIVE_MS && driveExpected > 0f && driveMeasured >= 0.5f * driveExpected) {
+                    burstActive = false
+                    return Signal.DRIVE_OFF
+                }
+            }
+        } else if (driveSince >= 0 && h < DRIVE_ACCEL / 2) {
+            driveSince = -1L
+        }
+
+        // Held in a hand: never still again, and tilted.
+        if (elapsed >= HELD_MS && tilt >= HELD_DEG) {
+            burstActive = false
+            return Signal.HELD
+        }
+
+        // The burst ends when it is still again (or at the cap): a slide if it travelled far.
+        if (m.atRest && m.restSince > burstStart) {
+            burstActive = false
+            val d = burst.correctedHorizontalCm()
+            // Slid or rocked and settled level: follow it. Tilted a few degrees: keep measuring
+            // from where it was placed, so small tilts can't add up unseen.
+            if (MotionProcessor.angle(m.restX, m.restY, m.restZ, refX, refY, refZ) < 3f) {
+                refX = m.restX; refY = m.restY; refZ = m.restZ
+            }
+            return if (d >= SLIDE_CM) Signal.SLIDE else Signal.NONE
+        }
+        if (elapsed >= BURST_CAP_MS) {
+            burstActive = false
+            return if (burst.horizontalCm() >= SLIDE_CM) Signal.SLIDE else Signal.NONE
+        }
+        return Signal.NONE
+    }
+
+    /** How much a sideways push faking a tilt of [deg] would raise |a| above 1 g. */
+    private fun fakeTiltExcess(deg: Float) =
+        refG0 * (1f / kotlin.math.cos(Math.toRadians(deg.toDouble())).toFloat() - 1f)
+
+    /** How far the current sample is from the resting acceleration. */
+    private fun deviationFromRest(): Float {
+        val dx = m.ax - refX
+        val dy = m.ay - refY
+        val dz = m.az - refZ
+        return sqrt(dx * dx + dy * dy + dz * dz)
+    }
+
+    /**
+     * Double integration over a short burst. Vertical uses acceleration along the resting gravity
+     * direction (a sideways push can't fake it, and a tilt only lowers it); horizontal uses the
+     * part across it. Errors grow with time squared, so bursts are kept to a few seconds and
+     * corrected for the phone being still at both ends.
+     */
+    class Integrator {
+        private var bx = 0f
+        private var by = 0f
+        private var bz = 0f
+        private var ux = 0f
+        private var uy = 0f
+        private var uz = 0f
+        private var last = 0L
+        private var startT = 0L
+        private var restAlong = MotionProcessor.G
+
+        var vUp = 0f
+            private set
+        var up = 0f
+            private set
+        private var vx = 0f
+        private var vy = 0f
+        private var vz = 0f
+        private var px = 0f
+        private var py = 0f
+        private var pz = 0f
+
+        /** Horizontal acceleration of the latest sample (for the drive-off test). */
+        var hx = 0f
+            private set
+        var hy = 0f
+            private set
+        var hz = 0f
+            private set
+
+        fun start(restX: Float, restY: Float, restZ: Float, m: MotionProcessor) {
+            bx = restX; by = restY; bz = restZ
+            val n = sqrt(bx * bx + by * by + bz * bz).coerceAtLeast(1e-3f)
+            ux = bx / n; uy = by / n; uz = bz / n
+            restAlong = n
+            last = m.lastSampleAt
+            startT = last
+            vUp = 0f; up = 0f
+            vx = 0f; vy = 0f; vz = 0f
+            px = 0f; py = 0f; pz = 0f
+            hx = 0f; hy = 0f; hz = 0f
+        }
+
+        fun step(m: MotionProcessor) {
+            val dt = ((m.lastSampleAt - last).coerceIn(0L, 100L)) / 1000f
+            last = m.lastSampleAt
+            if (dt <= 0f) return
+            val ex = m.ax - bx
+            val ey = m.ay - by
+            val ez = m.az - bz
+            val along = ex * ux + ey * uy + ez * uz
+            // The rest reading points up (it is the push of the table), so "along" > 0 is upward.
+            vUp += (m.ax * ux + m.ay * uy + m.az * uz - restAlong) * dt
+            up += vUp * dt
+            hx = ex - along * ux; hy = ey - along * uy; hz = ez - along * uz
+            vx += hx * dt; vy += hy * dt; vz += hz * dt
+            px += vx * dt; py += vy * dt; pz += vz * dt
+        }
+
+        fun horizontalCm() = sqrt(px * px + py * py + pz * pz) * 100f
+
+        /** Removes the drift a non-zero end speed shows (the phone is still at both ends). */
+        fun correctedHorizontalCm(): Float {
+            val span = (last - startT) / 1000f
+            val cx = px - vx * span / 2f
+            val cy = py - vy * span / 2f
+            val cz = pz - vz * span / 2f
+            return sqrt(cx * cx + cy * cy + cz * cz) * 100f
+        }
+    }
+}

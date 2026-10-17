@@ -87,6 +87,7 @@ private fun Trigger.icon() = when (this) {
     Trigger.CHARGER_UNPLUGGED -> R.drawable.ic_plug
     Trigger.EARBUDS_DISCONNECTED -> R.drawable.ic_headset
     Trigger.RESTARTED, Trigger.POWER_MENU -> R.drawable.ic_power
+    Trigger.TABLE_MOVED -> R.drawable.ic_pocket
 }
 
 @Composable
@@ -100,6 +101,7 @@ private fun IncidentCard(incident: Incident) {
     val ended = incident.endedAt
     val outcome = when {
         ended == null -> stringResource(R.string.history_ongoing)
+        incident.flicker && incident.trigger == Trigger.TABLE_MOVED -> stringResource(R.string.history_put_back)
         incident.flicker -> stringResource(R.string.history_flicker)
         incident.ownerStopped -> stringResource(
             R.string.history_owner_stopped, ((ended - incident.startedAt) / 1000).toInt(),

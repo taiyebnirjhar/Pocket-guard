@@ -233,7 +233,76 @@ unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the charger warning"
 sh dumpsys battery reset
 
-# --- 5. Setup requirement: the phone must lock immediately ----------------------------------------
+# --- 5. Motion: tables and gentle pulls -----------------------------------------------------------
+
+face_down() { emu sensor set acceleration 0:0:-9.81; }
+face_up() { emu sensor set acceleration 0:0:9.81; }
+tilted_off_table() { emu sensor set acceleration 0:5:-8.45; } # 31 degrees, still 1 g
+
+log "Scenario 7b: face-down on a table, lifted, put back, then taken"
+face_down
+sleep 1
+screen_off
+reset_log
+covered
+expect_phase IN_POCKET 6 "laid face-down: protected"
+expect_phase ON_TABLE 25 "lying still face-down: table protection"
+reset_log
+tilted_off_table
+expect_log "phase=WARNING .*trigger=TABLE_MOVED" 5 "tilting it up off the table warns (sensor still covered)"
+face_down
+expect_log "phase=ON_TABLE from=WARNING" 8 "put back down: the warning stops by itself"
+expect_no_phase SIREN 2 "no siren after putting it back"
+reset_log
+uncovered
+tilted_off_table
+expect_log "phase=WARNING .*trigger=TABLE_MOVED" 5 "picked up off the table warns"
+expect_phase SIREN 20 "not put back and no unlock: siren"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock after the table alarm"
+still
+
+log "Scenario 7c: gentle pull with no jolt and no light, turned to look"
+screen_off
+reset_log
+pocket
+expect_phase IN_POCKET 6 "pocketed for the gentle pull"
+calm_down
+reset_log
+uncovered
+sleep 0.3
+face_up # Turned to look, slowly: |a| stays 1 g, so there is no jolt.
+sleep 0.7
+sh input keyevent KEYCODE_WAKEUP # The thief wakes the screen.
+expect_log "phase=WARNING .*evidence=TILT_OUT" 6 "a gentle pull turned to look warns"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock after the gentle-pull warning"
+still
+
+log "Scenario 7d: out of the pocket and straight into another"
+screen_off
+reset_log
+pocket
+expect_phase IN_POCKET 6 "pocketed for the pocket swap"
+calm_down
+reset_log
+uncovered
+sleep 0.2
+face_up
+sleep 1.5
+emu sensor set acceleration 9.81:0:0 # Into the thief's pocket, sideways.
+sleep 1
+covered
+expect_log "phase=WARNING .*evidence=OUT_AND_IN" 6 "moved into another pocket at a new angle warns"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock after the pocket-swap warning"
+still
+uncovered
+
+# --- 6. Setup requirement: the phone must lock immediately ----------------------------------------
 
 log "Scenario 8: lock check catches a lock delay, keeps the failure, clears after Fix"
 LOCK_NOTIF='NotificationRecord\(0x[0-9a-f]+: pkg=com\.taiyeb\.pocketguard user=[^ ]+ id=4 '
@@ -273,7 +342,7 @@ expect_true 'app_prefs | grep -q "lock_check\">PASSED"' "the pass is stored"
 expect_true '! lock_warning_shown' "no lock warning after the pass"
 unlock
 
-# --- 6. Forced restart during an alarm --------------------------------------------------------------
+# --- 7. Forced restart during an alarm --------------------------------------------------------------
 
 log "Scenario 9: phone restarted during an alarm"
 screen_off
@@ -295,7 +364,7 @@ reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
 
-# --- 7. UI ------------------------------------------------------------------------------------------
+# --- 8. UI ------------------------------------------------------------------------------------------
 
 log "Scenario 10: UI screens, screenshots and monkey fuzzing for crashes"
 SCREENS="$OUT/screens"
