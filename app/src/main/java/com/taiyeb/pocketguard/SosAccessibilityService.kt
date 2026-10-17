@@ -7,9 +7,10 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * Sees the volume keys themselves, screen on or off, which no ordinary app can: both held
- * together for [SosHold.HOLD_MS] is the SOS call. It only watches: every key still does what it
- * always does. It is opt-in, after the disclosure in Triggers; without it there is no SOS hold.
+ * Sees the volume keys themselves, which no ordinary app can: both held together for
+ * [SosHold.BOTH_MS], or volume up held for [SosHold.UP_MS], is the SOS call. It only watches:
+ * every key still does what it always does. It is opt-in, after the disclosure; without it
+ * there is no SOS hold.
  */
 class SosAccessibilityService : AccessibilityService() {
 
@@ -19,7 +20,11 @@ class SosAccessibilityService : AccessibilityService() {
             private set
     }
 
-    private val hold = SosHold(Handler(Looper.getMainLooper())) { GuardService.onSosHold("keys") }
+    private val handler = Handler(Looper.getMainLooper())
+    private val hold = SosHold(
+        post = { task, delayMs -> handler.postDelayed(task, delayMs) },
+        cancel = handler::removeCallbacks,
+    ) { gesture -> GuardService.onSosHold(gesture) }
 
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")
@@ -55,31 +60,6 @@ class SosAccessibilityService : AccessibilityService() {
     }
 }
 
-/** Both volume keys down together, held [HOLD_MS]: the SOS call. Main thread. */
-class SosHold(private val handler: Handler, private val onHold: () -> Unit) {
-    companion object {
-        const val HOLD_MS = 3000L
-    }
-
-    private var upDown = false
-    private var downDown = false
-    private val fire = Runnable { if (upDown && downDown) onHold() }
-
-    fun press(up: Boolean, down: Boolean) {
-        val wasBoth = upDown && downDown
-        if (up) upDown = down else downDown = down
-        val both = upDown && downDown
-        if (both && !wasBoth) handler.postDelayed(fire, HOLD_MS)
-        if (!both) handler.removeCallbacks(fire)
-    }
-
-    fun reset() {
-        upDown = false
-        downDown = false
-        handler.removeCallbacks(fire)
-    }
-}
-
 /** What the SOS setup card shows: is the key watcher on, and does the system shortcut clash. */
 object SosSetup {
     fun keysEnabled(context: android.content.Context): Boolean {
@@ -98,10 +78,34 @@ object SosSetup {
         return !target.isNullOrBlank()
     }
 
+    /** Our own switch in Accessibility where the phone can open it directly, else the whole list. */
     fun openSettings(context: android.content.Context) {
-        context.startActivity(
-            android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        val ours = android.content.ComponentName(context, SosAccessibilityService::class.java).flattenToString()
+        val direct = android.content.Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+            .putExtra(android.content.Intent.EXTRA_COMPONENT_NAME, ours)
+        val list = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        for (intent in listOfNotNull(direct.takeIf { android.os.Build.VERSION.SDK_INT >= 31 }, list)) {
+            try {
+                context.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (e: Exception) {
+                // Not on this phone: try the next.
+            }
+        }
+    }
+
+    /**
+     * Android 13+ greys out Accessibility for apps installed outside an app store until the
+     * owner allows restricted settings in App info. True while that still applies (or can't be
+     * told: the guide then just shows every step).
+     */
+    fun restricted(context: android.content.Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < 33 || BuildConfig.PLAY_STORE) return false
+        val mode = runCatching {
+            context.getSystemService(android.app.AppOpsManager::class.java).unsafeCheckOpNoThrow(
+                "android:access_restricted_settings", android.os.Process.myUid(), context.packageName,
+            )
+        }.getOrNull() ?: return true
+        return mode == android.app.AppOpsManager.MODE_ERRORED || mode == android.app.AppOpsManager.MODE_IGNORED
     }
 }

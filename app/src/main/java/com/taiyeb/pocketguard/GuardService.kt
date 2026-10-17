@@ -88,7 +88,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.updateSos()
         }
 
-        /** Both volume keys held [SosHold.HOLD_MS] (from [source]). Main thread. */
+        /** An SOS key gesture ([source] names it, see [SosHold]). Main thread. */
         fun onSosHold(source: String) {
             instance?.sosHold(source)
         }
@@ -551,7 +551,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     /** Both volume keys held: the SOS alarm, if the SOS buttons are on. */
     private fun sosHold(source: String) {
         if (!Prefs.sosButtons(this)) return
-        sos("both volume keys held ($source)")
+        sos(source)
     }
 
     /** The owner called for help: a buzz, then the SOS alarm from any armed state. */
