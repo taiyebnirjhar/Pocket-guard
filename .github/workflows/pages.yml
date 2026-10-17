@@ -37,6 +37,21 @@ jobs:
           else
             printf 'window.POCKET_GUARD = { url: "%s", key: "%s" };\n' "${SUPABASE_URL%/}" "$SUPABASE_ANON_KEY" > site/live/config.js
           fi
+      # A private address for privacy requests, when the repository variable CONTACT_EMAIL is set.
+      - name: Fill in the contact address
+        env:
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+        run: |
+          [ -n "$CONTACT_EMAIL" ] || { echo "CONTACT_EMAIL not set: the policy points to GitHub issues."; exit 0; }
+          python3 - <<'EOF'
+          import html, os, re
+          e = html.escape(os.environ["CONTACT_EMAIL"].strip())
+          p = "site/privacy.html"
+          s = open(p).read()
+          s = re.sub(r"<!--contact-->.*?<!--/contact-->",
+                     f'<p>Questions or requests, including deletion: email <a href="mailto:{e}">{e}</a>.</p>', s, flags=re.S)
+          open(p, "w").write(s)
+          EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

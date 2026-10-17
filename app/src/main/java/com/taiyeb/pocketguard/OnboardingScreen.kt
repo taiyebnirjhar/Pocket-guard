@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,9 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -93,22 +95,28 @@ fun OnboardingScreen(onDone: () -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(28.dp))
-                    Text(
-                        stringResource(page.title),
-                        color = TextPrimary,
-                        fontSize = 27.sp,
-                        lineHeight = 34.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        stringResource(page.body),
-                        color = Muted,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
-                        textAlign = TextAlign.Center,
-                    )
+                    // Large font sizes: the words scroll rather than run off the screen.
+                    Column(
+                        Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            stringResource(page.title),
+                            color = TextPrimary,
+                            fontSize = 27.sp,
+                            lineHeight = 34.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            stringResource(page.body),
+                            color = Muted,
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
             Row(

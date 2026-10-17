@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -228,6 +229,7 @@ fun PillAction(text: String, onClick: () -> Unit, color: Color = Lavender) {
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier
+            .minimumInteractiveComponentSize() // A 48 dp touch target around the small pill.
             .clip(CircleShape)
             .background(color.copy(alpha = 0.16f))
             .clickable(role = Role.Button, onClick = onClick)
@@ -299,7 +301,7 @@ fun ToggleRow(@DrawableRes icon: Int, title: String, subtitle: String, checked: 
 }
 
 @Composable
-fun PermissionWarning(text: String, onGrant: () -> Unit) {
+fun PermissionWarning(text: String, action: String? = stringResource(R.string.action_allow), onGrant: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -311,8 +313,10 @@ fun PermissionWarning(text: String, onGrant: () -> Unit) {
         Icon(painterResource(R.drawable.ic_warning), contentDescription = null, tint = Amber, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         Text(text, color = Amber, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(8.dp))
-        PillAction(stringResource(R.string.action_allow), onGrant, color = Amber)
+        if (action != null) {
+            Spacer(Modifier.width(8.dp))
+            PillAction(action, onGrant, color = Amber)
+        }
     }
 }
 

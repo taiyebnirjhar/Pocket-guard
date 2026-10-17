@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
                     refreshKey = refreshKey.intValue,
                     onOpenGuide = onOpenGuide,
                     onOpenSetup = onOpenSetup,
+                    onOpenTriggers = { onSelect(Tab.TRIGGERS) },
                 )
                 Tab.TRIGGERS -> TriggersScreen(refreshKey.intValue)
                 Tab.HISTORY -> HistoryScreen()

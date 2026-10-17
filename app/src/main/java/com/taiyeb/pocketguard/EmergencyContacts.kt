@@ -54,13 +54,23 @@ object EmergencyContacts {
      * name, and the people with their numbers and addresses.
      */
     private fun fingerprint(context: Context) =
-        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${ownerName(context)}|" +
+        // The words themselves too (they follow the app's language), so a new language asks again.
+        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${wording(context).hashCode()}|" +
+            "${ownerName(context)}|" +
             list(context).joinToString(";") { c ->
                 "${c.name}=${normalize(c.phone)}" + if (c.email.isNotBlank()) "," + c.email.trim().lowercase() else ""
             }
 
+    private fun wording(context: Context) = listOf(
+        R.string.alert_text_sos, R.string.alert_text_no_location, R.string.alert_text_update,
+        R.string.alert_text_false, R.string.alert_text_live,
+    ).joinToString("|") { context.getString(it) }
+
     fun approved(context: Context) = list(context).any { reachable(context, it) } && ownerName(context).isNotEmpty() &&
         prefs(context).getString(KEY_APPROVED, null) == fingerprint(context)
+
+    /** Approved once, but something it covers has changed since: alerts are off until approved again. */
+    fun needsReapproval(context: Context) = prefs(context).getString(KEY_APPROVED, null) != null && !approved(context)
 
     fun approve(context: Context) = prefs(context).edit().putString(KEY_APPROVED, fingerprint(context)).apply()
 
@@ -103,6 +113,9 @@ object EmergencyContacts {
         context.getString(R.string.alert_text_update, ownerName(context), time, AlertPlan.mapLink(lat, lng))
 
     fun falseAlarmText(context: Context) = context.getString(R.string.alert_text_false, ownerName(context))
+
+    fun previewUpdateText(context: Context) =
+        context.getString(R.string.alert_text_update, ownerName(context).ifEmpty { "…" }, "14:07", "https://maps.google.com/?q=…")
 
     /** What the approval screen shows: the alert as it would read now, without a real location. */
     fun previewText(context: Context): String {

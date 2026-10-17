@@ -78,7 +78,7 @@
             android:foregroundServiceType="specialUse|camera|microphone|location">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Anti-theft: watches proximity, light and motion sensors while the user is in a crowd" />
+                android:value="Anti-theft guard the user arms: watches the proximity, light and motion sensors to sound an alarm when the phone is pulled from a pocket or picked up from a table, until the user disarms it" />
         </service>
 
         <!-- Lets the video player and share targets open SOS recordings. -->

@@ -19,7 +19,7 @@
 <body>
 <main>
 <h1>Pocket Guard Privacy Policy</h1>
-<p class="meta">App: Pocket Guard (com.taiyeb.pocketguard) · Developer: Taiyeb · Last updated: October 2026</p>
+<p class="meta">App: Pocket Guard (com.taiyeb.pocketguard) · Developer: Taiyeb Nirjhor · Last updated: October 2026</p>
 
 <p>Pocket Guard is an anti-theft and personal-safety app. It works on your phone, with no ads, no
 analytics and no account to create. The only data that leaves your phone is the SOS alert you set
@@ -41,8 +41,9 @@ This policy explains what the app uses and why.</p>
     to record what happens. Recordings are saved on the phone, in History. When "Live location
     link" is on and your alert is approved, they are also uploaded for your contacts (see below);
     otherwise they leave the phone only if you share them yourself.</li>
-  <li><b>Emergency contacts</b>: the names and phone numbers you pick (through the system's contact
-    picker, which hands the app only the contact you choose) or type in. Stored on the phone.</li>
+  <li><b>Emergency contacts</b>: the names, phone numbers and (optional) email addresses you pick
+    (through the system's contact picker, which hands the app only the contact you choose) or type
+    in. Stored on the phone.</li>
   <li><b>Location</b>: only while SOS is running, to put it in the alert to your emergency contacts,
     to send an update if you move and, when "Live location link" is on, to show it on the live
     map their link opens. It is not used at any other time.</li>
@@ -62,11 +63,11 @@ This policy explains what the app uses and why.</p>
 </ul>
 
 <h2>Live location link and alert emails (online)</h2>
-<p>When "Live location link" is on (Settings, Online; on by default) and you have approved your
-alert, starting SOS also does this:</p>
+<p>When "Live location link" is on (Settings, Online; on by default) and you approve your alert,
+the app signs in to Pocket Guard's server with an <b>anonymous account</b> made for this phone, so
+SOS doesn't have to wait for it. The account is a random ID with no email, phone number or
+password, and is not linked to your identity. Starting SOS then also does this:</p>
 <ul>
-  <li>The app signs in to Pocket Guard's server with an <b>anonymous account</b> made for this phone.
-    It has no email, phone number or password, and is not linked to your identity.</li>
   <li>It opens an <b>SOS record</b> with the name you entered for alerts, your battery level, and the
     start and end time, and uploads your <b>location</b> (position, accuracy and time) every
     15 seconds while SOS runs.</li>
@@ -75,12 +76,13 @@ alert, starting SOS also does this:</p>
   <li>The SMS carries a <b>private link</b> to a live map of that location, with the recordings.
     Anyone with the link can see it, and play a recording through a link that works for
     10 minutes, without signing in, until one day after SOS ends.</li>
-  <li>Emergency contacts who have an <b>email address</b> get the alert by email, sent through our
-    email provider. The addresses are used to send that email and are not stored on the server (Brevo keeps its
-    usual delivery logs).</li>
+  <li>Emergency contacts who have an <b>email address</b> get the alert by email (in your phone's
+    language), sent through our email provider. The addresses are used to send that email and are
+    not stored on the server: only a one-way hash of each one is kept for 90 days, so that no address
+    can be sent too many alerts. Brevo keeps its usual delivery logs.</li>
 </ul>
 <p>The server is run on Supabase (database and sign-in, hosted in Singapore), recordings are
-stored on Cloudflare R2 (Asia-Pacific), and emails are sent through Brevo. Both process the data only to provide this service. The data is used for nothing
+stored on Cloudflare R2 (Asia-Pacific), and emails are sent through Brevo. They process the data only to provide this service. The data is used for nothing
 else: not for advertising, profiling or sale.</p>
 
 <h2>Sharing</h2>
@@ -95,8 +97,8 @@ at any time, and uninstalling the app deletes all of its data on the phone.</p>
 <p>On the server, SOS records, their locations and their recordings are deleted after 90 days
 (the live link stops working one day after SOS ends). To delete them sooner, use <b>Settings, Online, Delete my online
 data</b>: it deletes this phone's anonymous account and everything stored with it, at once. If you
-no longer have the app, open an issue (below) with the approximate date of your SOS and we will
-delete it.</p>
+no longer have the app, ask us (see Contact) with the approximate date and time of your SOS and we
+will delete it.</p>
 
 <h2>Security</h2>
 <p>Data is kept in storage only the app can read. Stopping an alarm needs your phone's own unlock
@@ -112,8 +114,10 @@ the people it was sent to.</p>
 version is released, and the app will ask for your approval again before sharing anything new.</p>
 
 <h2>Contact</h2>
-<p>Questions or requests: open an issue at
-<a href="https://github.com/taiyebnirjhar/Pocket-guard/issues">github.com/taiyebnirjhar/Pocket-guard/issues</a>.</p>
+<!--contact--><p>Questions or requests: open an issue at
+<a href="https://github.com/taiyebnirjhar/Pocket-guard/issues">github.com/taiyebnirjhar/Pocket-guard/issues</a>.
+Issues are public: for a deletion or anything personal, only ask there to be contacted privately,
+without details, and we will reply.</p><!--/contact-->
 </main>
 </body>
 </html>
