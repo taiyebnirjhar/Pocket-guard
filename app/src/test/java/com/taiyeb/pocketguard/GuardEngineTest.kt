@@ -27,6 +27,7 @@ class GuardEngineTest {
 
         /** When the phone last buzzed itself: motion streams shake the sensor for a moment after. */
         var lastBuzzAt = Long.MIN_VALUE / 2
+        val logs = mutableListOf<String>()
         lateinit var engine: GuardEngine
 
         override fun now() = time
@@ -52,6 +53,9 @@ class GuardEngineTest {
         }
         override fun credentialLocked() = locked && credentialLocked
         override fun ringing() = ringing
+        override fun log(message: String) {
+            logs += message
+        }
         override fun tableTick() {
             tableTicks++
             lastBuzzAt = time
@@ -589,5 +593,17 @@ class GuardEngineTest {
     fun nonAlarmTransitionsCarryNoTrigger() {
         pocket()
         assertEquals(Triple(Phase.WAITING_FOR_POCKET, Phase.IN_POCKET, null), host.transitions.last())
+    }
+
+    @Test
+    fun coveredWhileUnlockedSaysWhyItIsNotProtecting() {
+        host.locked = false
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 100)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        assertTrue(host.logs.any { "not protecting yet" in it })
+        host.locked = true
+        host.advance(GuardEngine.CALL_RETRY_MS)
+        assertEquals(Phase.IN_POCKET, engine.phase)
     }
 }

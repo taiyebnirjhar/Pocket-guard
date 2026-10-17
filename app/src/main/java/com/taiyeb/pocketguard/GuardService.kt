@@ -52,6 +52,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         private const val CHARGER_DEBOUNCE_MS = 2_000L
         private const val ACCEL_PERIOD_US = 20_000
         private const val ACCEL_LATENCY_US = 100_000
+        private const val ACCEL_HEALTH_MS = 10_000L
 
         /** Warnings where the owner is likely looking at the phone start this much later. */
         private const val OWNER_SILENT_MS = 1500L
@@ -172,6 +173,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (engine == null || powerManager.isInteractive) return@Runnable
         val locked = keyguardManager.isDeviceLocked
         Log.i(TAG, "lock check: locked=$locked")
+        log(if (locked) "screen off and locked" else "screen off but NOT locked (lock delay or Smart Lock): the guard treats it as the owner's")
         val previous = Prefs.lockCheck(this)
         when {
             !locked -> {
@@ -195,9 +197,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             when (intent.action) {
                 Intent.ACTION_USER_PRESENT -> {
                     Log.i(TAG, "user present")
+                    log("unlocked")
                     onUnlocked(engine)
                 }
+                Intent.ACTION_SCREEN_ON -> log("screen on")
                 Intent.ACTION_SCREEN_OFF -> {
+                    log("screen off")
                     handler.removeCallbacks(lockCheck)
                     handler.postDelayed(lockCheck, LOCK_CHECK_DELAY_MS)
                 }
@@ -334,6 +339,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
             addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
@@ -342,6 +348,17 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         // Must be EXPORTED: with NOT_EXPORTED, Android 14 doesn't deliver USER_PRESENT (found by the e2e test),
         // so unlocking would never stop the siren. These actions are protected system broadcasts anyway.
         ContextCompat.registerReceiver(this, eventReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        log(
+            "armed: proximity " + (proximitySensor?.let { if (it.isWakeUpSensor) "yes (works screen-off)" else "yes (may sleep screen-off)" } ?: "MISSING") +
+                ", light " + (if (lightSensor != null) "yes" else "no") +
+                ", accelerometer " + (if (motionSensor != null) "yes" else "MISSING") +
+                ", table guard " + (if (Prefs.tableGuard(this)) "on" else "off") +
+                ", delay ${Prefs.graceSeconds(this)} s",
+        )
+        accelCount = 0
+        lastAccelRate = -1
+        handler.removeCallbacks(accelHealth)
+        handler.postDelayed(accelHealth, ACCEL_HEALTH_MS)
         newEngine.arm()
         // The phone restarted or the app was killed mid-alarm: carry on screaming.
         if (Prefs.alarmActive(this)) newEngine.resumeAlarm()
@@ -375,6 +392,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         Notifications.cancelAlarm(this)
         sensorManager.unregisterListener(this)
         displayManager.unregisterDisplayListener(displayListener)
+        handler.removeCallbacks(accelHealth)
         try {
             unregisterReceiver(eventReceiver)
         } catch (e: IllegalArgumentException) {
@@ -406,11 +424,53 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         when (event.sensor.type) {
             Sensor.TYPE_PROXIMITY -> engine.onProximity(Detection.isNear(event.sensor, event.values[0]))
             Sensor.TYPE_LIGHT -> engine.onLight(event.values[0])
-            Sensor.TYPE_ACCELEROMETER -> engine.onAccel(sampleTime(event), event.values[0], event.values[1], event.values[2])
+            Sensor.TYPE_ACCELEROMETER -> {
+                accelCount++
+                engine.onAccel(sampleTime(event), event.values[0], event.values[1], event.values[2])
+            }
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    private var accelCount = 0
+    private var lastAccelRate = -1
+
+    /**
+     * Every 10 s while armed: is the accelerometer still delivering? Some phones (MIUI/HyperOS
+     * battery limits) stop a background app's sensors once the screen is off, and then nothing
+     * that needs motion can work. Logged when the rate changes, so the log shows it.
+     */
+    private val accelHealth = object : Runnable {
+        override fun run() {
+            if (engine == null || motionSensor == null) return
+            val rate = accelCount * 1000 / ACCEL_HEALTH_MS.toInt()
+            accelCount = 0
+            val bucket = when {
+                rate == 0 -> 0
+                rate < 20 -> 1
+                else -> 2
+            }
+            val lastBucket = when {
+                lastAccelRate < 0 -> -1
+                lastAccelRate == 0 -> 0
+                lastAccelRate < 20 -> 1
+                else -> 2
+            }
+            if (bucket != lastBucket) {
+                val screen = if (powerManager.isInteractive) "screen on" else "screen off"
+                log(
+                    when (bucket) {
+                        0 -> "motion sensor SILENT ($screen): the phone may be restricting the app in the background"
+                        1 -> "motion sensor slow: $rate samples/s ($screen)"
+                        else -> "motion sensor ok: $rate samples/s ($screen)"
+                    },
+                )
+            }
+            lastAccelRate = rate
+            handler.postDelayed(this, ACCEL_HEALTH_MS)
+        }
+    }
 
     /**
      * When the sample was taken, on the elapsedRealtime clock the engine's timers use. Batched
@@ -479,6 +539,11 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun tableTick() = alarm.tableTick()
 
+    override fun log(message: String) {
+        Log.i(TAG, "log: $message")
+        DetectionLog.add(message)
+    }
+
     override fun tableChirp(burst: Boolean) {
         Log.i(TAG, "table slide chirp burst=$burst")
         alarm.chirp(burst)
@@ -501,6 +566,16 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     override fun onTransition(from: Phase, to: Phase, trigger: Trigger?) {
         val evidence = engine?.evidence
         Log.i(TAG, "phase=$to from=$from trigger=$trigger" + if (to.isAlarm && evidence != null) " evidence=$evidence" else "")
+        DetectionLog.add(
+            when (to) {
+                Phase.WAITING_FOR_POCKET -> "→ waiting for a pocket or table"
+                Phase.IN_POCKET -> "→ PROTECTED (in pocket or bag)"
+                Phase.ON_TABLE -> "→ PROTECTED ON THE TABLE"
+                Phase.WARNING -> "→ WARNING: ${trigger ?: ""} ${evidence ?: ""}".trimEnd()
+                Phase.SIREN -> "→ SIREN: ${trigger ?: ""} ${evidence ?: ""}".trimEnd()
+                Phase.OFF -> "→ off"
+            } + if (from.isAlarm && !to.isAlarm) " (alarm ended)" else "",
+        )
         if (to.isAlarm && !from.isAlarm) {
             GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")

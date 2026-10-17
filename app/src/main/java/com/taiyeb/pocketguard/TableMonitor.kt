@@ -15,7 +15,7 @@ import kotlin.math.sqrt
  * A slide across the table only chirps: taking a phone away always ends in one of the others.
  * Pure Kotlin on top of [MotionProcessor], driven sample by sample.
  */
-class TableMonitor(private val m: MotionProcessor) {
+class TableMonitor(private val m: MotionProcessor, private val log: (String) -> Unit = {}) {
 
     companion object {
         /** Placement: face-down within this when the sensor gets covered. */
@@ -116,8 +116,10 @@ class TableMonitor(private val m: MotionProcessor) {
     fun onCovered(t: Long) {
         if (!m.hasData || m.fastAngleTo(0f, 0f, -1f) > LATCH_FLAT_DEG) {
             latched = false
+            if (m.hasData) log("table: not face-down when covered (%.0f° from flat)".format(m.fastAngleTo(0f, 0f, -1f)))
             return
         }
+        log("table: covered face-down, waiting for it to lie still")
         latched = true
         latchAt = t
         settleDeadline = t + LATCH_SETTLE_MS
@@ -145,10 +147,12 @@ class TableMonitor(private val m: MotionProcessor) {
     fun trackSettle(t: Long) {
         if (!latched) return
         if (m.atRest && m.restSince <= settleDeadline) {
+            if (!settled) log("table: lying still, testing the surface (8 s)")
             settled = true
             latchX = m.restX; latchY = m.restY; latchZ = m.restZ
         } else if (!settled && t > settleDeadline) {
             latched = false
+            log("table: not still soon enough after being put down (a pocket?), not a table")
         }
     }
 
@@ -162,6 +166,7 @@ class TableMonitor(private val m: MotionProcessor) {
         // The pose must stay the one it was placed in.
         if (m.gravityAngleTo(latchX, latchY, latchZ) > TABLE_FLAT_DEG) {
             latched = false
+            log("table: moved away from where it was put down, not a table")
             return false
         }
         if (testRestSince != m.restSince) {
@@ -177,17 +182,35 @@ class TableMonitor(private val m: MotionProcessor) {
             (m.noiseFloor / sqrt(m.windowSamples.coerceAtLeast(1).toFloat()) / m.g0).toDouble(),
         ).toFloat()
         if (testMaxDeg - testMinDeg > max(BODY_DEG, 8f * meanNoiseDeg)) {
+            log("table: rocking %.2f° (a lap, cushion or body?), testing 8 s more".format(testMaxDeg - testMinDeg))
             restartTest(t) // Breathing, a cushion or a lap: 8 more seconds from here.
             return false
         }
         if (t - testStartAt < TABLE_REST_MS) return false
         val creep = MotionProcessor.angle(m.restX, m.restY, m.restZ, testStartX, testStartY, testStartZ)
         if (creep > CREEP_DEG) {
+            log("table: still sinking %.2f° (soft surface?), testing 8 s more".format(creep))
             restartTest(t)
             return false
         }
-        if (m.gravityAngleTo(0f, 0f, -1f) > TABLE_FLAT_DEG) return false
-        return credentialLocked()
+        if (m.gravityAngleTo(0f, 0f, -1f) > TABLE_FLAT_DEG) {
+            logOnce("table: surface ok but tilted %.0f° (over 10°)".format(m.gravityAngleTo(0f, 0f, -1f)))
+            return false
+        }
+        if (!credentialLocked()) {
+            logOnce("table: surface ok, waiting for the phone to be locked with its PIN (Smart Lock keeps it open)")
+            return false
+        }
+        return true
+    }
+
+    private var lastOnce = ""
+
+    /** Conditions checked on every sample: log each one only when it first comes up. */
+    private fun logOnce(message: String) {
+        if (message == lastOnce) return
+        lastOnce = message
+        log(message)
     }
 
     private fun restartTest(t: Long) {

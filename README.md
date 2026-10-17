@@ -209,6 +209,9 @@ version are tested but not released.
 - The photos and history stay on the stolen phone; nobody is notified remotely yet.
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
+- Some phones (MIUI/HyperOS and other battery savers) stop a background app's sensors when the
+  screen is off. Settings → **Detection log** shows what the guard saw and decided during a test,
+  including whether the motion sensor kept delivering; tap Copy to send it with a bug report.
 - iPhone isn't possible: iOS gives apps no background sensor access.
 - Motion can't tell the owner from a thief until someone unlocks. A thief who pulls the phone out
   gently, never wakes the screen and keeps it at the pocket's angle, even while walking off (or

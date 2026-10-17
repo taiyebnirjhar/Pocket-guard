@@ -57,6 +57,12 @@
     <string name="setup_full_screen">লক স্ক্রিনে অ্যালার্ম দেখাতে পারবে</string>
     <string name="setup_lock">স্ক্রিন লক (পিন / ফিঙ্গারপ্রিন্ট) সেট করা</string>
     <string name="setup_autostart">অটোস্টার্ট (Xiaomi, Realme, Oppo, Vivo…)</string>
+    <string name="log_title">শনাক্তকরণ লগ</string>
+    <string name="log_sub">গার্ড কী দেখেছে ও কী সিদ্ধান্ত নিয়েছে, নতুনটি আগে। পরীক্ষার পর কপি চেপে ডেভেলপারকে পাঠান।</string>
+    <string name="log_copy">কপি</string>
+    <string name="log_clear">মুছুন</string>
+    <string name="log_copied">লগ কপি হয়েছে</string>
+    <string name="log_empty">এখনও কিছু নেই। গার্ড চালু করুন, ফোন লক করুন এবং পরীক্ষা করুন।</string>
     <string name="sensor_title">সেন্সর পরীক্ষা</string>
     <string name="sensor_sub">পরীক্ষার জন্য হাত দিয়ে স্ক্রিনের উপরের অংশ ঢাকুন।</string>
     <string name="sensor_proximity">প্রক্সিমিটি</string>

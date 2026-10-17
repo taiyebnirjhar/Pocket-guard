@@ -58,6 +58,12 @@
     <string name="setup_full_screen">Alarm can show on lock screen</string>
     <string name="setup_lock">Screen lock (PIN / fingerprint) set</string>
     <string name="setup_autostart">Autostart (Xiaomi, Realme, Oppo, Vivo…)</string>
+    <string name="log_title">Detection log</string>
+    <string name="log_sub">What the guard saw and decided, newest first. After a test, tap Copy and send it to the developer.</string>
+    <string name="log_copy">Copy</string>
+    <string name="log_clear">Clear</string>
+    <string name="log_copied">Log copied</string>
+    <string name="log_empty">Nothing yet. Arm the guard, lock the phone and test.</string>
     <string name="sensor_title">Sensor check</string>
     <string name="sensor_sub">Cover the top of the screen with your hand to test.</string>
     <string name="sensor_proximity">Proximity</string>

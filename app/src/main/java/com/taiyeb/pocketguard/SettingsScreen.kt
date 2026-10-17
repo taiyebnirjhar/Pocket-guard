@@ -1,5 +1,7 @@
 package com.taiyeb.pocketguard
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -26,6 +28,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,6 +72,9 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
 
         SectionLabel(stringResource(R.string.sensor_title))
         SensorCheck()
+
+        SectionLabel(stringResource(R.string.log_title))
+        DetectionLogCard()
 
         if (Language.supported) {
             SectionLabel(stringResource(R.string.language_title))
@@ -248,6 +255,39 @@ private fun TestStep(number: Int, @StringRes text: Int) {
         }
         Spacer(Modifier.width(12.dp))
         Text(stringResource(text), color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+/** What the guard saw and decided, newest first, with Copy for sending it in after a test. */
+@Composable
+private fun DetectionLogCard() {
+    val context = LocalContext.current
+    val version by DetectionLog.version.collectAsState()
+    val entries = remember(version) { DetectionLog.snapshot().take(80) }
+    val copied = stringResource(R.string.log_copied)
+    GlassCard {
+        Text(stringResource(R.string.log_sub), color = Muted, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillAction(stringResource(R.string.log_copy), onClick = {
+                context.getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText("Pocket Guard log", DetectionLog.asText()))
+                android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
+            })
+            PillAction(stringResource(R.string.log_clear), onClick = { DetectionLog.clear() }, color = Muted)
+        }
+        if (entries.isEmpty()) {
+            Text(stringResource(R.string.log_empty), color = Muted, fontSize = 13.sp)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                entries.forEach { entry ->
+                    Row {
+                        Text(DetectionLog.time(entry), color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.width(10.dp))
+                        Text(entry.text, color = TextPrimary, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
     }
 }
 

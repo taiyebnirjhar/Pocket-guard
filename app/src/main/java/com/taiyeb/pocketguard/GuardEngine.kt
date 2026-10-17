@@ -49,6 +49,9 @@ class GuardEngine(
         /** Two short buzzes: table protection is on. */
         fun tableTick() = Unit
 
+        /** One line for the detection log: what was seen and decided, for field tests. */
+        fun log(message: String) = Unit
+
         /** A short beep (or a 3 s burst after repeated slides): someone moved it on the table. */
         fun tableChirp(burst: Boolean) = Unit
     }
@@ -168,7 +171,7 @@ class GuardEngine(
     private var uncoveredAt: Long? = null
 
     private val motion = MotionProcessor()
-    private val table = TableMonitor(motion)
+    private val table = TableMonitor(motion) { host.log(it) }
 
     /** No delay chosen: confirm removals faster, since the siren is meant to start at once. */
     private val fast get() = host.config().graceMs <= 0
@@ -198,6 +201,10 @@ class GuardEngine(
         val wasNear = near
         near = isNear
         val now = host.now()
+        host.log(
+            (if (isNear) "covered" else "uncovered") + " ($phase" +
+                (if (hasMotionData) ", %.0f° from face-down".format(motion.gravityAngleTo(0f, 0f, -1f)) else ", no motion data") + ")",
+        )
         uncoveredAt = if (isNear) null else now
         // Many phones stop reporting light while the screen is off, so a reading only counts if it
         // arrives after this change; older values say nothing about where the phone is now.
@@ -369,9 +376,13 @@ class GuardEngine(
         // In a call, or unlocked with the screen on: a pull-out now would count as the owner, so
         // "protected" would be a lie. Confirm once the call ends or the screen goes off.
         if (host.inCall() || !host.isLocked()) {
+            val why = if (host.inCall()) "in a call" else "screen on or unlocked"
+            if (why != waitingWhy) host.log("covered, but $why: not protecting yet (press power to lock)")
+            waitingWhy = why
             host.schedule(Timer.CONFIRM_POCKET, CALL_RETRY_MS)
             return
         }
+        waitingWhy = null
         resetEpisode()
         go(Phase.IN_POCKET)
         host.confirmBuzz()
@@ -382,6 +393,7 @@ class GuardEngine(
         if (phase != Phase.IN_POCKET || near != false) return
         // Unlocked means the owner is using it; calls cover and uncover the sensor at the ear.
         if (!host.isLocked() || host.inCall()) {
+            host.log("uncovered while unlocked or in a call: the owner's")
             resetEpisode()
             go(Phase.WAITING_FOR_POCKET)
             return
@@ -398,6 +410,7 @@ class GuardEngine(
                 } else {
                     // No proof yet, but it may be in someone's hand: keep watching how it turns,
                     // whether the screen wakes and where it goes, instead of giving up.
+                    if (!watching) host.log("out of the pocket but no proof yet (light ${coveredLux ?: "-"} -> ${uncoveredLux ?: "-"} lux, no jolt): watching how it turns")
                     watching = true
                 }
             }
@@ -657,6 +670,8 @@ class GuardEngine(
     private val slideTimes = LongArray(4)
     private var slideCount = 0
     private var tableCheckStage = 0
+
+    private var waitingWhy: String? = null
 
     private fun enterTable(t: Long) {
         cancelAll()
