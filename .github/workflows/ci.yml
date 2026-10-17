@@ -66,6 +66,9 @@ jobs:
       - name: Build APK
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          # The online part's project and public key; absent on forks, which then build offline.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: ./gradlew assembleFullDebug bundlePlayRelease --stacktrace
 
       - name: Rename APK and bundle
@@ -85,6 +88,43 @@ jobs:
           name: PocketGuard-play-${{ github.run_number }}
           path: play/*.aab
 
+  # The database rules and the functions, against a local Supabase with a stand-in for Brevo.
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Format and lint
+        working-directory: supabase
+        run: deno fmt --check functions tests && deno lint functions tests
+
+      - name: Start a local backend
+        env:
+          BREVO_API_KEY: test
+          BREVO_API_URL: http://host.docker.internal:9999/v3
+          BREVO_SENDER_EMAIL: alerts@example.com
+          LIVE_PAGE_URL: https://taiyebnirjhar.github.io/Pocket-guard/live/
+        run: |
+          supabase start -x vector,logflare,supavisor,postgres-meta,mailpit,imgproxy,storage-api,realtime,studio
+          supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' | sed 's/"//g' >> "$GITHUB_ENV"
+
+      - name: Backend tests
+        working-directory: supabase
+        run: deno test --allow-net --allow-env tests/
+
+      - name: Deployment check, run locally
+        working-directory: supabase
+        run: deno run --allow-net --allow-env tests/smoke.ts
+
   e2e:
     needs: build
     runs-on: ubuntu-latest
@@ -96,6 +136,14 @@ jobs:
         with:
           name: PocketGuard-${{ github.run_number }}
           path: dist
+
+      # The app's online part talks to this local backend during the test, never the real one.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start a local backend
+        run: bash e2e/backend.sh
 
       - name: Enable KVM
         run: |
@@ -130,7 +178,7 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    needs: [build, e2e]
+    needs: [build, backend, e2e]
     # Only signed builds from main become releases.
     if: needs.build.outputs.signed == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

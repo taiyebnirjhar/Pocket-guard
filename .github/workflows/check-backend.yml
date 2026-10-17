@@ -4,9 +4,6 @@ name: Check backend secrets
 # file and deletes it again). Run it from the Actions tab after adding or replacing a key.
 on:
   workflow_dispatch:
-  push:
-    branches: [wip/backend-check]
-    paths: [.github/workflows/check-backend.yml]
 
 permissions:
   contents: read

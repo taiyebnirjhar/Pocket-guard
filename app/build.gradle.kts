@@ -23,6 +23,12 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
+
+        // The online part (live location, alert emails). CI passes the project and its public
+        // (publishable) key from GitHub secrets; without them the app works offline only.
+        buildConfigField("String", "SUPABASE_URL", "\"${System.getenv("SUPABASE_URL").orEmpty().trimEnd('/')}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${System.getenv("SUPABASE_ANON_KEY").orEmpty()}\"")
+        buildConfigField("String", "LIVE_PAGE_URL", "\"https://taiyebnirjhar.github.io/Pocket-guard/live/\"")
     }
 
     // Official builds are signed in CI with a key kept in GitHub secrets (see README), so updates

@@ -1,7 +1,7 @@
 # Setting up the free backend (for WP4 and WP5)
 
 Pocket Guard's online features (account, live location page, alert emails, photo and video
-upload) run on free tiers: Supabase, Cloudflare (R2 and Pages) and Brevo. This takes about
+upload) run on free tiers: Supabase, Cloudflare R2 and Brevo; the live page is on GitHub Pages. This takes about
 20 minutes. **Never paste keys into chat or commit them:** they go into GitHub Secrets (or
 Supabase's own secret store), where CI reads them.
 
@@ -39,36 +39,35 @@ secret**.
    |---|---|
    | `BREVO_API_KEY` | The API key |
    | `BREVO_SENDER_EMAIL` | The verified sender address |
-4. **SMTP & API → SMTP:** note the SMTP server, port, login and an SMTP key. In Supabase:
-   **Authentication → Emails → SMTP Settings → Enable custom SMTP**, and enter them with the same
-   sender address. (Supabase's built-in email is only for testing and is heavily rate-limited.)
+4. **SMTP & API → SMTP:** add the **Login** as `BREVO_SMTP_LOGIN` and a new SMTP key as
+   `BREVO_SMTP_KEY`. CI enters them in Supabase's email settings (Supabase's built-in email is
+   only for testing and heavily rate-limited).
 
-## 3. Cloudflare (photo and video storage, live page)
+## 3. Cloudflare R2 (photo and video storage)
 
-1. Sign up at cloudflare.com. Note the **Account ID** (right column of the dashboard home).
-2. **R2 → Overview → Purchase R2 / enable.** The free tier includes 10 GB of storage, and
-   downloads are free. Cloudflare may ask for a card; usage that stays within the free tier is
-   not charged.
-3. **R2 → Create bucket:** name `pocket-guard-media`, location Automatic. Leave public access off.
-4. **R2 → Manage R2 API Tokens → Create API token:** permission *Object Read & Write*, applied to
-   that bucket only. Note the **Access Key ID** and **Secret Access Key**.
-5. **My Profile → API Tokens → Create Token → Custom:** permissions *Account → Cloudflare Pages →
-   Edit* and *Account → Workers R2 Storage → Edit*. This lets CI publish the live page and set the
-   bucket's 90-day deletion rule.
-6. Add GitHub secrets:
+1. Sign up at cloudflare.com. Note the **Account ID** (R2 → Overview → Account Details).
+2. **R2 → Create bucket:** name `pocket-guard-media`, location hint Asia-Pacific. Leave public
+   access off.
+3. In the bucket: **Settings → Object lifecycle rules → Add rule**: delete all objects after
+   90 days.
+4. **R2 → Manage API Tokens → Create Account API token:** *Object Read & Write*, applied to that
+   bucket only, TTL Forever. Note the **Access Key ID** and **Secret Access Key**.
+5. Add GitHub secrets:
    | Secret | Value |
    |---|---|
    | `CLOUDFLARE_ACCOUNT_ID` | Account ID |
-   | `CLOUDFLARE_API_TOKEN` | The token from step 5 |
    | `R2_ACCESS_KEY_ID` | From step 4 |
    | `R2_SECRET_ACCESS_KEY` | From step 4 |
    | `R2_BUCKET` | `pocket-guard-media` |
 
+No Cloudflare API token is needed: the keys above can reach only this bucket, and the live page
+is hosted on GitHub Pages with the privacy policy.
+
 ## 4. Tell Claude
 
-Say "backend secrets are in". CI then creates the tables and rules, deploys the server
-functions (they get the R2 and Brevo keys from GitHub Secrets at deploy time), publishes the
-live page and sets the 90-day deletion rule. Nothing else is needed from you.
+Say "backend secrets are in". **Actions → Check backend secrets → Run workflow** confirms every
+key works. From then on, `.github/workflows/backend.yml` creates the tables and rules, deploys
+the server functions with their keys and sets the sign-in options on every change to `main`.
 
 ## Free-tier limits to keep in mind
 
@@ -77,6 +76,6 @@ live page and sets the 90-day deletion rule. Nothing else is needed from you.
 | Supabase | 500 MB database, 5 GB egress a month, pauses after 7 days idle | Accounts, contacts, live location (a daily job keeps it awake) |
 | Brevo | 300 emails a day, small Brevo logo on emails | Alert and login emails |
 | Cloudflare R2 | 10 GB storage, free downloads | Photos and 480p video, deleted after 90 days |
-| Cloudflare Pages | Free static hosting | The live location page |
+| GitHub Pages | Free static hosting | The privacy policy and the live location page |
 
 These are the free plans as of writing; check each provider's pricing page.

@@ -25,7 +25,9 @@ import java.util.Date
 /**
  * Alerts the emergency contacts when SOS starts, following [AlertPlan]: after the countdown an SMS
  * with the location, updates as the phone moves, and "false alarm" when stopped right away.
- * Location is read only while SOS runs, through the guard's foreground service.
+ * Location is read only while SOS runs, through the guard's foreground service. With the online
+ * part on, the SMS also carries a live location link and contacts with an address get an email
+ * ([LiveShare]).
  */
 class SosAlerts(private val context: Context, private val log: (String) -> Unit) {
 
@@ -65,13 +67,21 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
 
         /** "Send test" in Triggers: the real alert text marked as a test, to the approved people. */
         fun sendTest(context: Context): Boolean {
-            val contacts = EmergencyContacts.list(context)
-            if (contacts.isEmpty()) return false
+            val numbers = EmergencyContacts.numbers(context)
+            val emails = EmergencyContacts.emails(context)
+            if (numbers.isEmpty() && emails.isEmpty()) return false
             val text = context.getString(R.string.alert_text_test) + "\n" + EmergencyContacts.previewText(context)
-            if (canSendSms(context)) {
-                contacts.forEach { runCatching { sendSms(context, EmergencyContacts.normalize(it.phone), text) } }
-            } else {
-                runCatching { context.startActivity(smsIntent(contacts.map { EmergencyContacts.normalize(it.phone) }, text)) }
+            if (numbers.isNotEmpty()) {
+                if (canSendSms(context)) {
+                    numbers.forEach { runCatching { sendSms(context, it, text) } }
+                } else {
+                    runCatching { context.startActivity(smsIntent(numbers, text)) }
+                }
+            }
+            if (emails.isNotEmpty() && Backend.enabled(context)) {
+                val app = context.applicationContext
+                val name = EmergencyContacts.ownerName(context)
+                Thread { Backend.sendEmail(app, Backend.EmailKind.TEST, emails, null, name, "") }.start()
             }
             return true
         }
@@ -83,6 +93,10 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private var contacts = emptyList<EmergencyContact>()
     private var lastFix: Location? = null
     private var fixToken: CancellationTokenSource? = null
+    private var live: LiveShare? = null
+
+    /** The first SMS went out before the live link was ready; it follows on its own. */
+    private var linkOwed = false
 
     /** The text for the next tap in the Play build, with the latest location. */
     var pendingText: String? = null
@@ -124,8 +138,26 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         val now = SystemClock.elapsedRealtime()
         plan = AlertPlan(now)
         log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
+        if (Backend.enabled(context)) {
+            live = LiveShare(context, EmergencyContacts.ownerName(context), EmergencyContacts.emails(context), log)
+                .also { it.start(::onLiveLink) }
+        }
         startLocation()
         handler.post(tick)
+    }
+
+    /** The live page is ready: an SMS still waiting gets it; one already sent is followed up. */
+    private fun onLiveLink(link: String) {
+        val current = plan ?: return
+        if (current.sentAt == null) return // The first SMS will carry it.
+        val pending = pendingText
+        if (pending != null && !canSendSms(context)) {
+            pendingText = pending + "\n" + EmergencyContacts.liveText(context, link)
+            lastText = pendingText
+        } else if (linkOwed) {
+            linkOwed = false
+            send(EmergencyContacts.liveText(context, link))
+        }
     }
 
     /** "Cancel alerts" on the alarm screen, during the countdown. */
@@ -135,6 +167,8 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         if (current.cancelled) {
             log("SOS alerts: cancelled before sending")
             stopLocation()
+            live?.stop(falseAlarm = false)
+            live = null
             GuardState.alert.value = null
         }
     }
@@ -146,10 +180,14 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         handler.removeCallbacks(tick)
         stopLocation()
         GuardState.alert.value = null
-        if (current.falseAlarmOnStop(SystemClock.elapsedRealtime()) && canSendSms(context)) {
+        val falseAlarm = current.falseAlarmOnStop(SystemClock.elapsedRealtime())
+        if (falseAlarm && canSendSms(context)) {
             log("SOS alerts: stopped right after alerting, sending false alarm")
             send(EmergencyContacts.falseAlarmText(context))
         }
+        live?.stop(falseAlarm)
+        live = null
+        linkOwed = false
         pendingText = null
         lastText = null
     }
@@ -160,19 +198,24 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         runCatching { context.startActivity(smsIntent(numbers(), text)) }
     }
 
-    private fun numbers() = contacts.map { EmergencyContacts.normalize(it.phone) }
+    private fun numbers() = contacts.map { EmergencyContacts.normalize(it.phone) }.filter { it.count(Char::isDigit) >= 3 }
 
     private fun sendFirst(current: AlertPlan, now: Long) {
         val fix = lastFix
-        val text = EmergencyContacts.sosText(context, timeNow(), fix?.latitude, fix?.longitude, fix?.accuracy)
+        val link = live?.link
+        val time = timeNow()
+        val text = EmergencyContacts.sosText(context, time, fix?.latitude, fix?.longitude, fix?.accuracy, link)
         current.onSent(now, fix?.latitude, fix?.longitude)
+        linkOwed = live != null && link == null
         send(text)
+        live?.alertSent(time)
         publish(current, now)
     }
 
     private fun onFix(fix: Location) {
         lastFix = fix
         val current = plan ?: return
+        live?.addFix(fix.latitude, fix.longitude, if (fix.hasAccuracy()) fix.accuracy else null)
         if (current.shouldUpdate(SystemClock.elapsedRealtime(), fix.latitude, fix.longitude)) {
             send(EmergencyContacts.updateText(context, timeNow(), fix.latitude, fix.longitude))
         }
@@ -181,6 +224,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private fun send(text: String) {
         val marked = if (Prefs.testMode(context)) "[TEST] $text" else text
         lastText = marked
+        if (numbers().isEmpty()) return // Email-only contacts: the live share emails them.
         if (canSendSms(context)) {
             var ok = 0
             numbers().forEach { number ->

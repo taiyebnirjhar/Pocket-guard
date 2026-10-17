@@ -215,11 +215,11 @@
     <string name="sos_other_ways">লক স্ক্রিন থেকেও: Pocket Guard নোটিফিকেশনের SOS বাটন, বা কুইক সেটিংসের SOS টাইল। স্ক্রিন বন্ধ থাকলে ফোনের নিজস্ব জরুরি SOS (পাওয়ার ৫ বার চাপুন) ব্যবহার করুন, যা ফোনের সেফটি সেটিংসে চালু করা যায়।</string>
     <string name="settings_privacy">গোপনীয়তা নীতি</string>
     <string name="contacts_section">জরুরি যোগাযোগ</string>
-    <string name="contacts_title">SOS-এ SMS সতর্কতা</string>
-    <string name="contacts_sub">আপনি SOS চালু করলে এই মানুষেরা আপনার অবস্থানসহ একটি SMS পাবেন, ৫ সেকেন্ড পরে (বাতিল না করলে), আর আপনি সরে গেলে আপডেট।</string>
+    <string name="contacts_title">SOS-এ সতর্কতা</string>
+    <string name="contacts_sub">আপনি SOS চালু করলে এই মানুষেরা SMS-এ (আর ইমেইল ঠিকানা দিলে ইমেইলেও) আপনার অবস্থান পাবেন, ৫ সেকেন্ড পরে (বাতিল না করলে), আর আপনি সরে গেলে আপডেট।</string>
     <string name="contacts_name">সতর্কতায় আপনার নাম</string>
     <string name="contacts_add_pick">কন্টাক্ট থেকে যোগ করুন</string>
-    <string name="contacts_add_number">নম্বর যোগ করুন</string>
+    <string name="contacts_add_number">হাতে লিখে যোগ করুন</string>
     <string name="contacts_add">যোগ করুন</string>
     <string name="contacts_contact_name">নাম</string>
     <string name="contacts_number">ফোন নম্বর</string>
@@ -235,8 +235,8 @@
     <string name="contacts_confirm">আপনি SOS চালু করলে Pocket Guard এই SMS পাঠাবে %1$s-কে, %3$d সেকেন্ড পরে (বাতিল না করলে), আর সরে গেলে একটি আপডেট:
 
 %2$s</string>
-    <string name="disclose_location">শুধু SOS চলার সময় আপনার জরুরি যোগাযোগদের সতর্কতায় অবস্থান দিতে Pocket Guard আপনার অবস্থান ব্যবহার করে, ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার বা জমা করা হয় না।</string>
-    <string name="disclose_location_sms">শুধু SOS চলার সময় Pocket Guard আপনার অবস্থান ব্যবহার করে, আর আপনার ফোন থেকে SMS-এ আপনার অনুমোদিত জরুরি যোগাযোগদের পাঠায়, ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার বা জমা করা হয় না।</string>
+    <string name="disclose_location">শুধু SOS চলার সময় আপনার জরুরি যোগাযোগদের সতর্কতায় (আর চালু থাকলে, তাঁদের লিংকে খোলা ব্যক্তিগত সরাসরি মানচিত্রে) অবস্থান দিতে Pocket Guard আপনার অবস্থান ব্যবহার করে, ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার করা হয় না।</string>
+    <string name="disclose_location_sms">শুধু SOS চলার সময় Pocket Guard আপনার অবস্থান ব্যবহার করে, আর আপনার ফোন থেকে SMS-এ আপনার অনুমোদিত জরুরি যোগাযোগদের পাঠায় (আর চালু থাকলে, তাঁদের লিংকে খোলা ব্যক্তিগত সরাসরি মানচিত্রে), ফোন লক থাকলেও। অন্য কোনো সময় ব্যবহার করা হয় না।</string>
     <string name="alert_countdown">%2$d সেকেন্ডে %1$s-কে সতর্ক করা হচ্ছে</string>
     <string name="alert_cancel">সতর্কতা বাতিল</string>
     <string name="alert_sent">%1$s-কে সতর্কতা পাঠানো হয়েছে</string>
@@ -247,4 +247,18 @@
     <string name="alert_text_update">%1$s, %2$s-এ অবস্থান: %3$s</string>
     <string name="alert_text_false">%1$s: ভুল সতর্কতা, আমি নিরাপদ। দুঃখিত!</string>
     <string name="alert_text_test">Pocket Guard থেকে পরীক্ষা, কিছু হয়নি। একটি SOS সতর্কতা দেখতে এমন:</string>
+    <string name="alert_text_live">সরাসরি অবস্থান: %1$s</string>
+    <string name="contacts_email">ইমেইল (ঐচ্ছিক)</string>
+    <string name="contacts_edit">যোগাযোগ বদলান</string>
+    <string name="contacts_save">সংরক্ষণ</string>
+    <string name="contacts_confirm_live">SOS চলার সময় আপনার অবস্থান Pocket Guard-এর সার্ভারের মাধ্যমেও শেয়ার হয়: বার্তায় একটি সরাসরি মানচিত্রের ব্যক্তিগত লিংক থাকে, যা SOS শেষ হওয়ার এক দিন পর পর্যন্ত কাজ করে। যাঁদের ইমেইল ঠিকানা আছে, তাঁরা ইমেইলেও সতর্কতা পাবেন। শেয়ার করা অবস্থান ৯০ দিন পর মুছে যায়।</string>
+    <string name="online_title">অনলাইন</string>
+    <string name="online_live">সরাসরি অবস্থানের লিংক</string>
+    <string name="online_live_sub">SOS-এর সময় Pocket Guard-এর সার্ভারের মাধ্যমে আপনার অবস্থান শেয়ার করুন, এমন লিংকসহ যা আপনার যোগাযোগেরা অনুসরণ করতে পারেন, আর ঠিকানা থাকা যোগাযোগদের ইমেইল করুন। বন্ধ থাকলে: শুধু SMS।</string>
+    <string name="online_delete">আমার অনলাইন তথ্য মুছুন</string>
+    <string name="online_delete_sub">এই ফোনের বেনামি অ্যাকাউন্ট আর এর শেয়ার করা সব অবস্থান মুছে দেয়।</string>
+    <string name="online_delete_confirm">এই ফোনের জন্য Pocket Guard অনলাইনে যা রেখেছে সব মুছবেন? আগে পাঠানো সরাসরি লিংকগুলো আর কাজ করবে না।</string>
+    <string name="online_delete_action">মুছুন</string>
+    <string name="online_deleted">মুছে ফেলা হয়েছে। এই ফোনের কিছুই অনলাইনে নেই।</string>
+    <string name="online_delete_failed">সার্ভারে পৌঁছানো যায়নি। অনলাইনে থাকলে আবার চেষ্টা করুন।</string>
 </resources>

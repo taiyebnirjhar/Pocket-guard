@@ -99,6 +99,10 @@ object Prefs {
     fun setTableGuard(context: Context, value: Boolean) = put(context, "table_guard", value)
     fun setIntruderPhotos(context: Context, value: Boolean) = put(context, "intruder_photos", value)
 
+    /** SOS shares a live location link (and emails) through Pocket Guard's server. */
+    fun liveLocation(context: Context) = get(context, "live_location", true)
+    fun setLiveLocation(context: Context, value: Boolean) = put(context, "live_location", value)
+
     fun onboarded(context: Context) = get(context, "onboarded", false)
 
     /** Steps the app can't check by itself, marked done once the user opened their settings. */

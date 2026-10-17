@@ -100,6 +100,32 @@ EOF
   adb shell "run-as $PKG sh -c 'mkdir -p /data/user_de/0/$PKG/shared_prefs && cp /data/local/tmp/pg-prefs.xml /data/user_de/0/$PKG/shared_prefs/pocket_guard.xml'"
 }
 
+# The online part always uses the local backend from e2e/backend.sh (never the real one); without
+# it, an empty address switches the online part off.
+E2E_API_URL="${E2E_API_URL:-}"
+E2E_PUBLISHABLE_KEY="${E2E_PUBLISHABLE_KEY:-}"
+LIVE=false
+[ -n "$E2E_API_URL" ] && [ -n "$E2E_PUBLISHABLE_KEY" ] && LIVE=true
+EMU_API="${E2E_API_URL/127.0.0.1/10.0.2.2}"
+write_backend() {
+  local url=""
+  [ "$LIVE" = true ] && url="$EMU_API"
+  cat >"$OUT/backend.xml" <<EOF
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="url_override">$url</string>
+    <string name="key_override">$E2E_PUBLISHABLE_KEY</string>
+</map>
+EOF
+  adb push "$OUT/backend.xml" /data/local/tmp/pg-backend.xml >/dev/null
+  sh chmod 644 /data/local/tmp/pg-backend.xml
+  adb shell "run-as $PKG sh -c 'mkdir -p /data/user_de/0/$PKG/shared_prefs && cp /data/local/tmp/pg-backend.xml /data/user_de/0/$PKG/shared_prefs/backend.xml'"
+}
+view_incident() {
+  curl -s -X POST "$E2E_API_URL/rest/v1/rpc/view_incident" -H "apikey: $E2E_PUBLISHABLE_KEY" \
+    -H "Content-Type: application/json" -d "{\"token\":\"$1\"}"
+}
+
 arm() {
   sh am start -W -n $PKG/.MainActivity --ez arm true >/dev/null
   expect_phase WAITING_FOR_POCKET 10 "$1"
@@ -117,6 +143,8 @@ log "Installing"
 adb install -r -g "$APK" || exit 1
 sh dumpsys deviceidle whitelist +$PKG >/dev/null
 write_prefs
+write_backend
+log "Online part: $([ "$LIVE" = true ] && echo "local backend at $EMU_API" || echo "off (no local backend)")"
 still
 uncovered
 emu sensor set light 400
@@ -347,16 +375,18 @@ expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 
-log "Scenario 7g: SOS alerts an approved emergency contact by SMS with the location"
-# The emulator's own number receives the SMS. The contact list and its approval are written the
-# way the app stores them (the approval covers the text version, the name and the people).
+log "Scenario 7g: SOS alerts an approved emergency contact by SMS and email, with the live location"
+# The emulator's own number receives the SMS; the stand-in for Brevo receives the email. The
+# contact list and its approval are written the way the app stores them (the approval covers the
+# text version, whether it carries the live link, the name, and the people).
 sh am force-stop $PKG
+if [ "$LIVE" = true ]; then MODE=live; else MODE=sms; fi
 cat >"$OUT/contacts.xml" <<CONTACTS
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
-    <string name="contacts">[{&quot;name&quot;:&quot;Mom&quot;,&quot;phone&quot;:&quot;+15555215554&quot;}]</string>
+    <string name="contacts">[{&quot;name&quot;:&quot;Mom&quot;,&quot;phone&quot;:&quot;+15555215554&quot;,&quot;email&quot;:&quot;mom@example.com&quot;}]</string>
     <string name="name">Taiyeb</string>
-    <string name="approved">1|Taiyeb|Mom=+15555215554</string>
+    <string name="approved">2|$MODE|Taiyeb|Mom=+15555215554,mom@example.com</string>
 </map>
 CONTACTS
 adb push "$OUT/contacts.xml" /data/local/tmp/pg-contacts.xml >/dev/null
@@ -379,10 +409,27 @@ sent_sms() { adb shell content query --uri content://sms/sent --projection addre
 for _ in $(seq 1 20); do grep -q "Taiyeb needs help" <<<"$(sent_sms)" && break; sleep 0.5; done
 expect_true 'grep -q "Taiyeb needs help" <<<"$(sent_sms)"' "the SMS names the owner"
 expect_true 'grep -q "maps.google.com/?q=23.81" <<<"$(sent_sms)"' "the SMS carries the location"
+LIVE_TOKEN=""
+if [ "$LIVE" = true ]; then
+  expect_true 'grep -q "Live location: https://taiyebnirjhar.github.io/Pocket-guard/live/#t=" <<<"$(sent_sms)"' "the SMS carries the live location link"
+  LIVE_TOKEN=$(grep -oE '#t=[0-9a-f]{48}' <<<"$(sent_sms)" | tail -n 1 | cut -c4-)
+  expect_true 'view_incident "$LIVE_TOKEN" | grep -q "\"status\": *\"active\""' "the live page sees the SOS as active"
+  expect_log "Live location: email sent to 1" 8 "the contact with an address gets the alert by email"
+  expect_true 'grep -q "mom@example.com" "$OUT/brevo.jsonl" && grep -q "#t=$LIVE_TOKEN" "$OUT/brevo.jsonl"' "the email goes to the approved address, with the same live link"
+fi
+# Unlocked within 15 s of the alert, so it counts as a false alarm.
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock stops SOS"
 expect_log "sending false alarm" 4 "stopped right after the alert: a false-alarm SMS follows"
+if [ "$LIVE" = true ]; then
+  expect_log "Live location: stopped" 10 "the live share ends with SOS (queued points uploaded first)"
+  echo "live view: $(view_incident "$LIVE_TOKEN" | head -c 400)" >>"$FULL_LOG"
+  expect_true 'view_incident "$LIVE_TOKEN" | grep -qE "\[23\.81[0-9]*, *90\.41"' "the live page has the phone's position"
+  expect_true 'view_incident "$LIVE_TOKEN" | grep -q "\"status\": *\"false_alarm\""' "the live page shows the false alarm"
+  for _ in $(seq 1 20); do [ "$(wc -l <"$OUT/brevo.jsonl")" -ge 2 ] && break; sleep 0.5; done
+  expect_true 'tail -n 1 "$OUT/brevo.jsonl" | grep -q "false alarm"' "the emailed contact hears it was a false alarm"
+fi
 sleep 2
 
 log "Scenario 7f: SOS from the notification while the phone is unlocked"
@@ -526,6 +573,27 @@ fi
 if grep -q "// CRASH: $PKG\|ANR in $PKG" "$OUT/monkey.txt"; then
   fail "monkey reported a crash or ANR"
   grep -A 20 "CRASH\|ANR" "$OUT/monkey.txt" | head -n 60
+fi
+
+# --- 11. Live location page -------------------------------------------------------------------------
+
+# The page contacts open, rendered in the runner's Chrome against the local backend, for the
+# incident from scenario 7g (still viewable for a day after it ended).
+if [ "$LIVE" = true ] && [ -n "$LIVE_TOKEN" ] && command -v google-chrome >/dev/null; then
+  log "Scenario 11: the live location page"
+  rm -rf "$OUT/site" && cp -r site "$OUT/site"
+  printf 'window.POCKET_GUARD = { url: "%s", key: "%s" };\n' "$E2E_API_URL" "$E2E_PUBLISHABLE_KEY" >"$OUT/site/live/config.js"
+  (cd "$OUT/site" && exec python3 -m http.server 8088 >/dev/null 2>&1) &
+  SITE_PID=$!
+  sleep 1
+  PAGE="http://localhost:8088/live/#t=$LIVE_TOKEN"
+  google-chrome --headless=new --no-sandbox --hide-scrollbars --window-size=412,860 --force-device-scale-factor=2 \
+    --virtual-time-budget=15000 --screenshot="$OUT/screens/11-live-page.png" "$PAGE" >/dev/null 2>&1
+  google-chrome --headless=new --no-sandbox --virtual-time-budget=15000 --dump-dom "$PAGE" >"$OUT/live-page.html" 2>/dev/null
+  kill $SITE_PID 2>/dev/null
+  expect_true 'grep -q "Taiyeb.s location" "$OUT/live-page.html"' "the live page shows whose location it is"
+  expect_true 'grep -q "FALSE ALARM" "$OUT/live-page.html"' "the live page shows the false alarm"
+  expect_true '[ "$(stat -c %s "$OUT/screens/11-live-page.png" 2>/dev/null || echo 0)" -gt 10240 ]' "the live page rendered for a screenshot"
 fi
 
 app_log >>"$FULL_LOG"
