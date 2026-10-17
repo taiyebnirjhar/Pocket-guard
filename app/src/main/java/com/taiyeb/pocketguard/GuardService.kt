@@ -212,6 +212,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Intent.ACTION_SCREEN_ON -> log("screen on")
                 Intent.ACTION_SCREEN_OFF -> {
                     log("screen off")
+                    engine.onScreenOff()
                     handler.removeCallbacks(lockCheck)
                     handler.postDelayed(lockCheck, LOCK_CHECK_DELAY_MS)
                 }
@@ -458,7 +459,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     fun updateSos() {
         val want = engine != null && Prefs.sosButtons(this)
         if (want && sos == null) {
-            sos = SosButtons(this, ::log, ownSound = { engine?.phase?.isAlarm == true }) { engine?.onSos() }.also { it.start() }
+            sos = SosButtons(this, ::log) { engine?.onSos() }.also { it.start() }
         } else if (!want && sos != null) {
             sos?.stop()
             sos = null
@@ -586,6 +587,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     /** Locked with a PIN, pattern or password: Smart Lock and lock delays don't count. */
     override fun credentialLocked() = keyguardManager.isDeviceLocked
+
+    override fun screenOff() = !powerManager.isInteractive
 
     override fun ringing(): Boolean {
         val mode = audioManager.mode

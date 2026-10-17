@@ -126,11 +126,12 @@ emu sensor set light 400
 log "Scenario 1: pickpocket, intruder photos, history"
 reset_log
 arm "arming from the app"
-screen_off
-expect_log "lock check: locked=true" 15 "lock check passes with an instant lock" # first screen-off after launch is slow on CI
-reset_log
 pocket
-expect_phase IN_POCKET 6 "pocketed phone becomes protected"
+expect_log "not protecting yet" 6 "pocketed while unlocked: waits for the lock"
+expect_no_phase IN_POCKET 1 "not protected while unlocked"
+screen_off
+expect_phase IN_POCKET 2 "power pressed: protected at once"
+expect_log "lock check: locked=true" 15 "lock check passes with an instant lock" # first screen-off after launch is slow on CI
 calm_down
 reset_log
 pull_out
@@ -154,9 +155,9 @@ sleep 2
 # --- 2. The field bug: light sensor asleep with the screen off ------------------------------------
 
 log "Scenario 2: light sensor frozen (no readings while pocketed), motion must still catch it"
-screen_off
 reset_log
 covered # no light change at all
+screen_off
 expect_phase IN_POCKET 6 "pocketed with a frozen light sensor"
 calm_down
 reset_log
@@ -172,9 +173,9 @@ sleep 2
 # --- 3. False alarms ------------------------------------------------------------------------------
 
 log "Scenario 3: owner pulls it out and unlocks in time"
-screen_off
 reset_log
 pocket
+screen_off
 expect_phase IN_POCKET 6 "pocketed again"
 calm_down
 reset_log
@@ -185,9 +186,9 @@ expect_phase WAITING_FOR_POCKET 4 "owner's unlock within grace stops it"
 expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
 
 log "Scenario 4: uncovered with no movement or light (a careful pull) still warns"
-screen_off
 reset_log
 pocket
+screen_off
 expect_phase IN_POCKET 6 "pocketed for the careful pull"
 calm_down
 reset_log
@@ -198,9 +199,9 @@ unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the careful-pull warning"
 
 log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
-screen_off
 reset_log
 pocket
+screen_off
 expect_phase IN_POCKET 6 "pocketed for the flicker test"
 calm_down
 reset_log
@@ -248,10 +249,10 @@ tilted_off_table() { emu sensor set acceleration 0:5:-8.45; } # 31 degrees, stil
 log "Scenario 7b: face-down on a table, lifted, put back, then taken"
 face_down
 sleep 1
-screen_off
 reset_log
 covered
-expect_phase IN_POCKET 6 "laid face-down: protected"
+screen_off
+expect_phase IN_POCKET 2 "laid face-down and locked: protected at once"
 expect_phase ON_TABLE 25 "lying still face-down: table protection"
 reset_log
 tilted_off_table
@@ -269,10 +270,25 @@ unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the table alarm"
 still
 
-log "Scenario 7c: gentle pull with no jolt and no light, turned to look"
+log "Scenario 7d: face-up on a table, locked: protected at once, picked up warns"
+face_up
+uncovered
+sleep 1
+reset_log
 screen_off
+expect_log "phase=ON_TABLE " 4 "locked, black and lying face-up: table protection at once"
+reset_log
+emu sensor set acceleration 0:5:8.45 # Tilted up 31 degrees off the table.
+expect_log "phase=WARNING .*trigger=TABLE_MOVED" 5 "picked up face-up warns"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock after the face-up warning"
+still
+
+log "Scenario 7c: gentle pull with no jolt and no light, turned to look"
 reset_log
 pocket
+screen_off
 expect_phase IN_POCKET 6 "pocketed for the gentle pull"
 calm_down
 reset_log
@@ -292,7 +308,7 @@ reset_log
 for i in 1 2 3 4 5; do sh input keyevent KEYCODE_VOLUME_UP; sleep 0.25; done
 expect_log "phase=SIREN .*trigger=SOS" 6 "volume up five times sounds the SOS alarm"
 if ! grep -q "trigger=SOS" <<<"$(app_log)"; then
-  sh dumpsys media_session | sed -n '1,80p' | sed 's/^/    /'
+  sh dumpsys audio | grep -iE 'STREAM_MUSIC|Current:|player piid|state:started' | head -n 30 | sed 's/^/    /'
 fi
 reset_log
 unlock

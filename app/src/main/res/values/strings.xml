@@ -78,7 +78,7 @@
     <string name="sensor_wake_maybe">maybe (test in pocket)</string>
     <string name="test_title">How to test</string>
     <string name="test_1">Turn on Test mode. Tap the round button on Home, lock the phone.</string>
-    <string name="test_2">Put it in your pocket. A short buzz means it\'s protected.</string>
+    <string name="test_2">Put it in your pocket. A short buzz means it\'s protected (half a second after locking).</string>
     <string name="test_3">Take it out without unlocking: after 2 s it beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
     <string name="test_5">Unlock with your fingerprint or PIN: everything stops and it re-arms.</string>
@@ -184,11 +184,11 @@
     <string name="alarm_help">I NEED HELP</string>
     <string name="alarm_help_sub">This person called for help. Please stay with them, or call 999.</string>
     <string name="triggers_sos">SOS: volume up 5 times</string>
-    <string name="triggers_sos_sub">While armed, press volume up 5 times quickly (the screen can be off) for a loud whistle and a spoken call for help. Volume still works as usual. Unlock to stop it.</string>
-    <string name="test_10">SOS: armed, press volume up 5 times within 3 s: a whistle and a spoken call for help. Unlock to stop it.</string>
+    <string name="triggers_sos_sub">While armed and locked, press volume up 5 times quickly (the screen can be off) for a loud whistle and a spoken call for help. The presses don\'t change your volume. Unlock to stop it.</string>
+    <string name="test_10">SOS: armed and locked, press volume up 5 times within 3 s: a whistle and a spoken call for help. Unlock to stop it.</string>
     <string name="trigger_table">Picked up from the table</string>
     <string name="history_put_back">cancelled: put back down</string>
     <string name="triggers_table">Face-down on a table</string>
     <string name="triggers_table_sub">Slide, lift or tilt it and it warns, silently for the first 1.5 s so you can unlock. Two short buzzes mean it is guarding the table.</string>
-    <string name="test_9">On a table: lay it face-down, locked, and wait for two short buzzes (about 5 s). Slide, lift or tilt it: beeps after 1.5 s. Lift it and put it back down still: they stop.</string>
+    <string name="test_9">On a table: lock it and lay it down (face-up or face-down). Two short buzzes: guarded (face-up about 1 s, face-down about 4 s). Slide, lift or tilt it: beeps after 1.5 s. Lift it and put it back down still: they stop.</string>
 </resources>

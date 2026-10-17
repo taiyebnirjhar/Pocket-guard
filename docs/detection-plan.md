@@ -41,6 +41,16 @@ warns, with no light, jolt or turn required (the P-JOLT/P-TILT_OUT/WATCH evidenc
 flicker recovery and the out-and-in decision after it remain). On a table a slide of 5 cm warns,
 T-TILT needs 10°, and the hard-surface test takes 3 s. A plain uncover gets the 1.5 s silent start.
 
+**Changed in v1.4.0** (field feedback: the owner presses power and expects protection at once):
+locking is the signal. Covered and locked, the pocket is confirmed after 0.5 s, and pressing power
+on a phone already covered confirms it within that 0.5 s instead of on the next 2 s retry. Lying
+still, uncovered, locked with the screen black (face-up on a table, on a seat), it enters
+ON_TABLE straight away with the full T-rules, in any orientation. Table entry needs the keyguard,
+not a credential lock (an alarm that began without one already ignores the unlock). The rocking
+test now measures swing to swing on each axis, so a test that starts mid-swing no longer halves
+the breathing it sees. The SOS buttons play silence while locked and count media volume steps,
+since Android routes screen-off volume keys only to playing media.
+
 **Not yet** (later steps): the gyroscope, the edge-based owner check and display-state
 DisplayListener ranks, the call-state pause and charger watch, the hand (H) rules in shadow mode,
 traces and the detection lab, the watchdog and heartbeat, resampling and rate tiers, and the

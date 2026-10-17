@@ -110,8 +110,10 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
     private var testStartX = 0f
     private var testStartY = 0f
     private var testStartZ = 0f
-    private var testMinDeg = 0f
-    private var testMaxDeg = 0f
+
+    /** Per-axis extremes of the one-second means' direction: how far it swings either way. */
+    private val swingLo = FloatArray(3)
+    private val swingHi = FloatArray(3)
 
     /** Proximity going near. Starts a latch when the phone is face-down and roughly flat. */
     fun onCovered(t: Long) {
@@ -158,7 +160,7 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
     }
 
     /** True once a settled placement has passed the hard-surface test. Call for every sample. */
-    fun readyToEnter(t: Long, credentialLocked: () -> Boolean): Boolean {
+    fun readyToEnter(t: Long, locked: () -> Boolean): Boolean {
         if (!latched || !settled) return false
         if (!m.atRest) {
             testRestSince = -1L
@@ -175,22 +177,29 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
             restartTest(t)
         }
         // Body or soft surface: the tilt keeps rocking or creeping while "still". Measured on
-        // one-second means, against a limit no lower than 8x their own noise.
-        val drift = MotionProcessor.angle(m.restX, m.restY, m.restZ, testStartX, testStartY, testStartZ)
-        testMinDeg = min(testMinDeg, drift)
-        testMaxDeg = max(testMaxDeg, drift)
+        // one-second means, swing to swing (a start mid-swing would halve it), against a limit no
+        // lower than 8x their own noise.
+        val n = sqrt(m.restX * m.restX + m.restY * m.restY + m.restZ * m.restZ).coerceAtLeast(1e-3f)
+        val dir = floatArrayOf(m.restX / n, m.restY / n, m.restZ / n)
+        var span = 0f
+        for (i in 0..2) {
+            swingLo[i] = min(swingLo[i], dir[i])
+            swingHi[i] = max(swingHi[i], dir[i])
+            span += (swingHi[i] - swingLo[i]) * (swingHi[i] - swingLo[i])
+        }
+        val rockDeg = Math.toDegrees(sqrt(span).toDouble()).toFloat()
         val meanNoiseDeg = Math.toDegrees(
             (m.noiseFloor / sqrt(m.windowSamples.coerceAtLeast(1).toFloat()) / m.g0).toDouble(),
         ).toFloat()
-        if (testMaxDeg - testMinDeg > max(BODY_DEG, 8f * meanNoiseDeg)) {
-            log("table: rocking %.2f° (a lap, cushion or body?), testing 3 s more".format(testMaxDeg - testMinDeg))
+        if (rockDeg > max(BODY_DEG, 8f * meanNoiseDeg)) {
+            log("table: rocking %.2f° (a lap, cushion or body?), testing again".format(rockDeg))
             restartTest(t) // Breathing, a cushion or a lap: the test starts over.
             return false
         }
         if (t - testStartAt < TABLE_REST_MS) return false
         val creep = MotionProcessor.angle(m.restX, m.restY, m.restZ, testStartX, testStartY, testStartZ)
         if (creep > CREEP_DEG) {
-            log("table: still sinking %.2f° (soft surface?), testing 3 s more".format(creep))
+            log("table: still sinking %.2f° (soft surface?), testing again".format(creep))
             restartTest(t)
             return false
         }
@@ -198,8 +207,8 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
             logOnce("table: surface ok but tilted %.0f° (over 10°)".format(m.gravityAngleTo(0f, 0f, -1f)))
             return false
         }
-        if (!credentialLocked()) {
-            logOnce("table: surface ok, waiting for the phone to be locked with its PIN (Smart Lock keeps it open)")
+        if (!locked()) {
+            logOnce("table: surface ok, waiting for the phone to be locked")
             return false
         }
         return true
@@ -217,8 +226,9 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
     private fun restartTest(t: Long) {
         testStartAt = t
         testStartX = m.restX; testStartY = m.restY; testStartZ = m.restZ
-        testMinDeg = 0f
-        testMaxDeg = 0f
+        val n = sqrt(m.restX * m.restX + m.restY * m.restY + m.restZ * m.restZ).coerceAtLeast(1e-3f)
+        swingLo[0] = m.restX / n; swingLo[1] = m.restY / n; swingLo[2] = m.restZ / n
+        swingLo.copyInto(swingHi)
     }
 
     // --- On the table ---------------------------------------------------------------------------

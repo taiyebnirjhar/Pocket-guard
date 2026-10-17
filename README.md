@@ -25,8 +25,12 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 
 ## How it works
 
-1. **Armed**: waiting for the phone to go into a pocket (proximity sensor covered for 1.5 s).
-2. **Protected**: a short buzz confirms it, once the screen is off or the phone locked.
+1. **Armed**: waiting for you to lock it. Locking is the signal: press power and it is protected
+   straight away, wherever the phone is.
+2. **Protected**: in a pocket (proximity covered for 0.5 s, screen off or locked), a short buzz
+   confirms it; put in the pocket first and locked after, it is protected the moment the screen
+   goes black. Lying still with the screen black (face-up on a table, on a seat), two short buzzes
+   mean table protection is on at once.
 3. **Taken out while locked**: the proximity sensor uncovered for 0.8 s is enough. Being armed
    is your choice, so once armed it asks for no further proof: a careful thief gives none (no
    jolt, no light, no turn). Fabric flickering over the sensor re-covers it within a second, and
@@ -50,11 +54,12 @@ app instead. The app refuses to arm without a PIN, pattern or password.
 
 ## On a table
 
-Face-down on a table the proximity sensor stays covered, so pocket rules can't see a theft. Lay
-the phone face-down while it's locked and keep it still: after about 5 s two short buzzes mean
-it is guarding the table (the phone must be flat, still and on something hard; a lap, sofa, bag
-or a body never counts, because they rock, sink or breathe). Once it guards the table, any move
-that could be someone taking it warns:
+Face-up (sensor uncovered): lock it and it guards the table as soon as it lies still, about 1 s.
+Face-down the proximity sensor stays covered, so it is first protected like a pocket (half a
+second: lifting it uncovers the sensor and warns), and after about 4 s still on something hard
+two short buzzes mean full table protection, which also catches a slide (a lap, sofa, bag or a
+body never counts, because they rock, sink or breathe). Once it guards the table, any move that
+could be someone taking it warns:
 
 | What happens | Result |
 |---|---|
@@ -79,17 +84,21 @@ siren. Table mode can be switched off under Triggers.
 
 ## SOS: a call for help
 
-For harassment in a crowd: while the guard is armed, press **volume up 5 times within 3 s**
-(screen on or off, in a pocket by feel). The phone sounds the SOS alarm at once, unlike the theft
+For harassment in a crowd: while the guard is armed and the phone locked, press **volume up 5
+times within 3 s** (screen off or on the lock screen, in a pocket by feel). The phone sounds the SOS alarm at once, unlike the theft
 siren: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when the app
 shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with the
 screen showing "I NEED HELP". Unlock to stop it; it is saved in History.
 
-It doesn't get in the way of the phone: each press still changes the volume as usual, holding the
-button doesn't count, calls are untouched, and it avoids the system's own button shortcuts (both
-volume keys held is Android's accessibility shortcut; volume down twice opens the camera on many
-phones). While another app plays music, that app owns the volume keys and SOS can't hear them;
-earbud play/pause is passed on to your music app. Switch it off under Triggers.
+With the screen off Android only lets volume keys change the media volume while something plays,
+and gives them to no app. So while it listens and nothing else plays, it plays silence and counts
+the media volume going up, then puts it straight back: the presses change nothing you can hear.
+At full media volume a press can't be seen, so the volume is held one step lower while locked and
+restored when you unlock. While music plays, presses still count and change the music volume as
+usual. Holding the button doesn't count, calls and earbud buttons are untouched, and it avoids the
+system's own button shortcuts (both volume keys held is Android's accessibility shortcut; volume
+down twice opens the camera on many phones). Unlocked, it doesn't listen. Switch it off under
+Triggers.
 
 ## Setup requirement: the phone must lock immediately
 

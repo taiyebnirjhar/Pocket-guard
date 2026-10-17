@@ -213,14 +213,92 @@ class MotionRulesTest {
 
     @Test
     fun unlockedPhoneOnTableWaitsForTheLock() {
-        host.credentialLocked = false
+        host.locked = false
         still(faceDown, 1000)
         engine.onProximity(true)
         still(faceDown, 14_000)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        host.credentialLocked = true
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.locked = true
         still(faceDown, 9000)
         assertEquals(Phase.ON_TABLE, engine.phase)
+    }
+
+    @Test
+    fun smartLockedPhoneOnTableIsStillProtected() {
+        host.credentialLocked = false // Locked, but Smart Lock would open it without the PIN.
+        placeOnTable()
+    }
+
+    @Test
+    fun faceUpLockedAndBlackIsProtectedAtOnce() {
+        host.screenOff = true
+        still(faceUp, 1500)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        stream(800) { t -> faceDownTilted(180f - 12f * t / 800f) }
+        still(faceDownTilted(168f), 500)
+        warnedWith(Evidence.TABLE_TILT)
+    }
+
+    @Test
+    fun faceUpLiftedLevelWarns() {
+        host.screenOff = true
+        still(faceUp, 1500)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        still(faceUp, 1500) // Past its own two buzzes.
+        stream(500) { t -> floatArrayOf(0f, 0f, G + minJerkAccel(5f, 500, t)) }
+        still(faceUp, 300)
+        warnedWith(Evidence.TABLE_LIFT)
+    }
+
+    @Test
+    fun faceUpSlidWarns() {
+        host.screenOff = true
+        still(faceUp, 1500)
+        stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, G) }
+        still(faceUp, 2500)
+        warnedWith(Evidence.TABLE_SLIDE)
+    }
+
+    @Test
+    fun faceUpStaysQuietUntilTouched() {
+        host.screenOff = true
+        still(faceUp, 60_000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
+    fun faceUpWithTheScreenOnIsNotArmed() {
+        still(faceUp, 10_000) // Locked, but the screen is on: someone is looking at it.
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+    }
+
+    @Test
+    fun faceUpUnlockedIsNotArmed() {
+        host.locked = false
+        host.screenOff = true
+        still(faceUp, 10_000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+    }
+
+    @Test
+    fun heldInHandWithTheScreenOffIsNotArmed() {
+        host.screenOff = true
+        noise = 0.15f // A hand is never as still as a table.
+        still(upright, 10_000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+    }
+
+    @Test
+    fun ownerUnlockingAfterFaceUpReturnsToWaiting() {
+        host.screenOff = true
+        still(faceUp, 1500)
+        host.screenOff = false
+        host.locked = false
+        engine.onOwnerUnlocked()
+        still(faceUp, 5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        neverWarned()
     }
 
     @Test

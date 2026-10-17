@@ -8,6 +8,8 @@ import kotlin.math.sqrt
  * [GuardService] feeds it sensor readings and events, and carries out what it asks for via [Host].
  *
  * Ladder: WAITING_FOR_POCKET -> IN_POCKET -> (uncovered while locked) WARNING -> (no unlock) SIREN.
+ * Locking it is the signal: covered, it is in the pocket half a second later; lying still
+ * uncovered with the screen black, it goes straight to ON_TABLE.
  * Face-down on a table: IN_POCKET -> ON_TABLE once it lies still on a hard surface; sliding,
  * lifting, tilting or pushing it off warns. Being armed is the user's choice, so once armed it
  * warns on any sign of being taken and lets the owner's unlock stop it. Airplane mode on the lock screen jumps straight to SIREN.
@@ -44,6 +46,9 @@ class GuardEngine(
         /** Locked with a PIN, pattern or password right now (not just the keyguard showing). */
         fun credentialLocked(): Boolean = isLocked()
 
+        /** The screen is off (black): the owner pressed power or let it time out. */
+        fun screenOff(): Boolean = false
+
         /** An incoming call is ringing. */
         fun ringing(): Boolean = false
 
@@ -56,8 +61,11 @@ class GuardEngine(
     }
 
     companion object {
-        /** Proximity must stay covered this long before the phone counts as pocketed. */
-        const val POCKET_CONFIRM_MS = 1500L
+        /**
+         * Locked and covered this long: in the pocket and protected. Short, so protection starts
+         * as the phone goes in; it only filters a finger brushing the sensor.
+         */
+        const val POCKET_CONFIRM_MS = 500L
 
         /**
          * Armed and locked, the sensor uncovered this long is a removal: no further proof is asked
@@ -124,6 +132,7 @@ class GuardEngine(
 
     private var trigger: Trigger? = null
     private var near: Boolean? = null
+    private var coveredAt = 0L
     /** Darkest light reading that arrived while the sensor was covered (null: none arrived). */
     private var coveredLux: Float? = null
 
@@ -171,6 +180,7 @@ class GuardEngine(
                 (if (hasMotionData) ", %.0f° from face-down".format(motion.gravityAngleTo(0f, 0f, -1f)) else ", no motion data") + ")",
         )
         uncoveredAt = if (isNear) null else now
+        if (isNear) coveredAt = now
         // Many phones stop reporting light while the screen is off, so a reading only counts if it
         // arrives after this change; older values say nothing about where the phone is now.
         if (isNear) coveredLux = null else uncoveredLux = null
@@ -242,8 +252,15 @@ class GuardEngine(
         if (!phase.isAlarm) table.trackSettle(t)
         when (phase) {
             Phase.IN_POCKET -> if (near == true && !episodeActive && table.latched && host.config().tableGuard &&
-                table.readyToEnter(t) { host.credentialLocked() }
+                table.readyToEnter(t) { host.isLocked() }
             ) {
+                enterTable(t)
+            }
+            // Locked, screen black and lying still face-up (or anywhere uncovered): protected now.
+            Phase.WAITING_FOR_POCKET -> if (near != true && motion.atRest && host.config().tableGuard &&
+                host.screenOff() && host.isLocked() && !host.inCall()
+            ) {
+                host.log("locked, screen off and lying still: table protection on")
                 enterTable(t)
             }
             Phase.ON_TABLE -> onTableMotion(t, table.onSample(t, events))
@@ -276,6 +293,16 @@ class GuardEngine(
         cancelAll()
         resetEpisode()
         go(Phase.WAITING_FOR_POCKET)
+    }
+
+    /**
+     * The screen went black (power pressed or timed out): that is the owner locking it, so a
+     * covered phone is protected at once instead of on the next retry.
+     */
+    fun onScreenOff() {
+        if (phase != Phase.WAITING_FOR_POCKET || near != true) return
+        host.cancel(Timer.CONFIRM_POCKET)
+        host.schedule(Timer.CONFIRM_POCKET, (coveredAt + POCKET_CONFIRM_MS - host.now()).coerceAtLeast(0L))
     }
 
     /** Charger plugged or unplugged: those wake the screen by themselves. */

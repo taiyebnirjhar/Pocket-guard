@@ -21,6 +21,7 @@ class GuardEngineTest {
         var confirmBuzzes = 0
         var noticeBuzzes = 0
         var credentialLocked = true
+        var screenOff = false
         var ringing = false
         var tableTicks = 0
 
@@ -51,6 +52,7 @@ class GuardEngineTest {
             lastBuzzAt = time
         }
         override fun credentialLocked() = locked && credentialLocked
+        override fun screenOff() = screenOff
         override fun ringing() = ringing
         override fun log(message: String) {
             logs += message
@@ -117,9 +119,33 @@ class GuardEngineTest {
     }
 
     @Test
+    fun pressingPowerProtectsACoveredPhoneAtOnce() {
+        host.locked = false // Put in the pocket while still unlocked.
+        engine.onProximity(true)
+        host.advance(1900)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.locked = true
+        host.screenOff = true
+        engine.onScreenOff() // Power pressed: no waiting for the next retry.
+        host.advance(1)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun pressingPowerAsItGoesInStillWaitsForTheCover() {
+        host.screenOff = true
+        engine.onProximity(true)
+        engine.onScreenOff()
+        host.advance(GuardEngine.POCKET_CONFIRM_MS - 100)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.advance(200)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
     fun briefCoverDoesNotCountAsPocket() {
         engine.onProximity(true)
-        host.advance(500)
+        host.advance(300)
         engine.onProximity(false)
         host.advance(5000)
         assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
