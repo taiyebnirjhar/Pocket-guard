@@ -17,15 +17,19 @@ teams (missed thefts, false alarms, platform pitfalls) and revised against every
   T-TILT (angle-scaled gate, no gyro), T-LIFT (along resting gravity, 1 s window), T-HELD,
   a new resting angle (T-POSE, separated from acceleration by |a|), T-FALL vs hop, T-UNCOVER with
   lift-like motion and a stalled-sensor fail-safe, proximity glitch distrust, slides chirp,
-  vehicleSuspect (from a long push, or engine vibration at a steady pose; drive-off exits only
-  once a push plus vibration, or a 5 s push, confirms it), T-HELD at 6 degrees, put-back
+  vehicleSuspect (from a long push, or engine vibration at a steady pose; a push whose |a|
+  excess has gone is cancelled; lifts must out-rise a slope). Unlike the plan, a vehicle never
+  exits table mode: a hand can look like one and a silent exit drops protection. A confirmed
+  vehicle (a 2 s push and then vibration, or a 5 s push) keeps the slow-hand rules paused until
+  30 s of stillness, then re-anchors the pose. T-HELD at 6 degrees from both the last rest and
+  the placement, put-back
   recovery (3 per 10 min; table warnings don't vibrate), calls treated as the owner (ringing, or
   answered in silent mode), 1.5 s no-delay window.
 - Pocket: no give-up after the evidence window (WATCH); P-TILT_OUT with a display cue (excluding
   charger and ringing), P-OUT_AND_IN with the posture-event veto, loose-pocket and walking
-  contexts; walking makes P-JOLT wait for the steps to stop and ignore the steps' own jolts (the
-  pull made while standing still is kept); a recovered jolt warning still gets the out-and-in
-  decision.
+  contexts; walking makes P-JOLT wait for the steps to stop and ignore the steps' own jolts (a
+  pull made while standing still counts, even mid-walk, once the phone is turned 60 degrees into
+  a hand within 3 s); a recovered jolt warning still gets the out-and-in decision.
 - A 1.5 s silent start for warnings where the owner is likely looking (table, turned to look).
 - Tests: `MotionProcessorTest`, `MotionRulesTest` (including sweeps over 5 seeds, 25/50/100 Hz,
   noise and +-0.3 m/s² offsets) and e2e scenarios 7b-7d.

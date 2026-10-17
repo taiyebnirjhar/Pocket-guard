@@ -33,8 +33,9 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
      is brighter.
    - **Jolt**: a push or pull over 2.5 m/s² (measured as |a| away from 1 g, so turning the phone
      or shifting in a chair can't fake it) plus the sensor staying uncovered for 1.5 s. While
-     walking, every step is a jolt, so then only a jolt after the steps stop counts (or the pull
-     itself, if you were standing still when it came), and it takes 3 s uncovered after they stop.
+     walking, every step is a jolt, so then only a jolt after the steps stop counts, and it takes
+     3 s uncovered after they stop. A pull made while you stood still still counts if the phone is
+     turned into a hand right after it, even while the thief walks off.
    - **Turned to look**: no jolt (a careful, gentle pull), but the phone turns 45° or more away
      from its pocket posture and the screen wakes as it turns.
    - **Into another pocket**: out for at least a second, turned 60° or more, then covered again
@@ -78,7 +79,7 @@ or a body never counts, because they rock, sink or breathe). Then:
 | Sensor uncovered together with any lift-like motion | Warning |
 | Slid across the table (10 cm or more) | One beep; repeated slides beep for 3 s |
 | Knocked, bumped, a cup put down, its own vibration | Nothing |
-| A car pulling away with it on the seat | An idling engine already pauses the slow-hand rules; it leaves table mode silently once it drives off (a push with road or engine vibration, or a 5 s push) |
+| Laid on a car seat, then driving | Stays guarded and quiet: an idling engine or the drive pauses the slow pick-up rules until it has been parked (still) for 30 s; picking it up afterwards warns like any table pick-up |
 | Picked up to answer a call, even in silent mode | Your pick-up: back to armed, silently |
 
 Table warnings and "turned to look" warnings stay silent for their first 1.5 s, so picking up your
@@ -210,10 +211,16 @@ version are tested but not released.
   the screen off in a pocket to find out.
 - iPhone isn't possible: iOS gives apps no background sensor access.
 - Motion can't tell the owner from a thief until someone unlocks. A thief who pulls the phone out
-  gently, never wakes the screen and keeps it at the pocket's angle (or slips it upright into
-  their own pocket) isn't caught by motion; the light, jolt and tamper triggers still apply.
-- Without a gyroscope (budget phones) slow, level slides under about 10 cm/s aren't measured;
-  any lift or tilt that follows is.
+  gently, never wakes the screen and keeps it at the pocket's angle, even while walking off (or
+  slips it upright into their own pocket), isn't caught by motion; the light, jolt and tamper
+  triggers still apply.
+- The app reads only the accelerometer (no gyroscope yet), so slow, level slides under about
+  10 cm/s aren't measured; any lift or tilt that follows is. For the same reason a car's
+  acceleration can look like a tilt: an idling engine or a recognised push pauses the slow
+  pick-up rules, but a very quiet (electric) car pulling away hard can occasionally warn. Turn
+  table mode off under Triggers if you leave the phone face-down on a seat while driving.
+- On a table that keeps shaking (a bouncing knee, a running engine) the slow pick-up rules pause
+  until it is still again; uncovering it, turning it over or pocketing it still warns.
 - A phone laid face-down on a lap while sitting very still may be taken for a table. Wait for
   the double buzz: if you feel it in your lap, keep table mode in mind when you stand up.
 

@@ -335,21 +335,31 @@ class MotionRulesTest {
     }
 
     @Test
-    fun vehiclePullingAwayLeavesTableSilently() {
+    fun vehiclePullingAwayStaysGuardedAndQuiet() {
         placeOnTable()
         noise = 0.08f // Road vibration.
         stream(7000) { floatArrayOf(1.2f, 0f, -G) }
-        assertEquals(Phase.IN_POCKET, engine.phase)
+        // Still guarded, and quiet while it drives: a car never ends table mode, since a hand can
+        // look like one.
+        assertEquals(Phase.ON_TABLE, engine.phase)
         neverWarned()
+        // Parked on a slope: once still for a while, that angle becomes where it was put...
+        noise = 0.01f
+        still(faceDownTilted(9f), 35_000)
+        neverWarned()
+        // ...and picking it up off the seat afterwards warns like any table pick-up.
+        stream(600) { t -> faceDownTilted(9f + 60f * t / 600f) }
+        still(faceDownTilted(69f), 400)
+        warnedWith(Evidence.TABLE_TILT)
     }
 
     @Test
-    fun idlingThenPullingAwayLeavesTableSilently() {
+    fun idlingThenPullingAwayStaysQuiet() {
         placeOnTable()
         noise = 0.08f
         still(faceDown, 1500) // Engine idling at the lights: the launch comes partway into a burst.
         stream(7000) { floatArrayOf(1.2f, 0f, -G) }
-        assertEquals(Phase.IN_POCKET, engine.phase)
+        assertEquals(Phase.ON_TABLE, engine.phase)
         neverWarned()
     }
 
@@ -409,6 +419,77 @@ class MotionRulesTest {
         stream(4000) { t -> faceDownTilted(5f).map { it * (1f + if (t % 550 < 60) 0.3f else 0f) }.toFloatArray() }
         assertTrue(host.transitions.any { it.second.isAlarm })
         assertFalse(host.transitions.any { it.first == Phase.ON_TABLE && it.second == Phase.IN_POCKET })
+    }
+
+    @Test
+    fun uphillLaunchInAQuietCarStaysQuiet() {
+        // Parked on a hill, an electric car pulls away uphill: the phone really rises a little.
+        for (grade in listOf(0.08f, 0.10f, 0.12f)) for (accel in listOf(1.0f, 1.5f, 2.0f)) {
+            setUp()
+            val slope = Math.toDegrees(kotlin.math.atan(grade.toDouble())).toFloat()
+            still(faceDownTilted(slope), 1000)
+            engine.onProximity(true)
+            still(faceDownTilted(slope), 14_000)
+            assertEquals(Phase.ON_TABLE, engine.phase)
+            noise = 0.03f
+            stream(5000) { t ->
+                val a = accel * (t / 600f).coerceAtMost(1f)
+                faceDownTilted(slope).also { it[1] += a }
+            }
+            noise = 0.01f
+            assertTrue("grade $grade, $accel m/s²", host.transitions.none { it.second.isAlarm })
+        }
+    }
+
+    @Test
+    fun proppedThenDroppedFlatOnABusyTableIsNotHeld() {
+        placeOnTable()
+        stream(1000) { t -> faceDownTilted(7f * t / 1000f) } // One end on a saucer rim.
+        still(faceDownTilted(7f), 6000)
+        noise = 0.05f // The plate goes, and the phone drops back flat on a table that is never still.
+        stream(100) { t -> faceDownTilted(7f - 7f * t / 100f) }
+        still(faceDown, 20_000)
+        noise = 0.01f
+        neverWarned()
+    }
+
+    @Test
+    fun shakenTableThenACarefulGrabNeverLeavesTableModeSilently() {
+        placeOnTable()
+        noise = 0.1f // Someone bounces a knee against the table: the slow-hand rules pause...
+        still(faceDown, 5000)
+        // ...then a careful lift with the palm over the screen, walked off, then pocketed.
+        stream(1500) { t ->
+            val k = 1f + minJerkAccel(10f, 1500, t) / G
+            faceDownTilted(5f * t.coerceAtMost(400L) / 400f).map { it * k }.toFloatArray()
+        }
+        noise = 0.05f
+        still(faceDownTilted(5f), 500)
+        // Walked off: the step bob raises and lowers |a| about 1 g.
+        stream(4000) { t -> faceDownTilted(5f).map { it * (1f + 0.15f * sin(2 * PI.toFloat() * t / 550f)) }.toFloatArray() }
+        assertFalse(host.transitions.any { it.first == Phase.ON_TABLE && it.second == Phase.IN_POCKET })
+        stream(600) { t -> faceDownTilted(5f + 85f * t / 600f) }
+        still(faceDownTilted(90f), 500)
+        assertTrue(host.transitions.any { it.second.isAlarm })
+    }
+
+    @Test
+    fun steeplyTiltedCarefulLiftStillWarns() {
+        for (deg in listOf(8f, 10f, 12f)) {
+            setUp()
+            placeOnTable()
+            // Fingertips under one edge (tilted at once), lifted 10 cm over 1.8 s, palm over the screen.
+            stream(1800) { t ->
+                val k = 1f + minJerkAccel(10f, 1800, t) / G
+                faceDownTilted(deg * t.coerceAtMost(400L) / 400f).map { it * k }.toFloatArray()
+            }
+            noise = 0.05f
+            still(faceDownTilted(deg), 300)
+            stream(4000) { t -> faceDownTilted(deg).map { it * (1f + 0.15f * sin(2 * PI.toFloat() * t / 550f)) }.toFloatArray() }
+            noise = 0.01f
+            assertTrue("$deg", host.transitions.any { it.second.isAlarm })
+            assertFalse("$deg", host.transitions.any { it.first == Phase.ON_TABLE && it.second == Phase.IN_POCKET })
+        }
     }
 
     @Test
@@ -796,13 +877,14 @@ class MotionRulesTest {
 
     @Test
     fun thiefHurryingOffAfterTheYankStillWarns() {
-        // Yanked out of a standing owner's pocket, then hurried off at once: the getaway steps fall
-        // into a rhythm with the yank, but the yank itself was made standing still.
+        // Yanked out of a standing owner's pocket, turned into the hand and hurried off at once: the
+        // getaway steps fall into a rhythm with the yank, but the yank was made standing still. It
+        // must warn while he is still walking.
         for (gap in 0L until 400L step 40L) {
             setUp()
             pocketUpright()
             var uncovered = false
-            stream(6000) { t ->
+            stream(30_000) { t ->
                 if (!uncovered) { uncovered = true; engine.onProximity(false) }
                 val v = uprightTurned(70f * t.coerceAtMost(300L) / 300f)
                 val yank = if (t < 200) 5f * sin(PI.toFloat() * t / 200f) else 0f
@@ -811,8 +893,28 @@ class MotionRulesTest {
                 val k = 1f + step / G
                 floatArrayOf(v[0] * k, v[1] * k + yank, v[2] * k)
             }
-            still(uprightTurned(70f), 8000)
             assertTrue("gap $gap", host.transitions.any { it.second.isAlarm })
+        }
+    }
+
+    @Test
+    fun shortWalkWithAPocketOpenAtTheFirstStepsIsQuiet() {
+        // Setting off with a loose pocket that opens in the first steps, a few steps across a room,
+        // then standing: the first steps are jolts made "standing still", but nothing turned it.
+        for (uncoverAt in listOf(300L, 800L, 1300L)) for (steps in 4..7) {
+            setUp()
+            pocketUpright()
+            var uncovered = false
+            val walkMs = steps * 520L
+            stream(walkMs + 200) { t ->
+                if (!uncovered && t >= uncoverAt) { uncovered = true; engine.onProximity(false) }
+                val ph = t % 520
+                val step = if (t < walkMs && ph < 120) 3.5f * sin(PI.toFloat() * ph / 120f) else 0f
+                val v = uprightTurned(12f * sin(2 * PI.toFloat() * t / 1040f))
+                v.map { it * (1f + step / G) }.toFloatArray()
+            }
+            still(upright, 8000)
+            assertTrue("uncover $uncoverAt, $steps steps", host.transitions.none { it.second.isAlarm })
         }
     }
 
