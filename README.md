@@ -97,14 +97,16 @@ private storage, out of the gallery. Recording people without consent is against
 some places.
 
 **Emergency contacts** (Triggers → Emergency contacts): up to 5 people, picked from your contacts
-or typed in, and the name the alert uses. You see the exact message and approve it with the list;
-any change asks again. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
+or typed in, and the name the alert uses. You see the exact messages (the alert, the update
+and "false alarm") and approve them with the list; any change asks again, including a new app
+language or switching the live link, and Home says when alerts are off for that reason. A number
+needs at least 6 digits. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
 screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
 SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The
 location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
-3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". The GitHub build
-sends the SMS itself; the Play build fills in the SMS app and you tap Send (Play allows sending
-SMS on its own only with an approved exception). "Share on WhatsApp" opens WhatsApp with the alert.
+3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
+sends the SMS itself and resends one that didn't go (no signal), up to 5 tries; the Play build fills in the SMS app and you tap Send (Play allows sending
+SMS on its own only with an approved exception). Each tap (and "Share on WhatsApp") carries the whole alert with the latest location and link.
 
 **Live location link and alert emails** (Settings → Online → Live location link, on by default):
 the SMS also carries a private link to a live map (`…/Pocket-guard/live/#t=<token>`), and
@@ -113,9 +115,12 @@ The SOS video is recorded at 480p (about 12 MB a minute) and each one-minute pie
 R2 as it's saved, through a link the server signs for that piece; the live page lists the
 recordings and plays one through a 10-minute link. Pieces still uploading when SOS ends carry on
 for up to 30 minutes.
-The phone signs in anonymously (no email or password), opens an SOS record and uploads its
+The phone signs in anonymously (no email or password) when you approve the alert, so SOS
+doesn't wait for it. During SOS it opens an SOS record and uploads its
 location every 15 s while SOS runs; the page refreshes every 10 s and stops working a day after
-SOS ends, and the server deletes everything after 90 days. "Delete my online data" removes the
+SOS ends, and the server deletes everything after 90 days. Each step retries until it gets
+through, and ending the SOS (and the false-alarm email) keeps trying after it stops. Email
+addresses aren't stored on the server: only a one-way hash, to cap the alerts any address gets. "Delete my online data" removes the
 account and all of it at once. Approving the alert covers this too, so switching it on or off
 asks for approval again. Without the backend built in (forks, local builds) the app is SMS-only.
 

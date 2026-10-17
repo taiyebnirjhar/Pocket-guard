@@ -382,15 +382,17 @@ sleep 2
 log "Scenario 7g: SOS alerts an approved emergency contact by SMS and email, with the live location"
 # The emulator's own number receives the SMS; the stand-in for Brevo receives the email. The
 # contact list and its approval are written the way the app stores them (the approval covers the
-# text version, whether it carries the live link, the name, and the people).
+# text version, whether it carries the live link, the wording in the phone's language, the name,
+# and the people).
 sh am force-stop $PKG
 if [ "$LIVE" = true ]; then MODE=live; else MODE=sms; fi
+WORDING=$(python3 "$(dirname "$0")/wording_hash.py" app/src/main/res/values/strings.xml)
 cat >"$OUT/contacts.xml" <<CONTACTS
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <string name="contacts">[{&quot;name&quot;:&quot;Mom&quot;,&quot;phone&quot;:&quot;+15555215554&quot;,&quot;email&quot;:&quot;mom@example.com&quot;}]</string>
     <string name="name">Taiyeb</string>
-    <string name="approved">3|$MODE|Taiyeb|Mom=+15555215554,mom@example.com</string>
+    <string name="approved">3|$MODE|$WORDING|Taiyeb|Mom=+15555215554,mom@example.com</string>
 </map>
 CONTACTS
 adb push "$OUT/contacts.xml" /data/local/tmp/pg-contacts.xml >/dev/null

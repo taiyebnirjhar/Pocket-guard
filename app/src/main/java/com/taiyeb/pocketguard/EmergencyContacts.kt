@@ -54,18 +54,37 @@ object EmergencyContacts {
      * name, and the people with their numbers and addresses.
      */
     private fun fingerprint(context: Context) =
-        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${ownerName(context)}|" +
+        // The words themselves too (they follow the app's language), so a new language asks again.
+        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${wording(context).hashCode()}|" +
+            "${ownerName(context)}|" +
             list(context).joinToString(";") { c ->
                 "${c.name}=${normalize(c.phone)}" + if (c.email.isNotBlank()) "," + c.email.trim().lowercase() else ""
             }
 
-    fun approved(context: Context) = list(context).isNotEmpty() && ownerName(context).isNotEmpty() &&
+    private fun wording(context: Context) = listOf(
+        R.string.alert_text_sos, R.string.alert_text_no_location, R.string.alert_text_update,
+        R.string.alert_text_false, R.string.alert_text_live,
+    ).joinToString("|") { context.getString(it) }
+
+    fun approved(context: Context) = list(context).any { reachable(context, it) } && ownerName(context).isNotEmpty() &&
         prefs(context).getString(KEY_APPROVED, null) == fingerprint(context)
+
+    /** Approved once, but something it covers has changed since: alerts are off until approved again. */
+    fun needsReapproval(context: Context) = prefs(context).getString(KEY_APPROVED, null) != null && !approved(context)
 
     fun approve(context: Context) = prefs(context).edit().putString(KEY_APPROVED, fingerprint(context)).apply()
 
+    /** Shortest number an SMS can go to (local numbers included); shorter ones are typos. */
+    const val MIN_DIGITS = 6
+
+    fun canText(phone: String) = normalize(phone).count(Char::isDigit) >= MIN_DIGITS
+
+    /** Someone an alert reaches: a number to text, or an address while the online part is on. */
+    fun reachable(context: Context, contact: EmergencyContact) =
+        canText(contact.phone) || Backend.enabled(context) && looksLikeEmail(contact.email)
+
     /** The numbers to text: contacts without one get email only. */
-    fun numbers(context: Context) = list(context).map { normalize(it.phone) }.filter { it.count(Char::isDigit) >= 3 }
+    fun numbers(context: Context) = list(context).filter { canText(it.phone) }.map { normalize(it.phone) }
 
     fun emails(context: Context) = list(context).map { it.email.trim().lowercase() }.filter { looksLikeEmail(it) }.distinct()
 
@@ -94,6 +113,9 @@ object EmergencyContacts {
         context.getString(R.string.alert_text_update, ownerName(context), time, AlertPlan.mapLink(lat, lng))
 
     fun falseAlarmText(context: Context) = context.getString(R.string.alert_text_false, ownerName(context))
+
+    fun previewUpdateText(context: Context) =
+        context.getString(R.string.alert_text_update, ownerName(context).ifEmpty { "…" }, "14:07", "https://maps.google.com/?q=…")
 
     /** What the approval screen shows: the alert as it would read now, without a real location. */
     fun previewText(context: Context): String {

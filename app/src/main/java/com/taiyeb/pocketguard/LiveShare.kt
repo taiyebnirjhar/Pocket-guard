@@ -9,12 +9,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * One SOS online: opens an incident (its link goes into the SMS), uploads the location every
  * [UPLOAD_EVERY_MS] while SOS runs, emails the contacts who have an address, uploads each video
  * piece as it's saved, and closes it when SOS ends. Works offline-first: fixes and pieces wait in
- * a queue, and each step retries; pieces still waiting when SOS ends keep going for a while.
+ * a queue, and each step retries for as long as SOS runs; closing the incident and pieces still
+ * waiting when SOS ends keep going for a while after.
  */
 class LiveShare(
     private val context: Context,
@@ -25,21 +27,23 @@ class LiveShare(
     companion object {
         private const val UPLOAD_EVERY_MS = 15_000L
         private const val RETRY_MS = 5_000L
+        private const val MAX_RETRY_MS = 30_000L
         private const val MAX_QUEUED = 300
-        private const val MAX_TRIES = 5
         private const val VIDEO_RETRY_MS = 20_000L
         private const val VIDEO_TRIES = 8
 
         /** The last piece is saved just after SOS stops: keep waiting for it this long. */
         private const val LAST_PIECE_MS = 20_000L
 
-        /** After SOS ends, give up on pieces that still haven't gone up after this long. */
+        /** After SOS ends, give up on what still hasn't gone up after this long. */
         private const val FINISH_WITHIN_MS = 30 * 60_000L
 
         /** The share an SOS recording hands its pieces to (it may still finish after SOS ends). */
         @Volatile
         var current: LiveShare? = null
             private set
+
+        private fun backoff(attempt: Int) = (RETRY_MS * attempt).coerceAtMost(MAX_RETRY_MS)
     }
 
     private val worker = Executors.newSingleThreadScheduledExecutor()
@@ -49,14 +53,23 @@ class LiveShare(
     private val main = Handler(Looper.getMainLooper())
     private val queue = ArrayList<Backend.Fix>()
 
+    // A test SOS doesn't send contacts a real alert email.
+    private val test = Prefs.testMode(context)
+
     @Volatile private var incident: Backend.Incident? = null
     @Volatile private var stopped = false
     private val videos = LinkedBlockingDeque<Pair<File, Int>>() // Piece and tries so far.
-    @Volatile private var uploading = false
+
+    // One upload chain at a time, so pieces go up in order and retries don't pile up.
+    private val uploading = AtomicBoolean(false)
     private var stoppedAt = 0L
+
+    // Worker thread only.
     private var sosEmailWanted = false
     private var sosEmailSent = false
     private var emailTime = ""
+    private var closed = false
+    private var falseAlarmEmailOwed = false
 
     /** The live page link, once the incident is open. */
     val link: String? get() = incident?.let { Backend.liveLink(context, it.viewerToken) }
@@ -73,7 +86,7 @@ class LiveShare(
         val opened = Backend.openIncident(context, ownerName, battery())
         if (opened == null) {
             log("Live location: couldn't reach the server (try $attempt)")
-            if (attempt < MAX_TRIES) later(RETRY_MS * attempt) { open(attempt + 1, onLink) }
+            later(backoff(attempt)) { open(attempt + 1, onLink) }
             return
         }
         incident = opened
@@ -82,7 +95,7 @@ class LiveShare(
         main.post { if (!stopped) onLink(live) }
         upload()
         if (sosEmailWanted) sendSosEmail()
-        onUploader { uploadVideos() }
+        startVideoChain()
     }
 
     fun addFix(lat: Double, lng: Double, accuracy: Float?) {
@@ -95,37 +108,40 @@ class LiveShare(
     /** A video piece was saved (main thread); it goes up after the locations. */
     fun addVideo(file: File) {
         videos.addLast(file to 0)
-        onUploader { uploadVideos() }
+        startVideoChain()
     }
 
-    /** Uploader thread only. */
+    private fun startVideoChain(delayMs: Long = 0) {
+        if (incident == null || !uploading.compareAndSet(false, true)) return
+        if (!onUploader(delayMs) { uploadVideos() }) uploading.set(false)
+    }
+
+    /** Uploader thread only: the one running chain. */
     private fun uploadVideos() {
-        val id = incident?.id ?: return
-        uploading = true
-        try {
-            while (true) {
-                val (file, tries) = videos.pollFirst() ?: break
-                if (Backend.uploadVideo(context, id, file)) {
-                    log("Live location: video uploaded (${file.length() / 1024} KB)")
-                } else if (tries + 1 < VIDEO_TRIES) {
-                    videos.addFirst(file to tries + 1)
-                    onUploader(VIDEO_RETRY_MS) { uploadVideos() }
-                    return
-                } else {
-                    log("Live location: gave up uploading ${file.name}")
-                }
+        val id = incident?.id
+        while (id != null) {
+            val (file, tries) = videos.pollFirst() ?: break
+            if (Backend.uploadVideo(context, id, file)) {
+                log("Live location: video uploaded (${file.length() / 1024} KB)")
+            } else if (tries + 1 < VIDEO_TRIES) {
+                videos.addFirst(file to tries + 1)
+                uploading.set(false)
+                startVideoChain(VIDEO_RETRY_MS)
+                return
+            } else {
+                log("Live location: gave up uploading ${file.name}")
             }
-        } finally {
-            uploading = false
         }
+        uploading.set(false)
+        // A piece added just as the chain finished.
+        if (videos.isNotEmpty()) startVideoChain()
     }
 
-    private fun onUploader(delayMs: Long = 0, task: () -> Unit) {
-        try {
-            uploader.schedule(Runnable { task() }, delayMs, TimeUnit.MILLISECONDS)
-        } catch (e: RejectedExecutionException) {
-            // Finished: what's left stays on the phone.
-        }
+    private fun onUploader(delayMs: Long, task: () -> Unit): Boolean = try {
+        uploader.schedule(Runnable { task() }, delayMs, TimeUnit.MILLISECONDS)
+        true
+    } catch (e: RejectedExecutionException) {
+        false // Finished: what's left stays on the phone.
     }
 
     /** The alert went out: email the contacts too (once the incident is open). */
@@ -139,13 +155,18 @@ class LiveShare(
     }
 
     private fun sendSosEmail(attempt: Int = 1) {
-        if (sosEmailSent || emails.isEmpty()) return
+        if (sosEmailSent || emails.isEmpty() || stopped) return
         val id = incident?.id ?: return
-        if (Backend.sendEmail(context, Backend.EmailKind.SOS, emails, id, ownerName, emailTime)) {
+        val sent = if (test) {
+            Backend.sendEmail(context, Backend.EmailKind.TEST, emails, null, ownerName, "")
+        } else {
+            Backend.sendEmail(context, Backend.EmailKind.SOS, emails, id, ownerName, emailTime)
+        }
+        if (sent) {
             sosEmailSent = true
             log("Live location: email sent to ${emails.size}")
-        } else if (attempt < MAX_TRIES && !stopped) {
-            later(RETRY_MS * attempt) { sendSosEmail(attempt + 1) }
+        } else {
+            later(backoff(attempt)) { sendSosEmail(attempt + 1) }
         }
     }
 
@@ -153,10 +174,14 @@ class LiveShare(
         val id = incident?.id ?: return
         val batch = synchronized(queue) { ArrayList(queue) }
         if (batch.isEmpty()) return
-        if (Backend.addLocations(context, id, batch)) {
+        val code = Backend.addLocations(context, id, batch)
+        val ok = code in 200..299
+        // Refused for good (a limit, a closed incident): keeping the batch would block every later fix.
+        val refused = code in 400..499 && code != 401 && code != 408 && code != 429
+        if (ok || refused) {
             synchronized(queue) { queue.subList(0, batch.size.coerceAtMost(queue.size)).clear() }
-            log("Live location: ${batch.size} points uploaded")
         }
+        log(if (ok) "Live location: ${batch.size} points uploaded" else "Live location: upload failed ($code)")
     }
 
     /** SOS ended. [falseAlarm]: stopped right after the alert, so the emailed contacts hear it too. */
@@ -164,39 +189,54 @@ class LiveShare(
         if (stopped) return
         stopped = true
         stoppedAt = System.currentTimeMillis()
+        if (current === this) current = null
         worker.execute {
             upload()
-            val id = incident?.id
-            if (id != null) {
-                Backend.updateIncident(context, id, if (falseAlarm) "false_alarm" else "ended", battery())
-                if (falseAlarm && sosEmailSent) {
-                    Backend.sendEmail(context, Backend.EmailKind.FALSE_ALARM, emails, id, ownerName, "")
-                }
-                log("Live location: stopped")
-            }
+            falseAlarmEmailOwed = falseAlarm && sosEmailSent && !test
+            close(falseAlarm, 1)
             finishWhenDone()
         }
     }
 
-    /** Shuts the worker down once the last pieces are up (or it's been too long). */
+    /** Worker thread: marks the incident ended (so the page says so), then the false alarm email. */
+    private fun close(falseAlarm: Boolean, attempt: Int) {
+        val id = incident?.id
+        if (id == null) {
+            closed = true // Never opened: nothing to close.
+            return
+        }
+        if (!closed) {
+            closed = Backend.updateIncident(context, id, if (falseAlarm) "false_alarm" else "ended", battery())
+        }
+        if (closed && falseAlarmEmailOwed) {
+            falseAlarmEmailOwed = !Backend.sendEmail(context, Backend.EmailKind.FALSE_ALARM, emails, id, ownerName, "")
+        }
+        if (!closed || falseAlarmEmailOwed) {
+            later(backoff(attempt)) { close(falseAlarm, attempt + 1) }
+        } else {
+            log("Live location: stopped")
+        }
+    }
+
+    /** Shuts the worker down once everything is up (or it's been too long). */
     private fun finishWhenDone() {
         val now = System.currentTimeMillis()
-        val waiting = (videos.isNotEmpty() || uploading) && incident != null
+        val waiting = !closed || falseAlarmEmailOwed ||
+            (videos.isNotEmpty() || uploading.get()) && incident != null
         if ((waiting || now < stoppedAt + LAST_PIECE_MS) && now < stoppedAt + FINISH_WITHIN_MS) {
             later(5_000L) { finishWhenDone() }
             return
         }
-        if (current === this) current = null
         uploader.shutdown()
         worker.shutdown()
     }
 
-    /** A retry; dropped once SOS has ended and the worker is shutting down. */
+    /** A retry; dropped once the worker is shutting down. */
     private fun later(delayMs: Long, task: () -> Unit) {
         try {
             worker.schedule(Runnable { task() }, delayMs, TimeUnit.MILLISECONDS)
         } catch (e: RejectedExecutionException) {
-            // Stopped meanwhile.
+            // Finished meanwhile.
         }
     }
 

@@ -110,13 +110,15 @@ const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b78
 
 /** The headers that sign a request without a body (HEAD and DELETE on one object). */
 export async function signedHeaders(
-  method: "HEAD" | "DELETE",
+  method: "HEAD" | "DELETE" | "GET",
   key: string,
   store: Store = STORE,
   now: Date = new Date(),
+  params: Record<string, string> = {},
 ): Promise<{ url: string; headers: Record<string, string> }> {
   const base = new URL(store.endpoint);
-  const path = `/${store.bucket}/${uriEncode(key, true)}`;
+  const path = key ? `/${store.bucket}/${uriEncode(key, true)}` : `/${store.bucket}`;
+  const query = canonicalQuery(params);
   const { amzDate, day } = stamps(now);
   const scope = `${day}/${store.region}/s3/aws4_request`;
   const headers: Record<string, string> = {
@@ -128,7 +130,7 @@ export async function signedHeaders(
   const canonical = [
     method,
     path,
-    "",
+    query,
     names.map((n) => `${n}:${headers[n]}\n`).join(""),
     names.join(";"),
     EMPTY_SHA256,
@@ -139,7 +141,7 @@ export async function signedHeaders(
     names.join(";")
   }, Signature=${sig}`;
   const { host: _host, ...sent } = headers;
-  return { url: `${base.origin}${path}`, headers: { ...sent, Authorization: auth } };
+  return { url: `${base.origin}${path}${query ? "?" + query : ""}`, headers: { ...sent, Authorization: auth } };
 }
 
 async function request(method: "HEAD" | "DELETE", key: string): Promise<Response> {
@@ -158,4 +160,33 @@ export async function deleteObject(key: string): Promise<boolean> {
   const res = await request("DELETE", key);
   await res.body?.cancel();
   return res.ok || res.status === 404;
+}
+
+/** Every key under [prefix] (ListObjectsV2, a page at a time), or null when listing failed. */
+export async function listKeys(prefix: string): Promise<string[] | null> {
+  const keys: string[] = [];
+  let token: string | undefined;
+  for (let page = 0; page < 100; page++) {
+    const params: Record<string, string> = { "list-type": "2", prefix };
+    if (token) params["continuation-token"] = token;
+    const { url, headers } = await signedHeaders("GET", "", STORE, new Date(), params);
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
+    const xml = await res.text();
+    for (const m of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(unescapeXml(m[1]));
+    const next = xml.match(/<NextContinuationToken>([^<]*)<\/NextContinuationToken>/);
+    if (!/<IsTruncated>true<\/IsTruncated>/.test(xml) || !next) return keys;
+    token = unescapeXml(next[1]);
+  }
+  return keys;
+}
+
+function unescapeXml(s: string): string {
+  return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(
+    /&amp;/g,
+    "&",
+  );
 }

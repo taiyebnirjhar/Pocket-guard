@@ -276,3 +276,112 @@ Deno.test("deleting the account removes its recordings from storage", async () =
   await gone.body?.cancel();
   assertEquals(gone.status, 404);
 });
+
+// --- Abuse and races (from the review) -----------------------------------------------------------------
+
+Deno.test("parallel retries of the same alert email send it once", async () => {
+  mails.length = 0;
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const req = { kind: "sos", incident_id: inc.id, emails: ["race@example.com"], time: "09:00" };
+  const results = await Promise.all(
+    Array.from({ length: 5 }, () => call("/functions/v1/notify", t, req).then((r) => r.json())),
+  );
+  assertEquals(results.filter((r) => r.sent === 1).length, 1, JSON.stringify(results));
+  assertEquals(mails.filter((m) => m.to === "race@example.com").length, 1);
+});
+
+Deno.test("one address gets only a few alert emails a day, whoever sends them", async () => {
+  const target = `flood-${crypto.randomUUID()}@example.com`;
+  const codes = [];
+  for (let i = 0; i < 7; i++) {
+    const t = await signIn(); // A fresh anonymous account each time.
+    const r = await call("/functions/v1/notify", t, { kind: "test", emails: [target], name: "Someone" });
+    codes.push(r.status);
+    await r.body?.cancel();
+  }
+  assertEquals(codes, [200, 200, 200, 200, 200, 200, 429]);
+});
+
+Deno.test("an account can't email more than ten different addresses a month", async () => {
+  const t = await signIn();
+  const batch = (n: number) => Array.from({ length: 5 }, (_, i) => `a${n}-${i}-${crypto.randomUUID()}@example.com`);
+  const first = await call("/functions/v1/notify", t, { kind: "test", emails: batch(1), name: "X" });
+  const second = await call("/functions/v1/notify", t, { kind: "test", emails: batch(2), name: "X" });
+  const third = await call("/functions/v1/notify", t, { kind: "test", emails: batch(3), name: "X" });
+  assertEquals([first.status, second.status, third.status], [200, 200, 429], await third.text());
+  await first.body?.cancel();
+  await second.body?.cancel();
+});
+
+Deno.test("parallel inserts can't pass the daily incident limit", async () => {
+  const t = await signIn();
+  const results = await Promise.all(
+    Array.from(
+      { length: 25 },
+      () => call("/rest/v1/incidents", t, { owner_name: "Z" }, "POST", { Prefer: "return=minimal" }),
+    ),
+  );
+  for (const r of results) await r.body?.cancel();
+  assertEquals(results.filter((r) => r.status === 201).length, 20);
+});
+
+Deno.test("the server's clock decides: future fixes are taken as now, end times are the server's", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const future = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
+  const up = await call("/rest/v1/locations", t, [{
+    incident_id: inc.id,
+    lat: 1,
+    lng: 2,
+    accuracy: 5,
+    recorded_at: future,
+  }]);
+  assertEquals(up.status, 201, await up.text());
+  const view = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assert(new Date(view.points[0][3]).getTime() <= Date.now() + 60_000, "a future time was stored");
+
+  // A phone clock years behind can't make the link expire early (or late).
+  const end = await call(
+    `/rest/v1/incidents?id=eq.${inc.id}`,
+    t,
+    { status: "ended", ended_at: "2001-01-01T00:00:00Z" },
+    "PATCH",
+  );
+  assertEquals(end.status, 204, await end.text());
+  const ended = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assertEquals(ended.status, "ended");
+  assert(Math.abs(new Date(ended.ended_at).getTime() - Date.now()) < 60_000, ended.ended_at);
+  // And it stays ended.
+  const back = await call(`/rest/v1/incidents?id=eq.${inc.id}`, t, { status: "active" }, "PATCH");
+  assert(back.status >= 400, `reopened: ${back.status}`);
+  await back.body?.cancel();
+});
+
+Deno.test("parallel upload requests can't pass the per-SOS limit", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const ask = () =>
+    media(t, { action: "upload", incident_id: inc.id, kind: "video", bytes: 10, content_type: "video/mp4" });
+  const results = await Promise.all(Array.from({ length: 45 }, ask));
+  assertEquals(results.filter((r) => r.status === 200).length, 40);
+});
+
+Deno.test("deleting the account also removes uploads that were never confirmed", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const up = await media(t, {
+    action: "upload",
+    incident_id: inc.id,
+    kind: "video",
+    bytes: 10,
+    content_type: "video/mp4",
+  });
+  await (await fetch(up.body.url, { method: "PUT", headers: up.body.headers, body: new Uint8Array(10) })).body
+    ?.cancel();
+  // No "done": the file is in storage, but nothing lists it.
+  const objectUrl = up.body.url.split("?")[0];
+  assertEquals(await fetch(objectUrl).then((r) => (r.body?.cancel(), r.status)), 200);
+  assertEquals((await call("/functions/v1/delete-account", t, {})).status, 200);
+  assertEquals(await fetch(objectUrl).then((r) => (r.body?.cancel(), r.status)), 404);
+});

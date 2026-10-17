@@ -43,6 +43,14 @@ export async function rest(path: string, init: RequestInit = {}): Promise<Respon
   });
 }
 
+/** A database function as the service (the ones only the service may call). */
+export async function rpc(name: string, args: Record<string, unknown>): Promise<unknown> {
+  const res = await rest(`rpc/${name}`, { method: "POST", body: JSON.stringify(args) });
+  if (!res.ok) throw new Error(`${name}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
 export async function deleteUser(id: string): Promise<boolean> {
   const res = await fetch(`${url}/auth/v1/admin/users/${id}`, { method: "DELETE", headers: serviceHeaders() });
   await res.body?.cancel();

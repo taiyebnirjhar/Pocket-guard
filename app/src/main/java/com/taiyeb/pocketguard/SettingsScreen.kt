@@ -8,6 +8,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -39,6 +41,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,7 +124,7 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
 private fun OnlineSettings() {
     val context = LocalContext.current
     var live by remember { mutableStateOf(Prefs.liveLocation(context)) }
-    var confirming by remember { mutableStateOf(false) }
+    var confirming by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<Int?>(null) }
     GlassCard {
@@ -156,7 +159,7 @@ private fun OnlineSettings() {
                             result = if (ok) R.string.online_deleted else R.string.online_delete_failed
                         }
                     }.start()
-                }) { Text(stringResource(R.string.online_delete_action), color = Purple, fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.online_delete_action), color = Lavender, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
@@ -236,7 +239,9 @@ private fun SetupChecklist(setup: SetupStatus) {
             ok = null,
             fixLabel = stringResource(R.string.action_open),
         ) { SetupActions.secureLock(context) }
-        CheckRow(R.drawable.ic_bell, stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
+        if (Build.VERSION.SDK_INT < 35) {
+            CheckRow(R.drawable.ic_bell, stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
+        }
         CheckRow(
             R.drawable.ic_bolt,
             stringResource(R.string.setup_autostart),
@@ -303,7 +308,7 @@ private fun LanguagePicker() {
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(if (selected) Purple else Track)
-                        .clickable(role = Role.RadioButton) { Language.set(context, tag) }
+                        .selectable(selected = selected, role = Role.RadioButton) { Language.set(context, tag) }
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                 )
             }

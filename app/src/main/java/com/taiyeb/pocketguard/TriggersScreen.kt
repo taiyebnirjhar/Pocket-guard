@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +57,7 @@ fun TriggersScreen(refreshKey: Int) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
-    var keysDisclosure by remember { mutableStateOf(false) }
+    var keysDisclosure by rememberSaveable { mutableStateOf(false) }
     val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
     val askRecord = rememberDisclosedPermission(
         R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
@@ -91,8 +92,8 @@ fun TriggersScreen(refreshKey: Int) {
                 }
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
-                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off)) { keysDisclosure = true }
-                    if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash)) { SosSetup.openSettings(context) }
+                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { keysDisclosure = true }
+                    if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash), stringResource(R.string.action_open_settings)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }
@@ -123,7 +124,7 @@ fun TriggersScreen(refreshKey: Int) {
                     TextButton(onClick = {
                         keysDisclosure = false
                         SosSetup.openSettings(context)
-                    }) { Text(stringResource(R.string.sos_keys_agree), color = Purple, fontWeight = FontWeight.Bold) }
+                    }) { Text(stringResource(R.string.sos_keys_agree), color = Lavender, fontWeight = FontWeight.Bold) }
                 },
                 dismissButton = {
                     TextButton(onClick = { keysDisclosure = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }

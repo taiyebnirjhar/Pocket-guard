@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit) {
+fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit, onOpenTriggers: () -> Unit) {
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val armedAt by GuardState.armedAt.collectAsState()
@@ -66,6 +66,9 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     // Re-read on resume: test mode switches itself off after an hour.
     val testMode = remember(refreshKey, phase) { Prefs.testMode(context) }
     val grace = remember(refreshKey) { Prefs.graceSeconds(context) }
+    // Contacts set up but the message or people changed since approval (or the language, or the
+    // live link setting): SOS alerts are off until the owner approves again.
+    val alertsOff = remember(refreshKey) { EmergencyContacts.needsReapproval(context) }
     val lastAlarm = remember(historyVersion) { History.load(context).maxOfOrNull { it.startedAt } }
     val confirmTitle = stringResource(R.string.home_confirm_disarm)
 
@@ -158,6 +161,19 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
             Spacer(Modifier.height(12.dp))
             GlassCard(onClick = { GuardService.requestSos("app") }) {
                 SettingRow(R.drawable.ic_warning, stringResource(R.string.home_sos), stringResource(R.string.tile_sos_ready), tint = Red)
+            }
+        }
+        if (alertsOff) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard(onClick = onOpenTriggers) {
+                SettingRow(
+                    R.drawable.ic_warning,
+                    stringResource(R.string.home_alerts_off),
+                    stringResource(R.string.home_alerts_off_sub),
+                    tint = Amber,
+                ) {
+                    Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
+                }
             }
         }
         if (left > 0) {

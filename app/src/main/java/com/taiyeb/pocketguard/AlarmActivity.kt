@@ -148,8 +148,10 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         val context = androidx.compose.ui.platform.LocalContext.current
+        // Before the first unlock after a restart there's nowhere to save a recording.
         val canRecord = remember {
-            context.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                context.getSystemService(android.os.UserManager::class.java).isUserUnlocked
         }
         if (sos && canRecord) {
             // Said out loud on the screen too: being recorded makes people back off.

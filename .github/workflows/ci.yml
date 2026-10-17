@@ -130,6 +130,11 @@ jobs:
         working-directory: supabase
         run: deno test --allow-net --allow-env tests/
 
+      - name: The daily database jobs run
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 \
+            -c 'do $$ declare j record; begin for j in select command from cron.job loop execute j.command; end loop; end $$;'
+
       - name: Deployment check, run locally
         working-directory: supabase
         run: deno run --allow-net --allow-env tests/smoke.ts

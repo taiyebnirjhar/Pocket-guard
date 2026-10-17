@@ -2,6 +2,9 @@
 <resources>
     <string name="app_name" translatable="false">Pocket Guard</string>
     <string name="action_allow">Allow</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_turn_on">Turn on</string>
+    <string name="action_review">Review</string>
     <string name="action_fix">Fix</string>
     <string name="action_open">Open</string>
     <string name="alarm_stolen">THIS PHONE IS STOLEN</string>
@@ -9,6 +12,8 @@
     <string name="alarm_owner_unlock">I\'m the owner, unlock</string>
     <string name="channel_status">Guard status</string>
     <string name="channel_alarm">Theft alarm</string>
+    <string name="channel_problems">Guard problems</string>
+    <string name="notify_restore">After the restart, Android keeps the camera, microphone and location off for Pocket Guard until you open it. Tap to open it once: intruder photos, SOS video and location come back.</string>
     <string name="phase_off">Guard is off</string>
     <string name="phase_off_hint">Tap the round button before you get into a crowd</string>
     <string name="phase_waiting">Armed</string>
@@ -138,6 +143,8 @@
     <string name="home_last_alarm_none">None yet</string>
     <string name="home_setup_title">Finish setup</string>
     <string name="home_setup_left">Steps left: %1$d</string>
+    <string name="home_alerts_off">SOS alerts are off</string>
+    <string name="home_alerts_off_sub">Something in the alert changed since you approved it. Tap to review and approve it again.</string>
     <string name="home_confirm_disarm">Confirm it\'s you to stop the alarm</string>
     <string name="triggers_sub">What sets off the alarm while armed</string>
     <string name="triggers_alarms">Alarms</string>
@@ -149,7 +156,7 @@
     <string name="settings_alarm">Alarm</string>
     <string name="settings_delay">Unlock delay</string>
     <string name="settings_help">Help</string>
-    <string name="history_clear_confirm">Delete all alarms and intruder photos?</string>
+    <string name="history_clear_confirm">Delete all alarms with their intruder photos and SOS recordings? This can\'t be undone.</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_delete">Delete</string>
     <string name="ready_title">Get it ready</string>
@@ -182,7 +189,7 @@
     <string name="sos_title">SOS alarm</string>
     <string name="sos_speech">Help! Stop it! Help!</string>
     <string name="alarm_help">I NEED HELP</string>
-    <string name="alarm_help_sub">This person called for help. Please stay with them, or call 999.</string>
+    <string name="alarm_help_sub">This person called for help. Please stay with them, or call the local emergency number.</string>
     <string name="triggers_sos">SOS: press power, then hold volume + and −</string>
     <string name="triggers_sos_sub">While armed and locked: press power to wake the screen, then hold both volume buttons for 3 s. A loud whistle and a spoken call for help, and it records video with sound until you unlock.</string>
     <string name="test_10">SOS: armed and locked, press power, then hold volume + and − together for 3 s: a buzz, a whistle and a spoken call for help, and recording starts. Unlock to stop; the video is in History.</string>
@@ -193,13 +200,14 @@
     <string name="test_9">On a table: lock it and lay it down (face-up or face-down). Two short buzzes: guarded (face-up about 1 s, face-down about 4 s). Slide, lift or tilt it: beeps after 1.5 s. Lift it and put it back down still: they stop.</string>
     <string name="sos_accessibility_label">Pocket Guard SOS buttons</string>
     <string name="sos_accessibility_description">Lets Pocket Guard see both volume buttons held together for 3 seconds, even with the screen off, to sound the SOS alarm. It only watches the volume buttons: it reads nothing on screen and every button works as usual.</string>
-    <string name="sos_keys_off">To use the SOS buttons, turn on "Pocket Guard SOS buttons" in Accessibility.</string>
+    <string name="sos_keys_off">To use the SOS buttons, turn on \"Pocket Guard SOS buttons\" in Accessibility.</string>
     <string name="sos_shortcut_clash">Your phone\'s accessibility shortcut also uses volume + and − held. Turn the shortcut off, or SOS will open it too.</string>
     <string name="permission_sos_record">Recording needs the Camera and Microphone permissions.</string>
     <string name="sos_legal">Recording people without their consent is against the law in some places.</string>
     <string name="sos_recordings">Recordings</string>
     <string name="alarm_help_recording">Recording</string>
     <string name="history_share">Share</string>
+    <string name="history_play">Play recording %1$d</string>
     <string name="sos_keys_disclosure_title">SOS buttons use Accessibility</string>
     <string name="sos_keys_disclosure">Pocket Guard uses the Accessibility service to detect volume + and − held together for 3 seconds, to start the SOS alarm and recording, even on the lock screen and when the app is closed. It only watches the volume buttons: it does not read your screen, collect what you type, or change any settings, and the buttons keep working as usual. Nothing it sees leaves your phone. You can turn it off any time in Accessibility settings.</string>
     <string name="sos_keys_agree">I agree, open settings</string>
@@ -209,7 +217,7 @@
     <string name="disclose_title">Before you allow this</string>
     <string name="disclose_continue">Continue</string>
     <string name="disclose_not_now">Not now</string>
-    <string name="disclose_camera">Pocket Guard uses the camera to take photos of whoever is holding your phone when the theft siren starts, even when the app is closed or the phone is locked. The photos stay on your phone, in History, and are deleted with it.</string>
+    <string name="disclose_camera">Pocket Guard uses the camera to take photos of whoever is holding your phone when the theft siren starts, even when the app is closed or the phone is locked. The photos stay on your phone, in History, where you can delete them.</string>
     <string name="disclose_sos_record">Pocket Guard uses the camera and microphone to record video with sound when you start SOS, until you unlock, even when the phone is locked. The recordings are saved on your phone, in History. When your SOS alert with the live location link is on, the video is also uploaded so the people you approved can watch it from that link; otherwise you choose if and with whom to share it.</string>
     <string name="disclose_bluetooth">Pocket Guard uses the names of your paired Bluetooth devices so you can pick which earbuds or watch count, to warn you when they lose the phone and to offer arming when they connect. This stays on your phone.</string>
     <string name="disclose_activity">Pocket Guard uses physical activity (being on a bus or train) to remind you to arm the guard, even when the app is closed. Nothing is stored or shared.</string>
@@ -218,6 +226,7 @@
     <string name="contacts_section">Emergency contacts</string>
     <string name="contacts_title">Alerts on SOS</string>
     <string name="contacts_sub">When you start SOS, these people get your location by SMS (and by email, if you add an address), 5 s later unless you cancel, then updates if you move.</string>
+    <string name="contacts_sub_play">When you start SOS, an SMS with your location is ready for these people 5 s later (unless you cancel): tap Send SMS and send it from your messages app. People with an email address get it by email by themselves.</string>
     <string name="contacts_name">Your name in alerts</string>
     <string name="contacts_add_pick">Add from contacts</string>
     <string name="contacts_add_number">Add by hand</string>
@@ -225,17 +234,19 @@
     <string name="contacts_contact_name">Name</string>
     <string name="contacts_number">Phone number</string>
     <string name="contacts_remove">Remove</string>
+    <string name="contacts_remove_who">Remove %1$s</string>
     <string name="contacts_preview">They will get:</string>
     <string name="contacts_approve">Approve</string>
     <string name="contacts_approved">Approved: %1$d people get this when you start SOS.</string>
     <string name="contacts_not_approved">Alerts are off until you approve the message and the people. Tap to review.</string>
+    <string name="contacts_none_reachable">Nobody here can get an alert yet: add a phone number (or an email address with online features on).</string>
     <string name="contacts_need_name">Enter your name for the alert first.</string>
     <string name="contacts_test">Send a test</string>
     <string name="contacts_allow_location">Allow location</string>
     <string name="contacts_confirm_title">Approve SOS alerts</string>
-    <string name="contacts_confirm">When you start SOS, Pocket Guard will send this SMS to %1$s, %3$d seconds later unless you cancel, and an update if you move:
-
-%2$s</string>
+    <string name="contacts_confirm">When you start SOS, Pocket Guard will send this SMS to %1$s, %3$d seconds later unless you cancel, and an update if you move:\n\n%2$s</string>
+    <string name="contacts_confirm_play">When you start SOS, Pocket Guard will prepare this SMS to %1$s, %3$d seconds later unless you cancel. Tap Send SMS to open your messages app with it filled in, then send it; tap again later for the newest location:\n\n%2$s</string>
+    <string name="contacts_confirm_more">\n\nIf you move, updates read: %1$s\nIf you stop SOS right after it goes: %2$s</string>
     <string name="disclose_location">Pocket Guard uses your location only while SOS is running, to put it in the alerts to your emergency contacts (and on the private live map their link opens, when that is on), even when the phone is locked. It is not used at any other time.</string>
     <string name="disclose_location_sms">Pocket Guard uses your location only while SOS is running, and sends it by SMS from your phone to the emergency contacts you approved (and to the private live map their link opens, when that is on), even when the phone is locked. It is not used at any other time.</string>
     <string name="alert_countdown">Alerting %1$s in %2$d s</string>

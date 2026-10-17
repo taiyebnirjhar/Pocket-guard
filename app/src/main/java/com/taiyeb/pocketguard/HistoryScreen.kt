@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,7 +47,7 @@ fun HistoryScreen() {
     val context = LocalContext.current
     val version by History.version.collectAsState()
     val incidents = remember(version) { History.load(context) }
-    var confirmClear by remember { mutableStateOf(false) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
 
     TabPage(
         stringResource(R.string.history_title),
@@ -138,12 +141,13 @@ private fun IncidentCard(incident: Incident) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 videos.forEachIndexed { i, file ->
-                    TextButton(onClick = { openVideo(context, file) }) {
-                        Text("▶ ${i + 1}", color = Purple, fontSize = 14.sp)
+                    val label = stringResource(R.string.history_play, i + 1)
+                    TextButton(onClick = { openVideo(context, file) }, modifier = Modifier.semantics { contentDescription = label }) {
+                        Text("▶ ${i + 1}", color = Lavender, fontSize = 14.sp)
                     }
                 }
                 TextButton(onClick = { shareVideos(context, videos) }) {
-                    Text(stringResource(R.string.history_share), color = Purple, fontSize = 14.sp)
+                    Text(stringResource(R.string.history_share), color = Lavender, fontSize = 14.sp)
                 }
             }
         }

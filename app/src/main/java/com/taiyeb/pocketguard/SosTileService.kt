@@ -25,7 +25,12 @@ class SosTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        if (!GuardService.requestSos("tile")) openApp()
+        if (GuardService.requestSos("tile")) return
+        try {
+            openApp()
+        } catch (e: Exception) {
+            // Before the first unlock the app itself can't open yet.
+        }
     }
 
     @SuppressLint("StartActivityAndCollapseDeprecated") // The Intent overload only runs below API 34.

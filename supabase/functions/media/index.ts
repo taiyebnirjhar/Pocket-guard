@@ -5,12 +5,14 @@
 // POST { action: "done", media_id }                                                    (signed in)
 // POST { action: "view", token, media_id }                     (anyone with the incident's token)
 
-import { json, rest, userOf } from "../_shared/supabase.ts";
+import { json, rest, rpc, userOf } from "../_shared/supabase.ts";
 import { objectSize, presign, storageConfigured } from "../_shared/s3.ts";
 
 const MAX_BYTES = 25 * 1024 * 1024; // One piece: a minute of 480p video is about 12 MB.
-const MAX_PER_INCIDENT = 20;
+const MAX_PER_INCIDENT = 40; // 40 minutes of one-minute pieces.
 const MAX_BYTES_PER_DAY = 600 * 1024 * 1024; // Per owner.
+// Everything stored, across all accounts: below R2's free 10 GB (files go after 90 days).
+const MAX_STORED_BYTES = Number(Deno.env.get("MEDIA_STORAGE_CAP") || 8 * 1024 * 1024 * 1024);
 const UPLOAD_HOURS_AFTER_END = 6; // The last pieces can still be on their way.
 const TYPES: Record<string, string> = { video: "video/mp4", photo: "image/jpeg" };
 const EXT: Record<string, string> = { video: "mp4", photo: "jpg" };
@@ -40,34 +42,22 @@ async function upload(req: Request, body: Record<string, unknown>): Promise<Resp
   if (!(kind in TYPES) || body.content_type !== TYPES[kind]) return reply({ error: "bad kind" }, 400);
   if (!Number.isInteger(bytes) || bytes <= 0 || bytes > MAX_BYTES) return reply({ error: "bad size" }, 413);
 
-  const after = new Date(Date.now() - UPLOAD_HOURS_AFTER_END * 3600 * 1000).toISOString();
-  const incidents = await (await rest(
-    `incidents?id=eq.${incidentId}&user_id=eq.${user.id}&or=(status.eq.active,ended_at.gt.${after})&select=id`,
-  )).json();
-  if (incidents.length !== 1) return reply({ error: "no such open incident" }, 404);
-
-  const count = await (await rest(`media?incident_id=eq.${incidentId}&select=id`)).json();
-  if (count.length >= MAX_PER_INCIDENT) return reply({ error: "too many for this incident" }, 429);
-  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const today = await (await rest(`media?user_id=eq.${user.id}&created_at=gt.${since}&select=bytes`)).json();
-  const used = today.reduce((sum: number, r: { bytes: number }) => sum + r.bytes, 0);
-  if (used + bytes > MAX_BYTES_PER_DAY) return reply({ error: "daily limit" }, 429);
-
+  // Checked and recorded in one locked step, so parallel requests can't pass the limits together.
   const key = `u/${user.id}/${incidentId}/${crypto.randomUUID()}.${EXT[kind]}`;
-  const insert = await rest("media?select=id", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      incident_id: incidentId,
-      user_id: user.id,
-      kind,
-      object_key: key,
-      content_type: TYPES[kind],
-      bytes,
-    }),
-  });
-  if (!insert.ok) return reply({ error: "could not record it" }, 500);
-  const [row] = await insert.json();
+  const claim = await rpc("claim_media", {
+    p_user: user.id,
+    p_incident: incidentId,
+    p_kind: kind,
+    p_key: key,
+    p_type: TYPES[kind],
+    p_bytes: bytes,
+    p_max_incident: MAX_PER_INCIDENT,
+    p_max_user_day: MAX_BYTES_PER_DAY,
+    p_max_all_stored: MAX_STORED_BYTES,
+    p_upload_hours: UPLOAD_HOURS_AFTER_END,
+  }) as { id?: number; error?: string; status?: number };
+  if (!claim.id) return reply({ error: claim.error }, claim.status ?? 500);
+  const row = { id: claim.id };
   const headers = { "content-type": TYPES[kind], "content-length": String(bytes) };
   return reply({ media_id: row.id, url: await presign("PUT", key, 900, headers), headers });
 }
@@ -93,14 +83,10 @@ async function view(body: Record<string, unknown>): Promise<Response> {
   const token = String(body.token ?? "");
   const id = Number(body.media_id);
   if (!/^[0-9a-f]{48}$/.test(token) || !Number.isInteger(id)) return reply({ error: "bad request" }, 400);
-  // The same rule as the live page: until a day after the SOS ended.
-  const after = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const rows = await (await rest(
-    `media?id=eq.${id}&uploaded=is.true&select=object_key,incidents!inner(viewer_token,ended_at)` +
-      `&incidents.viewer_token=eq.${token}&incidents.or=(ended_at.is.null,ended_at.gt.${after})`,
-  )).json();
-  if (!Array.isArray(rows) || rows.length !== 1) return reply({ error: "not found" }, 404);
-  return reply({ url: await presign("GET", rows[0].object_key, 600) });
+  // The same rule as the live page (until a day after the SOS ended), with the token in the body.
+  const found = await rpc("media_for_viewer", { p_token: token, p_media: id }) as { key: string } | null;
+  if (!found) return reply({ error: "not found" }, 404);
+  return reply({ url: await presign("GET", found.key, 600) });
 }
 
 Deno.serve(async (req) => {

@@ -8,13 +8,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +34,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -40,16 +45,20 @@ import androidx.compose.ui.unit.sp
  * Who SOS alerts and what they get. Nothing is sent until the owner has read the exact message and
  * the list of people and approved them; any change asks again.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EmergencyContactsCard() {
     val context = LocalContext.current
     var version by remember { mutableIntStateOf(0) }
     val contacts = remember(version) { EmergencyContacts.list(context) }
     val approved = remember(version) { EmergencyContacts.approved(context) }
+    val reachable = remember(version) { contacts.filter { EmergencyContacts.reachable(context, it) } }
     var name by remember { mutableStateOf(EmergencyContacts.ownerName(context)) }
-    var addingNumber by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<Int?>(null) }
-    var confirming by remember { mutableStateOf(false) }
+    var addingNumber by rememberSaveable { mutableStateOf(false) }
+    // A picked contact whose number can't be texted as it is: the owner fixes it before it's added.
+    var draft by remember { mutableStateOf<EmergencyContact?>(null) }
+    var editing by rememberSaveable { mutableStateOf<Int?>(null) }
+    var confirming by rememberSaveable { mutableStateOf(false) }
 
     val save = { list: List<EmergencyContact> ->
         EmergencyContacts.save(context, list)
@@ -67,7 +76,9 @@ fun EmergencyContactsCard() {
             context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val contact = EmergencyContact(cursor.getString(0).orEmpty(), cursor.getString(1).orEmpty())
-                    if (contact.phone.isNotBlank() && contacts.size < EmergencyContacts.MAX) save(contacts + contact)
+                    if (contacts.size < EmergencyContacts.MAX) {
+                        if (EmergencyContacts.canText(contact.phone)) save(contacts + contact) else draft = contact
+                    }
                 }
             }
         }
@@ -82,7 +93,7 @@ fun EmergencyContactsCard() {
         permissions,
     ) { GuardService.refreshForeground() }
 
-    SettingRow(R.drawable.ic_bell, stringResource(R.string.contacts_title), stringResource(R.string.contacts_sub))
+    SettingRow(R.drawable.ic_bell, stringResource(R.string.contacts_title), stringResource(if (BuildConfig.PLAY_STORE) R.string.contacts_sub_play else R.string.contacts_sub))
     OutlinedTextField(
         value = name,
         onValueChange = {
@@ -107,20 +118,24 @@ fun EmergencyContactsCard() {
                     fontSize = 13.sp,
                 )
             }
-            TextButton(onClick = { save(contacts.filterIndexed { j, _ -> j != i }) }) {
+            val removeLabel = stringResource(R.string.contacts_remove_who, contact.name.ifBlank { contact.phone.ifBlank { contact.email } })
+            TextButton(
+                onClick = { save(contacts.filterIndexed { j, _ -> j != i }) },
+                modifier = Modifier.semantics { contentDescription = removeLabel },
+            ) {
                 Text(stringResource(R.string.contacts_remove), color = Lavender)
             }
         }
     }
     if (contacts.size < EmergencyContacts.MAX) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
                 runCatching {
                     pick.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
                 }
-            }) { Text(stringResource(R.string.contacts_add_pick), color = Purple, fontWeight = FontWeight.Bold) }
+            }) { Text(stringResource(R.string.contacts_add_pick), color = Lavender, fontWeight = FontWeight.Bold) }
             TextButton(onClick = { addingNumber = true }) {
-                Text(stringResource(R.string.contacts_add_number), color = Purple, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.contacts_add_number), color = Lavender, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -137,24 +152,38 @@ fun EmergencyContactsCard() {
                 .padding(12.dp),
         )
         if (approved) {
-            Text(stringResource(R.string.contacts_approved, contacts.size), color = Lavender, fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.contacts_approved, reachable.size), color = Lavender, fontSize = 13.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { SosAlerts.sendTest(context) }) {
-                    Text(stringResource(R.string.contacts_test), color = Purple, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.contacts_test), color = Lavender, fontWeight = FontWeight.Bold)
                 }
                 if (!SosAlerts.hasLocation(context)) {
                     TextButton(onClick = askPermissions) {
-                        Text(stringResource(R.string.contacts_allow_location), color = Purple, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.contacts_allow_location), color = Lavender, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         } else {
             PermissionWarning(
-                stringResource(if (name.isBlank()) R.string.contacts_need_name else R.string.contacts_not_approved),
-            ) { if (name.isNotBlank()) confirming = true }
+                stringResource(
+                    when {
+                        name.isBlank() -> R.string.contacts_need_name
+                        reachable.isEmpty() -> R.string.contacts_none_reachable
+                        else -> R.string.contacts_not_approved
+                    },
+                ),
+                if (name.isNotBlank() && reachable.isNotEmpty()) stringResource(R.string.action_review) else null,
+            ) { confirming = true }
         }
     }
 
+    draft?.let { picked ->
+        ContactDialog(
+            initial = picked,
+            onSave = { save(contacts + it) },
+            onDismiss = { draft = null },
+        )
+    }
     if (addingNumber) ContactDialog(
         initial = null,
         onSave = { save(contacts + it) },
@@ -174,10 +203,14 @@ fun EmergencyContactsCard() {
             text = {
                 Text(
                     stringResource(
-                        R.string.contacts_confirm,
-                        contacts.joinToString(", ") { it.name.ifBlank { it.phone.ifBlank { it.email } } },
+                        if (BuildConfig.PLAY_STORE) R.string.contacts_confirm_play else R.string.contacts_confirm,
+                        reachable.joinToString(", ") { it.name.ifBlank { it.phone.ifBlank { it.email } } },
                         EmergencyContacts.previewText(context),
                         (AlertPlan.COUNTDOWN_MS / 1000).toInt(),
+                    ) + stringResource(
+                        R.string.contacts_confirm_more,
+                        EmergencyContacts.previewUpdateText(context),
+                        EmergencyContacts.falseAlarmText(context),
                     ) + if (Backend.enabled(context)) "\n\n" + stringResource(R.string.contacts_confirm_live) else "",
                 )
             },
@@ -186,8 +219,13 @@ fun EmergencyContactsCard() {
                     confirming = false
                     EmergencyContacts.approve(context)
                     version++
+                    // Signed in now, so an SOS doesn't wait for it (or fail on a busy network).
+                    if (Backend.enabled(context)) {
+                        val app = context.applicationContext
+                        Thread { Backend.signIn(app) }.start()
+                    }
                     askPermissions()
-                }) { Text(stringResource(R.string.contacts_approve), color = Purple, fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.contacts_approve), color = Lavender, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.action_cancel), color = Lavender) }
@@ -204,9 +242,9 @@ fun EmergencyContactsCard() {
 @Composable
 private fun ContactDialog(initial: EmergencyContact?, onSave: (EmergencyContact) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var phone by remember { mutableStateOf(initial?.phone.orEmpty()) }
-    var email by remember { mutableStateOf(initial?.email.orEmpty()) }
+    var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
+    var phone by rememberSaveable { mutableStateOf(initial?.phone.orEmpty()) }
+    var email by rememberSaveable { mutableStateOf(initial?.email.orEmpty()) }
     val phoneOk = EmergencyContacts.normalize(phone).count { it.isDigit() } >= 6
     val emailOk = EmergencyContacts.looksLikeEmail(email)
     // An address only counts when it can be emailed, which needs the online part.
@@ -246,7 +284,7 @@ private fun ContactDialog(initial: EmergencyContact?, onSave: (EmergencyContact)
             ) {
                 Text(
                     stringResource(if (initial == null) R.string.contacts_add else R.string.contacts_save),
-                    color = Purple,
+                    color = Lavender,
                     fontWeight = FontWeight.Bold,
                 )
             }

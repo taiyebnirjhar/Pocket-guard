@@ -15,6 +15,7 @@
     gone: "এই লিংকটি আর কাজ করে না। SOS শেষ হওয়ার এক দিন পর অবস্থান মুছে যায়।",
     offline: "সংযোগ নেই, আবার চেষ্টা হচ্ছে…",
     recordings: "রেকর্ডিং (SOS চালু হওয়ার পর থেকে)", video: function (n, t) { return "▶ ভিডিও " + n + " · " + t; },
+    photo: function (n, t) { return "ছবি " + n + " · " + t; },
     loading: "খুলছে…", failed: "খোলা গেল না, আবার চাপুন",
   } : {
     title: function (n) { return n + "'s location"; },
@@ -27,6 +28,7 @@
     gone: "This link no longer works. The location is deleted a day after the SOS ends.",
     offline: "No connection, trying again…",
     recordings: "Recordings (from when SOS started)", video: function (n, t) { return "▶ Video " + n + " · " + t; },
+    photo: function (n, t) { return "Photo " + n + " · " + t; },
     loading: "Opening…", failed: "Couldn't open it, tap to try again",
   };
   if (bn) document.documentElement.lang = "bn";
@@ -34,7 +36,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var token = (location.hash.match(/[#&]t=([0-9a-f]{48})/) || [])[1];
   var map = null, trail = null, marker = null, circle = null, fitted = false, timer = null;
-  var listed = {};
+  var listed = {}, counts = { video: 0, photo: 0 };
 
   function show(id, on) { $(id).classList.toggle("hidden", !on); }
   function message(text) {
@@ -106,22 +108,23 @@
   function renderMedia(items) {
     show("media", items.length > 0);
     $("media-title").textContent = T.recordings;
-    items.forEach(function (m, i) {
-      var id = m[0];
+    items.forEach(function (m) {
+      var id = m[0], kind = m[1] === "photo" ? "photo" : "video";
       if (listed[id]) return;
       var item = document.createElement("div");
       item.className = "item";
       var button = document.createElement("button");
-      var label = T.video(i + 1, time(m[2]));
+      counts[kind]++;
+      var label = T[kind](counts[kind], time(m[2]));
       button.textContent = label;
-      button.onclick = function () { play(id, item, button, label); };
+      button.onclick = function () { play(id, kind, item, button, label); };
       item.appendChild(button);
       $("media-list").appendChild(item);
       listed[id] = true;
     });
   }
 
-  function play(id, item, button, label) {
+  function play(id, kind, item, button, label) {
     button.textContent = T.loading;
     fetch(cfg.url + "/functions/v1/media", {
       method: "POST",
@@ -131,12 +134,18 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function (res) {
-      var video = document.createElement("video");
-      video.controls = true;
-      video.playsInline = true;
-      video.autoplay = true;
-      video.src = res.url;
-      item.replaceChild(video, button);
+      var el;
+      if (kind === "photo") {
+        el = document.createElement("img");
+        el.alt = label;
+      } else {
+        el = document.createElement("video");
+        el.controls = true;
+        el.playsInline = true;
+        el.autoplay = true;
+      }
+      el.src = res.url;
+      item.replaceChild(el, button);
     }).catch(function () {
       button.textContent = T.failed;
       setTimeout(function () { button.textContent = label; }, 4000);

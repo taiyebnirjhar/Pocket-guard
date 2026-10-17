@@ -24,6 +24,7 @@ class IncidentRecorder(
     private val camera = IntruderCamera(context, owner)
     private val video = SosVideo(context, owner)
     private var current: Incident? = null
+    private var sosRecording = false
 
     /** First warning: start a history entry (the owner may still unlock). */
     fun begin(trigger: Trigger) {
@@ -38,7 +39,8 @@ class IncidentRecorder(
             begin(trigger)
             current!!
         }
-        if (incident.escalated) return
+        // Already a theft siren: only a call for help on top of it still starts the recording.
+        if (incident.escalated && (trigger != Trigger.SOS || sosRecording)) return
         incident.escalated = true
         History.save(context, incident)
 
@@ -47,6 +49,7 @@ class IncidentRecorder(
         if (trigger == Trigger.SOS) {
             // A call for help: record what happens instead of photographing the owner.
             if (storageUnlocked) {
+                sosRecording = true
                 // Shared live: smaller pieces, so they upload quickly over mobile data.
                 val live = LiveShare.current
                 video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null) { file ->
@@ -69,6 +72,7 @@ class IncidentRecorder(
 
     fun end(outcome: Outcome) {
         video.stop()
+        sosRecording = false
         val incident = current ?: return
         current = null
         incident.endedAt = System.currentTimeMillis()
