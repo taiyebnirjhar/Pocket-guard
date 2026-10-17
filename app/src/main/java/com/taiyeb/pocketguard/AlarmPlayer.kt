@@ -96,18 +96,23 @@ class AlarmPlayer(context: Context) {
     /**
      * Stage 1: beeps on the media stream (which goes to the earbuds when connected) plus vibration.
      * After [silentMs] of silence: when the person holding it is likely looking at it, the owner
-     * gets a moment to unlock without a sound.
+     * gets a moment to unlock without a sound. [onTable]: beeps on the alarm stream (heard through
+     * silent mode) and no vibration, which would keep a phone put back down from ever being still.
      */
-    fun startWarning(silentMs: Long = 0) {
+    fun startWarning(silentMs: Long = 0, onTable: Boolean = false) {
         stop()
         if (silentMs > 0) {
-            handler.postDelayed({ beginWarning() }, silentMs)
+            handler.postDelayed({ beginWarning(onTable) }, silentMs)
         } else {
-            beginWarning()
+            beginWarning(onTable)
         }
     }
 
-    private fun beginWarning() {
+    private fun beginWarning(onTable: Boolean) {
+        if (onTable) {
+            play(Tones.beeps(), AudioAttributes.USAGE_ALARM)
+            return
+        }
         if (Audio.headsetConnected(audio)) {
             val current = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
             val target = (audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 0.6f).roundToInt()
@@ -121,7 +126,8 @@ class AlarmPlayer(context: Context) {
     }
 
     /** Stage 2: siren on the alarm stream (plays through silent mode) and strong vibration. */
-    fun startSiren(quiet: Boolean) {
+    /** [vibrateAfterMs]: a table siren holds its vibration while the phone may still be put back. */
+    fun startSiren(quiet: Boolean, vibrateAfterMs: Long = 0) {
         stop()
         overrideDoNotDisturb()
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
@@ -129,7 +135,8 @@ class AlarmPlayer(context: Context) {
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
         handler.post(volumeLock)
         play(Tones.siren(), AudioAttributes.USAGE_ALARM)
-        vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 200), 0))
+        val pattern = VibrationEffect.createWaveform(longArrayOf(0, 600, 200), 0)
+        if (vibrateAfterMs > 0) handler.postDelayed({ vibrate(pattern) }, vibrateAfterMs) else vibrate(pattern)
     }
 
     /** Torch strobe. Started separately because the intruder photo needs the camera first. */

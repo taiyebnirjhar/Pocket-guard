@@ -55,6 +55,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
         /** Warnings where the owner is likely looking at the phone start this much later. */
         private const val OWNER_SILENT_MS = 1500L
+
+        /** A table siren buzzes only once the phone can no longer be put back down. */
+        private const val TABLE_SIREN_QUIET_VIBRATION_MS = 10_000L
         private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
@@ -156,7 +159,13 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 onUnlocked(current)
                 return
             }
-            handler.postDelayed(this, 1000)
+            // Picked up off the table and answered: in vibrate mode no ring told us it was a call.
+            val mode = audioManager.mode
+            if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
+                current.onCallAnswered()
+                if (!current.phase.isAlarm) return
+            }
+            handler.postDelayed(this, 500)
         }
     }
 
@@ -438,18 +447,30 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     /** Calls at the ear cover and uncover the proximity sensor, which looks like a pocket. */
     override fun inCall() = Audio.callAtEar(audioManager)
 
-    override fun config() = GuardEngine.Config(
-        graceMs = Prefs.graceSeconds(this) * 1000L,
-        airplaneAlarm = Prefs.airplaneAlarm(this),
-        chargerAlarm = Prefs.chargerAlarm(this),
-        earbudsAlarm = Prefs.earbudsAlarm(this),
-        tableGuard = Prefs.tableGuard(this),
-    )
+    /** Read at most once a second: the engine asks often, and each read opens the prefs. */
+    override fun config(): GuardEngine.Config {
+        val now = SystemClock.elapsedRealtime()
+        cachedConfig?.let { if (now - configReadAt < 1000L) return it }
+        configReadAt = now
+        return GuardEngine.Config(
+            graceMs = Prefs.graceSeconds(this) * 1000L,
+            airplaneAlarm = Prefs.airplaneAlarm(this),
+            chargerAlarm = Prefs.chargerAlarm(this),
+            earbudsAlarm = Prefs.earbudsAlarm(this),
+            tableGuard = Prefs.tableGuard(this),
+        ).also { cachedConfig = it }
+    }
+
+    private var cachedConfig: GuardEngine.Config? = null
+    private var configReadAt = 0L
 
     /** Locked with a PIN, pattern or password: Smart Lock and lock delays don't count. */
     override fun credentialLocked() = keyguardManager.isDeviceLocked
 
-    override fun ringing() = audioManager.mode == AudioManager.MODE_RINGTONE
+    override fun ringing(): Boolean {
+        val mode = audioManager.mode
+        return mode == AudioManager.MODE_RINGTONE || (Build.VERSION.SDK_INT >= 30 && mode == AudioManager.MODE_CALL_SCREENING)
+    }
 
     override fun tableTick() = alarm.tableTick()
 
@@ -488,12 +509,19 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Phase.WARNING -> {
                 // Lifted off a table or turned to look: likely the owner's own glance, so a moment
                 // of silence lets them unlock first.
-                alarm.startWarning(silentMs = if (evidence?.ownerLikelyLooking == true) OWNER_SILENT_MS else 0)
+                alarm.startWarning(
+                    silentMs = if (evidence?.ownerLikelyLooking == true) OWNER_SILENT_MS else 0,
+                    onTable = trigger == Trigger.TABLE_MOVED,
+                )
                 trigger?.let(recorder::begin)
             }
             Phase.SIREN -> {
                 Prefs.setAlarmActive(this, true)
-                alarm.startSiren(quiet = Prefs.testMode(this))
+                // On the table it may still be put back down; its own buzzing would prevent that.
+                alarm.startSiren(
+                    quiet = Prefs.testMode(this),
+                    vibrateAfterMs = if (trigger == Trigger.TABLE_MOVED) TABLE_SIREN_QUIET_VIBRATION_MS else 0,
+                )
                 Notifications.showAlarm(this)
                 trigger?.let(recorder::escalate)
             }

@@ -30,8 +30,10 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
      is brighter.
    - **Jolt**: a push or pull over 2.5 m/s² (measured as |a| away from 1 g, so turning the phone
-     can't fake it) plus the sensor staying uncovered for 1.5 s. While walking, every step is a
-     jolt, so then it takes 3 s uncovered after the steps stop.
+     can't fake it; a sideways pull, which barely changes |a|, counts when the phone ends up
+     facing the way it was) plus the sensor staying uncovered for 1.5 s. While walking, every
+     step is a jolt, so then only a jolt after the steps stop counts, and it takes 3 s uncovered
+     after they stop.
    - **Turned to look**: no jolt (a careful, gentle pull), but the phone turns 45° or more away
      from its pocket posture and the screen wakes as it turns.
    - **Into another pocket**: out for at least a second, turned 60° or more, then covered again
@@ -41,8 +43,9 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 
    Without any of these it doesn't give up: it keeps watching how the phone turns, where it goes
    and whether the screen wakes, until it goes back into the pocket or you unlock. A jolt-only
-   warning cancels itself if the sensor is covered again within 1 s (pocket fabric); the others
-   don't, since they mean a hand.
+   warning cancels itself if the sensor is covered again within 1 s (pocket fabric), though if
+   the phone was turned far meanwhile it is judged as going into another pocket; the others
+   don't cancel, since they mean a hand.
 4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s) and
    nothing else happens. With 0 there's no warning: the removal is confirmed faster (0.25 s
    uncovered, 0.5 s on motion alone) and the siren starts at once. A motion-only siren still
@@ -74,12 +77,14 @@ or a body never counts, because they rock, sink or breathe). Then:
 | Sensor uncovered together with any lift-like motion | Warning |
 | Slid across the table (10 cm or more) | One beep; repeated slides beep for 3 s |
 | Knocked, bumped, a cup put down, its own vibration | Nothing |
-| A car pulling away with it on the seat | Leaves table mode silently |
-| Picked up to answer a ringing call | Your pick-up: back to armed, silently |
+| A car pulling away with it on the seat | Leaves table mode silently, once road or engine vibration (or a 5 s push) shows it's a vehicle |
+| Picked up to answer a call, even in silent mode | Your pick-up: back to armed, silently |
 
 Table warnings and "turned to look" warnings stay silent for their first 1.5 s, so picking up your
-own phone and unlocking it with a fingerprint makes no sound. Put it back down flat and still
-within the grace period and the warning stops by itself (3 times per 10 min at most). With no
+own phone and unlocking it with a fingerprint makes no sound. They beep on the alarm stream (heard
+in silent mode) without vibrating, so a phone put back down can tell it is still; a table siren
+starts vibrating after 10 s. Put it back down flat and still within the grace period and the
+warning stops by itself (3 times per 10 min at most). With no
 delay set, a table pick-up still gets these 1.5 s before the siren. Table mode can be switched
 off under Triggers.
 

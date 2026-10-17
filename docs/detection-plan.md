@@ -10,16 +10,19 @@ teams (missed thefts, false alarms, platform pitfalls) and revised against every
 **Shipped in v1.2.0** (plan steps 4-6, simplified where noted):
 - Raw accelerometer at 50 Hz with timestamp-based filters (`MotionProcessor`): gated gravity,
   fast and slow gravity, one-second stillness with a learned noise floor, jolts by |a| away from
-  1 g, free fall vs hop, walking.
+  1 g plus the gated sideways branch, free fall vs hop, walking.
 - Table mode (`TableMonitor`, `Phase.ON_TABLE`): placement latch at the cover edge, settle check,
   8 s hard-surface test (creep and rocking on one-second means), credential lock required.
   T-TILT (angle-scaled gate, no gyro), T-LIFT (along resting gravity, 1 s window), T-HELD,
   a new resting angle (T-POSE, separated from acceleration by |a|), T-FALL vs hop, T-UNCOVER with
-  lift-like motion and a stalled-sensor fail-safe, proximity glitch distrust, slides chirp, drive-off
-  exits, put-back recovery (3 per 10 min), calls treated as the owner, 1.5 s no-delay window.
+  lift-like motion and a stalled-sensor fail-safe, proximity glitch distrust, slides chirp,
+  vehicleSuspect (drive-off exits only once vibration or a 5 s push confirms it), put-back
+  recovery (3 per 10 min; table warnings don't vibrate), calls treated as the owner (ringing, or
+  answered in silent mode), 1.5 s no-delay window.
 - Pocket: no give-up after the evidence window (WATCH); P-TILT_OUT with a display cue (excluding
   charger and ringing), P-OUT_AND_IN with the posture-event veto, loose-pocket and walking
-  contexts; walking makes P-JOLT wait for the steps to stop.
+  contexts; walking makes P-JOLT wait for the steps to stop and ignore the steps' own jolts; a
+  recovered jolt warning still gets the out-and-in decision.
 - A 1.5 s silent start for warnings where the owner is likely looking (table, turned to look).
 - Tests: `MotionProcessorTest`, `MotionRulesTest` (including sweeps over 5 seeds, 25/50/100 Hz,
   noise and +-0.3 m/s² offsets) and e2e scenarios 7b-7d.
