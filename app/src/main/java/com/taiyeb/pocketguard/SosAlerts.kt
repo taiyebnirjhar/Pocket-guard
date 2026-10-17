@@ -2,8 +2,12 @@ package com.taiyeb.pocketguard
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
@@ -12,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.telephony.SmsManager
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -36,6 +41,13 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         private const val UPDATE_INTERVAL_MS = 30_000L
         private const val FIX_TIMEOUT_MS = 10_000L
 
+        /** An older fix (the last known one from before SOS) would send helpers to the wrong place. */
+        private const val MAX_FIX_AGE_MS = 2 * 60_000L
+
+        /** A text that didn't go (no signal) is tried again, this many times in all. */
+        private const val SMS_TRIES = 5
+        private const val SMS_RETRY_MS = 30_000L
+
         fun canSendSms(context: Context) = !BuildConfig.PLAY_STORE &&
             context.checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
 
@@ -55,14 +67,17 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
 
         // Only called after canSendSms(): granted, and never in the Play build, which doesn't declare it.
         @SuppressLint("MissingPermission")
-        private fun sendSms(context: Context, number: String, text: String) {
+        private fun sendSms(context: Context, number: String, text: String, sent: ((Int) -> PendingIntent)? = null): Int {
             val sms = if (Build.VERSION.SDK_INT >= 31) {
                 context.getSystemService(SmsManager::class.java)
             } else {
                 @Suppress("DEPRECATION")
                 SmsManager.getDefault()
             }
-            sms.sendMultipartTextMessage(number, null, sms.divideMessage(text), null, null)
+            val parts = sms.divideMessage(text)
+            val intents = sent?.let { make -> ArrayList(parts.indices.map(make)) }
+            sms.sendMultipartTextMessage(number, null, parts, intents, null)
+            return parts.size
         }
 
         /** "Send test" in Triggers: the real alert text marked as a test, to the approved people. */
@@ -94,17 +109,43 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private var lastFix: Location? = null
     private var fixToken: CancellationTokenSource? = null
     private var live: LiveShare? = null
+    private var alertTime = ""
 
     /** The first SMS went out before the live link was ready; it follows on its own. */
     private var linkOwed = false
 
-    /** The text for the next tap in the Play build, with the latest location. */
+    /** The text for the next tap in the Play build: the whole alert, with the latest location. */
     var pendingText: String? = null
         private set
 
-    /** The last alert text, sent or prepared (for "Share on WhatsApp"). */
+    /** The whole alert as it reads now (for "Share on WhatsApp"), once it's gone out. */
     var lastText: String? = null
         private set
+
+    // Texts waiting for the phone's word that they went: by id, with how many parts are still out.
+    private class SmsJob(val number: String, val text: String, val tries: Int, var parts: Int, var failed: Boolean = false)
+    private val smsAction = context.packageName + ".SOS_SMS_SENT"
+    private val smsJobs = HashMap<Int, SmsJob>()
+    private var smsSeq = 0
+    private var receiverOn = false
+    private var released = false
+
+    private val smsSent = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, intent: Intent) {
+            val id = intent.getIntExtra("id", -1)
+            val job = smsJobs[id] ?: return
+            if (resultCode != Activity.RESULT_OK) job.failed = true
+            if (--job.parts > 0) return
+            smsJobs.remove(id)
+            if (!job.failed) return
+            if (job.tries < SMS_TRIES && !released) {
+                log("SOS alerts: an SMS didn't go (try ${job.tries}), trying again")
+                handler.postDelayed({ sendTracked(job.number, job.text, job.tries + 1) }, SMS_RETRY_MS)
+            } else {
+                log("SOS alerts: an SMS couldn't be sent")
+            }
+        }
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -135,6 +176,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             return
         }
         contacts = EmergencyContacts.list(context)
+        lastFix = null
         val now = SystemClock.elapsedRealtime()
         plan = AlertPlan(now)
         log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
@@ -150,11 +192,8 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private fun onLiveLink(link: String) {
         val current = plan ?: return
         if (current.sentAt == null) return // The first SMS will carry it.
-        val pending = pendingText
-        if (pending != null && !canSendSms(context)) {
-            pendingText = pending + "\n" + EmergencyContacts.liveText(context, link)
-            lastText = pendingText
-        } else if (linkOwed) {
+        refreshTexts()
+        if (linkOwed && canSendSms(context)) {
             linkOwed = false
             send(EmergencyContacts.liveText(context, link))
         }
@@ -187,6 +226,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         }
         live?.stop(falseAlarm)
         live = null
+        lastFix = null
         linkOwed = false
         pendingText = null
         lastText = null
@@ -198,51 +238,92 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         runCatching { context.startActivity(smsIntent(numbers(), text)) }
     }
 
-    private fun numbers() = contacts.map { EmergencyContacts.normalize(it.phone) }.filter { it.count(Char::isDigit) >= 3 }
+    private fun numbers() = contacts.filter { EmergencyContacts.canText(it.phone) }.map { EmergencyContacts.normalize(it.phone) }
 
     private fun sendFirst(current: AlertPlan, now: Long) {
         val fix = lastFix
-        val link = live?.link
-        val time = timeNow()
-        val text = EmergencyContacts.sosText(context, time, fix?.latitude, fix?.longitude, fix?.accuracy, link)
+        alertTime = timeNow()
         current.onSent(now, fix?.latitude, fix?.longitude)
-        linkOwed = live != null && link == null
-        send(text)
-        live?.alertSent(time)
+        linkOwed = live != null && live?.link == null
+        refreshTexts()
+        if (canSendSms(context)) send(wholeText()) else log("SOS alerts: ready to send (tap needed)")
+        live?.alertSent(alertTime)
         publish(current, now)
     }
 
+    /** The whole alert with the latest location and the live link once there is one. */
+    private fun wholeText(): String {
+        val fix = lastFix
+        return EmergencyContacts.sosText(context, alertTime, fix?.latitude, fix?.longitude, fix?.accuracy, live?.link)
+    }
+
+    private fun refreshTexts() {
+        val text = marked(wholeText())
+        lastText = text
+        if (!canSendSms(context) && numbers().isNotEmpty()) pendingText = text
+    }
+
     private fun onFix(fix: Location) {
+        val age = (SystemClock.elapsedRealtimeNanos() - fix.elapsedRealtimeNanos) / 1_000_000
+        if (age > MAX_FIX_AGE_MS) return
         lastFix = fix
         val current = plan ?: return
         live?.addFix(fix.latitude, fix.longitude, if (fix.hasAccuracy()) fix.accuracy else null)
-        if (current.shouldUpdate(SystemClock.elapsedRealtime(), fix.latitude, fix.longitude)) {
+        if (current.sentAt == null) return
+        // The Play build's tap always sends the whole alert, so it just takes the new location.
+        refreshTexts()
+        if (canSendSms(context) && current.shouldUpdate(SystemClock.elapsedRealtime(), fix.latitude, fix.longitude)) {
             send(EmergencyContacts.updateText(context, timeNow(), fix.latitude, fix.longitude))
         }
     }
 
+    private fun marked(text: String) = if (Prefs.testMode(context)) "[TEST] $text" else text
+
+    /** Texts everyone with a number (the full build: sent here, and retried until it goes). */
     private fun send(text: String) {
-        val marked = if (Prefs.testMode(context)) "[TEST] $text" else text
-        lastText = marked
-        if (numbers().isEmpty()) return // Email-only contacts: the live share emails them.
-        if (canSendSms(context)) {
-            var ok = 0
-            numbers().forEach { number ->
-                if (runCatching { sendSms(context, number, marked) }.isSuccess) ok++
-            }
-            log("SOS alerts: SMS sent to $ok of ${contacts.size}")
-        } else {
-            pendingText = marked
-            log("SOS alerts: ready to send (tap needed)")
+        val numbers = numbers()
+        if (numbers.isEmpty() || !canSendSms(context)) return // Email-only contacts: the live share emails them.
+        val marked = marked(text)
+        val ok = numbers.count { sendTracked(it, marked, 1) }
+        log("SOS alerts: SMS sent to $ok of ${numbers.size}")
+    }
+
+    private fun sendTracked(number: String, text: String, tries: Int): Boolean {
+        if (!receiverOn && !released) {
+            ContextCompat.registerReceiver(context, smsSent, IntentFilter(smsAction), ContextCompat.RECEIVER_NOT_EXPORTED)
+            receiverOn = true
         }
+        val id = ++smsSeq
+        val job = SmsJob(number, text, tries, parts = 0)
+        smsJobs[id] = job
+        return runCatching {
+            job.parts = sendSms(context, number, text) { part ->
+                val intent = Intent(smsAction).setPackage(context.packageName).putExtra("id", id)
+                PendingIntent.getBroadcast(
+                    context,
+                    id * 16 + part.coerceAtMost(15),
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT,
+                )
+            }
+        }.onFailure { smsJobs.remove(id) }.isSuccess
+    }
+
+    /** The service is going away: stop waiting for texts' results. */
+    fun release() {
+        released = true
+        handler.removeCallbacksAndMessages(null)
+        smsJobs.clear()
+        if (receiverOn) runCatching { context.unregisterReceiver(smsSent) }
+        receiverOn = false
     }
 
     private fun publish(current: AlertPlan, now: Long) {
         GuardState.alert.value = AlertUi(
-            names = contacts.joinToString(", ") { it.name },
+            names = contacts.filter { EmergencyContacts.reachable(context, it) }.joinToString(", ") { it.name },
             secondsLeft = current.secondsLeft(now),
             sent = current.sentAt != null,
-            needsTap = current.sentAt != null && !canSendSms(context),
+            needsTap = current.sentAt != null && !canSendSms(context) && numbers().isNotEmpty(),
         )
     }
 

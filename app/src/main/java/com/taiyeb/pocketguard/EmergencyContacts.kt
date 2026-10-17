@@ -59,13 +59,22 @@ object EmergencyContacts {
                 "${c.name}=${normalize(c.phone)}" + if (c.email.isNotBlank()) "," + c.email.trim().lowercase() else ""
             }
 
-    fun approved(context: Context) = list(context).isNotEmpty() && ownerName(context).isNotEmpty() &&
+    fun approved(context: Context) = list(context).any { reachable(context, it) } && ownerName(context).isNotEmpty() &&
         prefs(context).getString(KEY_APPROVED, null) == fingerprint(context)
 
     fun approve(context: Context) = prefs(context).edit().putString(KEY_APPROVED, fingerprint(context)).apply()
 
+    /** Shortest number an SMS can go to (local numbers included); shorter ones are typos. */
+    const val MIN_DIGITS = 6
+
+    fun canText(phone: String) = normalize(phone).count(Char::isDigit) >= MIN_DIGITS
+
+    /** Someone an alert reaches: a number to text, or an address while the online part is on. */
+    fun reachable(context: Context, contact: EmergencyContact) =
+        canText(contact.phone) || Backend.enabled(context) && looksLikeEmail(contact.email)
+
     /** The numbers to text: contacts without one get email only. */
-    fun numbers(context: Context) = list(context).map { normalize(it.phone) }.filter { it.count(Char::isDigit) >= 3 }
+    fun numbers(context: Context) = list(context).filter { canText(it.phone) }.map { normalize(it.phone) }
 
     fun emails(context: Context) = list(context).map { it.email.trim().lowercase() }.filter { looksLikeEmail(it) }.distinct()
 

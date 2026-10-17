@@ -392,6 +392,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun onDestroy() {
         stopMonitoring()
+        if (alertsMade) alerts.release()
         GuardState.phase.value = Phase.OFF
         refreshTile()
         if (instance === this) instance = null
@@ -525,7 +526,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     // --- SOS --------------------------------------------------------------------------------------
 
     private var tts: TextToSpeech? = null
-    private val alerts by lazy { SosAlerts(this, ::log) }
+    private var alertsMade = false
+    private val alerts by lazy { alertsMade = true; SosAlerts(this, ::log) }
     private var sosPhrase = ""
 
     /** Logs what the SOS buttons can do now: the key watcher is the only way to see the keys. */

@@ -230,6 +230,7 @@
     <string name="contacts_approve">অনুমোদন</string>
     <string name="contacts_approved">অনুমোদিত: SOS চালু করলে %1$d জন এটি পাবেন।</string>
     <string name="contacts_not_approved">বার্তা আর মানুষগুলো অনুমোদন না করা পর্যন্ত সতর্কতা বন্ধ। দেখতে চাপুন।</string>
+    <string name="contacts_none_reachable">এখনো কেউ সতর্কতা পাবেন না: একটি ফোন নম্বর যোগ করুন (অথবা অনলাইন সুবিধা চালু থাকলে একটি ইমেইল ঠিকানা)।</string>
     <string name="contacts_need_name">আগে সতর্কতার জন্য আপনার নাম লিখুন।</string>
     <string name="contacts_test">পরীক্ষামূলক পাঠান</string>
     <string name="contacts_allow_location">অবস্থানের অনুমতি দিন</string>

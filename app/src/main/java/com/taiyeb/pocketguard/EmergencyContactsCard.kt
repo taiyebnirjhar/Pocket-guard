@@ -46,8 +46,11 @@ fun EmergencyContactsCard() {
     var version by remember { mutableIntStateOf(0) }
     val contacts = remember(version) { EmergencyContacts.list(context) }
     val approved = remember(version) { EmergencyContacts.approved(context) }
+    val reachable = remember(version) { contacts.filter { EmergencyContacts.reachable(context, it) } }
     var name by remember { mutableStateOf(EmergencyContacts.ownerName(context)) }
     var addingNumber by remember { mutableStateOf(false) }
+    // A picked contact whose number can't be texted as it is: the owner fixes it before it's added.
+    var draft by remember { mutableStateOf<EmergencyContact?>(null) }
     var editing by remember { mutableStateOf<Int?>(null) }
     var confirming by remember { mutableStateOf(false) }
 
@@ -67,7 +70,9 @@ fun EmergencyContactsCard() {
             context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val contact = EmergencyContact(cursor.getString(0).orEmpty(), cursor.getString(1).orEmpty())
-                    if (contact.phone.isNotBlank() && contacts.size < EmergencyContacts.MAX) save(contacts + contact)
+                    if (contacts.size < EmergencyContacts.MAX) {
+                        if (EmergencyContacts.canText(contact.phone)) save(contacts + contact) else draft = contact
+                    }
                 }
             }
         }
@@ -137,7 +142,7 @@ fun EmergencyContactsCard() {
                 .padding(12.dp),
         )
         if (approved) {
-            Text(stringResource(R.string.contacts_approved, contacts.size), color = Lavender, fontSize = 13.sp)
+            Text(stringResource(R.string.contacts_approved, reachable.size), color = Lavender, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { SosAlerts.sendTest(context) }) {
                     Text(stringResource(R.string.contacts_test), color = Purple, fontWeight = FontWeight.Bold)
@@ -150,11 +155,24 @@ fun EmergencyContactsCard() {
             }
         } else {
             PermissionWarning(
-                stringResource(if (name.isBlank()) R.string.contacts_need_name else R.string.contacts_not_approved),
-            ) { if (name.isNotBlank()) confirming = true }
+                stringResource(
+                    when {
+                        name.isBlank() -> R.string.contacts_need_name
+                        reachable.isEmpty() -> R.string.contacts_none_reachable
+                        else -> R.string.contacts_not_approved
+                    },
+                ),
+            ) { if (name.isNotBlank() && reachable.isNotEmpty()) confirming = true }
         }
     }
 
+    draft?.let { picked ->
+        ContactDialog(
+            initial = picked,
+            onSave = { save(contacts + it) },
+            onDismiss = { draft = null },
+        )
+    }
     if (addingNumber) ContactDialog(
         initial = null,
         onSave = { save(contacts + it) },
@@ -175,7 +193,7 @@ fun EmergencyContactsCard() {
                 Text(
                     stringResource(
                         R.string.contacts_confirm,
-                        contacts.joinToString(", ") { it.name.ifBlank { it.phone.ifBlank { it.email } } },
+                        reachable.joinToString(", ") { it.name.ifBlank { it.phone.ifBlank { it.email } } },
                         EmergencyContacts.previewText(context),
                         (AlertPlan.COUNTDOWN_MS / 1000).toInt(),
                     ) + if (Backend.enabled(context)) "\n\n" + stringResource(R.string.contacts_confirm_live) else "",
@@ -186,6 +204,11 @@ fun EmergencyContactsCard() {
                     confirming = false
                     EmergencyContacts.approve(context)
                     version++
+                    // Signed in now, so an SOS doesn't wait for it (or fail on a busy network).
+                    if (Backend.enabled(context)) {
+                        val app = context.applicationContext
+                        Thread { Backend.signIn(app) }.start()
+                    }
                     askPermissions()
                 }) { Text(stringResource(R.string.contacts_approve), color = Purple, fontWeight = FontWeight.Bold) }
             },

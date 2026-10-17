@@ -231,6 +231,7 @@
     <string name="contacts_approve">Approve</string>
     <string name="contacts_approved">Approved: %1$d people get this when you start SOS.</string>
     <string name="contacts_not_approved">Alerts are off until you approve the message and the people. Tap to review.</string>
+    <string name="contacts_none_reachable">Nobody here can get an alert yet: add a phone number (or an email address with online features on).</string>
     <string name="contacts_need_name">Enter your name for the alert first.</string>
     <string name="contacts_test">Send a test</string>
     <string name="contacts_allow_location">Allow location</string>

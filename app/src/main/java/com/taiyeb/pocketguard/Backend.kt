@@ -80,12 +80,21 @@ object Backend {
         if (refresh != null) {
             val r = call(context, "POST", "/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", refresh), null)
             if (r.ok) return saveSession(context, r.body)
-            if (r.code in 400..499) p.edit().clear().apply() // Refresh token gone: start a new account.
-            else return null
+            // Only a refresh token the server no longer knows means a new account; anything else
+            // (offline, rate limited, server trouble) keeps it for the next try.
+            if (r.code != 400 || !r.body.contains("refresh_token_not_found") && !r.body.contains("Invalid Refresh Token")) return null
+            forgetSession(context)
         }
         val r = call(context, "POST", "/auth/v1/signup", JSONObject(), null)
         return if (r.ok) saveSession(context, r.body) else null
     }
+
+    private fun forgetSession(context: Context) {
+        prefs(context).edit().remove("access_token").remove("refresh_token").remove("expires_at").apply()
+    }
+
+    /** Signs in ahead of need (when contacts are approved), so an SOS doesn't wait on it. */
+    fun signIn(context: Context): Boolean = configured(context) && token(context) != null
 
     private fun saveSession(context: Context, body: String): String? = try {
         val s = JSONObject(body)
@@ -118,9 +127,10 @@ object Backend {
         }
     }
 
-    fun addLocations(context: Context, incidentId: String, fixes: List<Fix>): Boolean {
-        if (fixes.isEmpty()) return true
-        val token = token(context) ?: return false
+    /** The reply's HTTP code (-1: no connection or no sign-in). */
+    fun addLocations(context: Context, incidentId: String, fixes: List<Fix>): Int {
+        if (fixes.isEmpty()) return 204
+        val token = token(context) ?: return -1
         val rows = JSONArray()
         fixes.forEach { f ->
             rows.put(
@@ -129,7 +139,7 @@ object Backend {
                     .put("recorded_at", iso(f.time)),
             )
         }
-        return call(context, "POST", "/rest/v1/locations", rows, token, "return=minimal").ok
+        return call(context, "POST", "/rest/v1/locations", rows, token, "return=minimal").code
     }
 
     fun updateIncident(context: Context, incidentId: String, status: String?, battery: Int?): Boolean {
@@ -143,7 +153,7 @@ object Backend {
 
     // --- Recordings ----------------------------------------------------------------------------
 
-    /** Uploads one SOS video piece to the store through a link signed for it; true when stored. */
+    /** Uploads one SOS video piece through a link signed for it: true when it's stored or refused for good. */
     fun uploadVideo(context: Context, incidentId: String, file: File): Boolean {
         val token = token(context) ?: return false
         val bytes = file.length()
@@ -156,7 +166,8 @@ object Backend {
                 .put("bytes", bytes).put("content_type", "video/mp4"),
             token,
         )
-        if (!ask.ok) return ask.code in 400..499 && ask.code != 401 // Refused (too big, too many): don't retry.
+        // Refused for good (bad, too big, incident closed, store full); 401 and 429 may pass later.
+        if (!ask.ok) return ask.code in setOf(400, 403, 404, 413, 507)
         val (mediaId, url) = try {
             val o = JSONObject(ask.body)
             o.getLong("media_id") to o.getString("url")
@@ -189,7 +200,7 @@ object Backend {
 
     enum class EmailKind(val wire: String) { SOS("sos"), FALSE_ALARM("false_alarm"), TEST("test") }
 
-    /** Sends the alert email; true when it went out or had already gone out. */
+    /** Sends the alert email: true when it went out, had gone out, or was refused for good (a limit). */
     fun sendEmail(context: Context, kind: EmailKind, emails: List<String>, incidentId: String?, name: String, time: String): Boolean {
         if (emails.isEmpty()) return true
         val token = token(context) ?: return false
@@ -200,7 +211,8 @@ object Backend {
             .put("time", time)
             .put("lang", if (context.resources.configuration.locales[0].language == "bn") "bn" else "en")
         if (incidentId != null) body.put("incident_id", incidentId)
-        return call(context, "POST", "/functions/v1/notify", body, token).ok
+        val r = call(context, "POST", "/functions/v1/notify", body, token)
+        return r.ok || r.code in 400..499 && r.code != 401 && r.code != 408
     }
 
     /** Deletes the account and everything stored with it; false when the server couldn't be reached. */
@@ -210,7 +222,7 @@ object Backend {
         val r = call(context, "POST", "/functions/v1/delete-account", JSONObject(), token)
         // 401: the account no longer exists on the server.
         if (r.ok || r.code == 401) {
-            prefs(context).edit().remove("access_token").remove("refresh_token").remove("expires_at").apply()
+            forgetSession(context)
             return true
         }
         return false
