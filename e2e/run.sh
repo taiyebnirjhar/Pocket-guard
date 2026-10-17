@@ -305,13 +305,16 @@ sleep 2 # The new pose settles before locking: lying still and locked, it guards
 
 log "Scenario 7e: SOS, volume + and - held together for 3 s with the screen off"
 A11Y="$PKG/.SosAccessibilityService"
-# Real hardware key events through the emulator console: accessibility key filters never see
-# keys injected with "adb shell input" (those count as already filtered).
+# Real key events written to the input device that owns the volume keys (root, emulator only):
+# accessibility key filters never see keys injected with "adb shell input" (those count as
+# already filtered), so the test must press them the way the hardware does.
+adb root >/dev/null 2>&1; sleep 2; adb wait-for-device
+KEYDEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/add device/ { d = $4 } /KEY_VOLUMEUP/ { print d; exit }')
+log "  volume keys are on input device: ${KEYDEV:-none found}"
 hw_key() {
-  local out
-  out=$(adb emu event send "EV_KEY:$1:$2" 2>&1)
-  grep -q KO <<<"$out" && log "  emulator refused key $1: $out"
-  return 0
+  local code
+  case "$1" in KEY_VOLUMEUP) code=115 ;; KEY_VOLUMEDOWN) code=114 ;; esac
+  adb shell "sendevent $KEYDEV 1 $code $2; sendevent $KEYDEV 0 0 0" >/dev/null 2>&1
 }
 hold_both() {
   hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
