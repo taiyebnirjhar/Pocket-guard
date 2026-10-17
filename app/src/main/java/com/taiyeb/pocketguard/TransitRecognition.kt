@@ -12,7 +12,7 @@ import com.google.android.gms.location.ActivityTransitionRequest
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
 
-/** Uses Google Play services activity recognition to arm when you get on a bus, train or car. */
+/** Uses Google Play services activity recognition to offer arming when you get on a bus, train or car. */
 object TransitRecognition {
 
     @SuppressLint("MissingPermission") // Checked by the caller; SecurityException is caught.
@@ -59,11 +59,7 @@ class TransitReceiver : BroadcastReceiver() {
                 it.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER
         }
         if (!boarded || !Prefs.autoArmTransit(context) || GuardState.phase.value != Phase.OFF) return
-        try {
-            GuardService.arm(context, auto = true)
-        } catch (e: Exception) {
-            Notifications.showRearm(context) // Background start refused: battery optimization still on.
-        }
+        Notifications.showArmPrompt(context, R.string.notify_arm_transit)
     }
 }
 

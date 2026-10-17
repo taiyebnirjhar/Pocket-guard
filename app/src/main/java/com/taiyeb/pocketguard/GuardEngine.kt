@@ -7,9 +7,10 @@ import kotlin.math.sqrt
  * All of Pocket Guard's decisions, with no Android types so it runs in plain JVM unit tests.
  * [GuardService] feeds it sensor readings and events, and carries out what it asks for via [Host].
  *
- * Ladder: WAITING_FOR_POCKET -> IN_POCKET -> (pulled out while locked) WARNING -> (no unlock) SIREN.
- * Face-down on a table: IN_POCKET -> ON_TABLE once it lies still on a hard surface; lifting, tilting
- * or pushing it off warns. Airplane mode on the lock screen jumps straight to SIREN.
+ * Ladder: WAITING_FOR_POCKET -> IN_POCKET -> (uncovered while locked) WARNING -> (no unlock) SIREN.
+ * Face-down on a table: IN_POCKET -> ON_TABLE once it lies still on a hard surface; sliding,
+ * lifting, tilting or pushing it off warns. Being armed is the user's choice, so once armed it
+ * warns on any sign of being taken and lets the owner's unlock stop it. Airplane mode on the lock screen jumps straight to SIREN.
  * Unlocking at any point returns to WAITING_FOR_POCKET, so it re-arms by itself.
  */
 class GuardEngine(
@@ -52,63 +53,33 @@ class GuardEngine(
         /** One line for the detection log: what was seen and decided, for field tests. */
         fun log(message: String) = Unit
 
-        /** A short beep (or a 3 s burst after repeated slides): someone moved it on the table. */
-        fun tableChirp(burst: Boolean) = Unit
     }
 
     companion object {
         /** Proximity must stay covered this long before the phone counts as pocketed. */
         const val POCKET_CONFIRM_MS = 1500L
 
-        /** Proximity must stay uncovered this long, which filters out fabric shifting in the pocket. */
-        const val REMOVAL_CONFIRM_MS = 800L
-
         /**
-         * With no delay chosen the user wants the siren at once, so removal is confirmed faster;
-         * a motion-only siren still stops itself if covered again within [FLICKER_RECOVERY_MS].
+         * Armed and locked, the sensor uncovered this long is a removal: no further proof is asked
+         * for, since a careful thief gives none. It filters out fabric shifting in the pocket; with
+         * no delay chosen the siren is meant to start at once, so it's shorter. Either way a
+         * warning stops itself if covered again within [FLICKER_RECOVERY_MS].
          */
+        const val REMOVAL_CONFIRM_MS = 800L
         const val FAST_REMOVAL_CONFIRM_MS = 250L
-        const val FAST_UNCOVERED_CONFIRM_MS = 500L
+
 
         /** Covered and dark again this soon after a pocket warning: it was fabric, not a hand. */
         const val FLICKER_RECOVERY_MS = 1000L
 
-        /** Below this both pocket and outside are dark (night), so light can't confirm a removal. */
-        const val DARK_LUX = 5f
-
-        /** A "covered" reading above this can't come from inside a pocket; some sensors repeat old values. */
-        const val STALE_COVERED_LUX = 50f
-
-        /** Light and motion readings can arrive late: keep re-checking this long after uncovering. */
-        const val EVIDENCE_WINDOW_MS = 2500L
-        const val RECHECK_MS = 300L
-
         /** During a call at the ear, try confirming the pocket again this often. */
         const val CALL_RETRY_MS = 2000L
 
-        /** Without a usable light reading, a removal needs a hand-like jolt within this window... */
+        /** A jolt this recent at the removal is noted as how it came out (for the history). */
         const val MOTION_WINDOW_MS = 3000L
-
-        /** ...above this (a phone pulled from a pocket easily exceeds it)... */
         const val MOTION_SPIKE = 2.5f
 
-        /** ...and the sensor must stay uncovered this long, since pocket fabric flickers but returns. */
-        const val UNCOVERED_CONFIRM_MS = 1500L
-
-        /** While walking, every step is a jolt: then it takes longer uncovered, after the steps stop. */
-        const val GAIT_UNCOVERED_MS = 3000L
-        const val GAIT_RECENT_MS = 2000L
-
-        /** A jolt this soon after the uncover, while standing still, is the pull itself... */
-        const val PULL_JOLT_MS = 1000L
-
-        /** ...and the phone turned into a hand this soon after it shows whose hand. */
-        const val PULL_TURN_MS = 3000L
-
-        /** Turned to look: this far from the pocket posture, with the screen woken as it turned. */
-        const val TILT_OUT_DEG = 45f
-        const val TILT_OUT_HOLD_MS = 500L
-        const val TILT_OUT_UNCOVERED_MS = 1200L
+        /** The screen woken as it is turned or taken out: someone is looking at it. */
         const val DISPLAY_CUE_MS = 3000L
         const val ROTATION_DEG = 20f
 
@@ -121,9 +92,6 @@ class GuardEngine(
         const val OUT_AND_IN_PEAK_HOLD_MS = 300L
         const val OUT_AND_IN_FINAL_DEG = 30f
         const val OUT_AND_IN_DECIDE_MS = 2000L
-
-        /** Out of the pocket and resting: take the new posture as the reference after this long. */
-        const val WATCH_REBASE_MS = 10_000L
 
         /** Loose pocket: this many cover cycles in 30 s. */
         const val LOOSE_CYCLES = 3
@@ -142,8 +110,6 @@ class GuardEngine(
         /** No-delay mode still gives a table pick-up this long, so the owner's own grab can unlock. */
         const val FAST_TABLE_WARNING_MS = 1500L
 
-        /** Four slides in this window give a beep burst instead of a single beep. */
-        const val SLIDE_BURST_WINDOW_MS = 120_000L
     }
 
     var phase = Phase.OFF
@@ -176,7 +142,6 @@ class GuardEngine(
     /** No delay chosen: confirm removals faster, since the siren is meant to start at once. */
     private val fast get() = host.config().graceMs <= 0
     private val removalConfirmMs get() = if (fast) FAST_REMOVAL_CONFIRM_MS else REMOVAL_CONFIRM_MS
-    private val uncoveredConfirmMs get() = if (fast) FAST_UNCOVERED_CONFIRM_MS else UNCOVERED_CONFIRM_MS
     private val hasMotionData get() = hasMotionSensor && motion.hasData
 
     fun arm() {
@@ -244,15 +209,14 @@ class GuardEngine(
         if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
         // Bright light means it really was out; covered again now is a thief's hand or pocket.
         if (confirmedByLight) return
-        // So does a turn to look or a pocket swap: only jolt-confirmed warnings recover.
-        if (evidence != Evidence.JOLT && evidence != Evidence.PROXIMITY_ONLY) return
+        // So does a pocket swap: only warnings confirmed by the uncover alone (or a jolt) recover.
+        if (evidence != Evidence.UNCOVERED && evidence != Evidence.JOLT && evidence != Evidence.PROXIMITY_ONLY) return
         cancelAll()
         go(Phase.IN_POCKET)
         // Turned far while it was out: maybe the thief's own pocket, so decide as for any re-cover.
         if (hasMotionData && (peakHeld || motion.gravityAngleTo(preX, preY, preZ) >= OUT_AND_IN_FINAL_DEG)) {
             deciding = true
             decideCue = cueInEpisode
-            decideFromWatch = false
             host.schedule(Timer.DECIDE, OUT_AND_IN_DECIDE_MS)
         }
     }
@@ -274,13 +238,7 @@ class GuardEngine(
     fun onAccel(t: Long, x: Float, y: Float, z: Float) {
         if (!hasMotionSensor) return
         val events = motion.onSample(t, x, y, z)
-        if (events and MotionProcessor.Event.JOLT != 0) {
-            lastMotionAt = t
-            if (!motion.walking(t)) {
-                quietJoltAt = t
-                if (episodeActive && pullJoltAt == null && t - episodeStart <= PULL_JOLT_MS) pullJoltAt = t
-            }
-        }
+        if (events and MotionProcessor.Event.JOLT != 0) lastMotionAt = t
         if (!phase.isAlarm) table.trackSettle(t)
         when (phase) {
             Phase.IN_POCKET -> if (near == true && !episodeActive && table.latched && host.config().tableGuard &&
@@ -398,76 +356,22 @@ class GuardEngine(
             go(Phase.WAITING_FOR_POCKET)
             return
         }
-        when (val check = removalEvidence()) {
-            is RemovalCheck.Confirmed -> {
-                confirmedByLight = check.byLight
-                warn(Trigger.POCKET_REMOVAL, check.evidence)
-            }
-            RemovalCheck.None -> {
-                val uncoveredFor = host.now() - (uncoveredAt ?: host.now())
-                if (uncoveredFor < evidenceWindowMs()) {
-                    host.schedule(Timer.CHECK_REMOVAL, RECHECK_MS) // A late reading may still settle it.
-                } else {
-                    // No proof yet, but it may be in someone's hand: keep watching how it turns,
-                    // whether the screen wakes and where it goes, instead of giving up.
-                    if (!watching) host.log("out of the pocket but no proof yet (light ${coveredLux ?: "-"} -> ${uncoveredLux ?: "-"} lux, no jolt): watching how it turns")
-                    watching = true
-                }
-            }
-            is RemovalCheck.WaitLonger -> host.schedule(Timer.CHECK_REMOVAL, check.ms)
-        }
-    }
-
-    private fun evidenceWindowMs() =
-        if (hasMotionData && motion.walkedWithin(host.now(), GAIT_RECENT_MS)) GAIT_UNCOVERED_MS + 1000 else EVIDENCE_WINDOW_MS
-
-    private sealed interface RemovalCheck {
-        data class Confirmed(val byLight: Boolean, val evidence: Evidence) : RemovalCheck
-        data object None : RemovalCheck
-        data class WaitLonger(val ms: Long) : RemovalCheck
+        warn(Trigger.POCKET_REMOVAL, removalEvidence())
     }
 
     /**
-     * Light decides when there are fresh readings from both inside and outside the pocket: brighter
-     * outside is a removal; lit outside yet no brighter means something still covers the phone.
-     * Otherwise (dark everywhere, or the light sensor asleep with the screen off, which is common)
-     * it takes a hand-like jolt plus the sensor staying uncovered for [UNCOVERED_CONFIRM_MS], since
-     * fabric flickering over the sensor while walking re-covers it quickly. While walking every
-     * step is a jolt, so then it takes [GAIT_UNCOVERED_MS] uncovered, after the steps stop.
+     * Armed, locked and uncovered past the flicker filter: that is a removal. Light and motion
+     * only say how it came out (for the history), and fresh bright light also stops the warning
+     * from being taken for fabric flicker.
      */
-    private fun removalEvidence(): RemovalCheck {
-        if (!hasMotionSensor && !hasLightSensor) return RemovalCheck.Confirmed(false, Evidence.PROXIMITY_ONLY)
-        val now = host.now()
+    private fun removalEvidence(): Evidence {
+        if (!hasMotionSensor && !hasLightSensor) return Evidence.PROXIMITY_ONLY
         val inside = coveredLux
         val outside = uncoveredLux
-        if (hasLightSensor && inside != null && outside != null) {
-            if (outside > maxOf(inside * 3f, inside + 10f)) return RemovalCheck.Confirmed(true, Evidence.LIGHT)
-            // A covered sensor reading a bright room is a stale repeat, not a pocket: ignore light.
-            val insideTrustworthy = inside < STALE_COVERED_LUX
-            if (insideTrustworthy && outside >= DARK_LUX) return RemovalCheck.None
-        }
+        confirmedByLight = hasLightSensor && inside != null && outside != null && outside > maxOf(inside * 3f, inside + 10f)
+        if (confirmedByLight) return Evidence.LIGHT
         val motionAt = lastMotionAt
-        // Steps are jolts too: only one after the walking stopped counts. The pull itself, made
-        // while standing still, counts even with steps after it (a thief hurrying off) once the
-        // phone was turned into a hand right after it; the owner's own first steps don't turn it.
-        val pull = pullJoltAt
-        val pulledIntoHand = hasMotionData && pull != null && peakHeld && peakHeldAt - pull in 0L..PULL_TURN_MS
-        val jolted = (motionAt != null && now - motionAt < MOTION_WINDOW_MS &&
-            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)) || pulledIntoHand
-        if (hasMotionSensor && !jolted) return RemovalCheck.None
-        var since = uncoveredAt ?: now
-        var needed = uncoveredConfirmMs
-        if (hasMotionData && motion.walkedWithin(now, GAIT_RECENT_MS) && !pulledIntoHand) {
-            if (motion.walking(now)) return RemovalCheck.WaitLonger(RECHECK_MS)
-            needed = maxOf(needed, GAIT_UNCOVERED_MS)
-            since = maxOf(since, motion.lastGaitAt)
-        }
-        val uncoveredFor = now - since
-        return if (uncoveredFor >= needed) {
-            RemovalCheck.Confirmed(false, Evidence.JOLT)
-        } else {
-            RemovalCheck.WaitLonger(needed - uncoveredFor)
-        }
+        return if (motionAt != null && host.now() - motionAt < MOTION_WINDOW_MS) Evidence.JOLT else Evidence.UNCOVERED
     }
 
     // --- Pocket: how the phone turns while it's out ----------------------------------------------
@@ -486,7 +390,6 @@ class GuardEngine(
     /** Uncovered in the pocket: the episode that ends in a warning, a re-cover or a watch. */
     private var episodeActive = false
     private var episodeStart = 0L
-    private var watching = false
     private var preX = 0f
     private var preY = 0f
     private var preZ = 0f
@@ -496,31 +399,16 @@ class GuardEngine(
     private var pathDeg = 0f
     private var peakSince = -1L
     private var peakHeld = false
-    private var peakHeldAt = -1L
-    private var tiltOutSince = -1L
     private var cueInEpisode = false
-
-    /** The latest jolt while not walking, and the one that came with this uncover (the pull). */
-    private var quietJoltAt = Long.MIN_VALUE / 2
-    private var pullJoltAt: Long? = null
-    private var rebaseSince = -1L
-    private var rebaseX = 0f
-    private var rebaseY = 0f
-    private var rebaseZ = 0f
-
-    /** The pocket posture was replaced by where it came to rest: an old episode, needs a cue. */
-    private var rebased = false
     private val coverTimes = LongArray(LOOSE_CYCLES)
     private var coverCount = 0
 
     // Captured at the re-cover for the out-and-in decision.
     private var deciding = false
     private var decideCue = false
-    private var decideFromWatch = false
 
     private fun resetEpisode() {
         episodeActive = false
-        watching = false
         deciding = false
         host.cancel(Timer.DECIDE)
     }
@@ -528,18 +416,12 @@ class GuardEngine(
     private fun startEpisode(now: Long) {
         episodeActive = true
         episodeStart = now
-        watching = false
         cueInEpisode = now - displayOnAt in 0L..500L
-        pullJoltAt = if (now - quietJoltAt in 0L..500L) quietJoltAt else null
         // Woken just before it came out: the display cue for the turn that follows.
         if (cueInEpisode) displayCueAt = now
         pathDeg = 0f
         peakSince = -1L
         peakHeld = false
-        peakHeldAt = -1L
-        tiltOutSince = -1L
-        rebaseSince = -1L
-        rebased = false
         deciding = false
         host.cancel(Timer.DECIDE)
         // The pocket posture: slow gravity from half a second before the uncover.
@@ -575,44 +457,13 @@ class GuardEngine(
 
         if (theta >= OUT_AND_IN_PEAK_DEG) {
             if (peakSince < 0) peakSince = t
-            if (t - peakSince >= OUT_AND_IN_PEAK_HOLD_MS && !peakHeld) {
-                peakHeld = true
-                peakHeldAt = t
-            }
+            if (t - peakSince >= OUT_AND_IN_PEAK_HOLD_MS) peakHeld = true
         } else {
             peakSince = -1L
         }
 
         val cue = t - displayCueAt <= DISPLAY_CUE_MS || lightCue()
         if (cue) cueInEpisode = true
-
-        // Turned to look: far from the pocket posture and the screen woke as it turned.
-        if (theta >= TILT_OUT_DEG) {
-            if (tiltOutSince < 0) tiltOutSince = t
-        } else {
-            tiltOutSince = -1L
-        }
-        val uncoveredFor = t - (uncoveredAt ?: t)
-        if (cue && tiltOutSince >= 0 && t - tiltOutSince >= TILT_OUT_HOLD_MS &&
-            uncoveredFor >= TILT_OUT_UNCOVERED_MS && host.isLocked() && !host.inCall()
-        ) {
-            warn(Trigger.POCKET_REMOVAL, Evidence.TILT_OUT)
-            return
-        }
-
-        // Out and resting somewhere (a desk, a hand): that becomes the posture to compare with.
-        if (watching) {
-            if (rebaseSince < 0 || motion.slowAngleTo(rebaseX, rebaseY, rebaseZ) > 10f) {
-                rebaseSince = t
-                rebaseX = motion.sx; rebaseY = motion.sy; rebaseZ = motion.sz
-            } else if (t - rebaseSince >= WATCH_REBASE_MS) {
-                preX = rebaseX; preY = rebaseY; preZ = rebaseZ
-                rebaseSince = t
-                rebased = true
-                peakHeld = false
-                pathDeg = 0f
-            }
-        }
     }
 
     private fun lightCue(): Boolean {
@@ -627,14 +478,10 @@ class GuardEngine(
         coverCount++
         if (!episodeActive) return
         val outMs = now - episodeStart
-        // Out a long time, or resting somewhere since: the pocket posture says little any more.
-        val fromWatch = rebased || outMs > WATCH_REBASE_MS
         episodeActive = false
-        watching = false
         if (!hasMotionData || outMs < OUT_AND_IN_MIN_OUT_MS || !peakHeld) return
         deciding = true
         decideCue = cueInEpisode
-        decideFromWatch = fromWatch
         host.schedule(Timer.DECIDE, OUT_AND_IN_DECIDE_MS)
     }
 
@@ -654,7 +501,7 @@ class GuardEngine(
         val oldest = coverTimes[coverCount % LOOSE_CYCLES]
         val loose = coverCount >= LOOSE_CYCLES && now - oldest <= 30_000L
         val quietUpright = upright && !loose && !motion.walkedWithin(now, 10_000L)
-        if ((decideFromWatch || !quietUpright) && !decideCue) return
+        if (!quietUpright && !decideCue) return
         if (!host.isLocked() || host.inCall()) return
         warn(Trigger.POCKET_REMOVAL, Evidence.OUT_AND_IN)
     }
@@ -667,8 +514,6 @@ class GuardEngine(
     private var tableTriggerAt = 0L
     private val putBackTimes = LongArray(PUT_BACK_LIMIT)
     private var putBackCount = 0
-    private val slideTimes = LongArray(4)
-    private var slideCount = 0
     private var tableCheckStage = 0
 
     private var waitingWhy: String? = null
@@ -721,13 +566,7 @@ class GuardEngine(
     private fun onTableMotion(t: Long, signal: TableMonitor.Signal) {
         when (signal) {
             TableMonitor.Signal.NONE, TableMonitor.Signal.UNCOVER -> Unit
-            TableMonitor.Signal.SLIDE -> {
-                slideTimes[slideCount % slideTimes.size] = t
-                slideCount++
-                val oldest = slideTimes[slideCount % slideTimes.size]
-                val burst = slideCount >= slideTimes.size && t - oldest <= SLIDE_BURST_WINDOW_MS
-                host.tableChirp(burst)
-            }
+            TableMonitor.Signal.SLIDE -> tableAlarm(t, Evidence.TABLE_SLIDE)
             TableMonitor.Signal.TILT -> tableAlarm(t, Evidence.TABLE_TILT)
             TableMonitor.Signal.LIFT -> tableAlarm(t, Evidence.TABLE_LIFT)
             TableMonitor.Signal.HELD -> tableAlarm(t, Evidence.TABLE_HELD)

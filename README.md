@@ -16,7 +16,7 @@ A dark theme with a purple glow, set in Manrope. A floating tab bar switches bet
 - **Home**: a power button inside a ring of moving dots. The ring's colour and speed follow the
   guard (grey off, purple protected, amber warning, red siren). Also shows the status, time
   armed, unlock delay, last alarm and how many setup steps are left.
-- **Triggers**: every alarm and auto-arm switch, the earbud picker and intruder photos.
+- **Triggers**: every alarm and arming-reminder switch, the earbud picker and intruder photos.
 - **History**: past alarms with their intruder photos.
 - **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, language and
   the how-to-test list.
@@ -27,31 +27,17 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 
 1. **Armed**: waiting for the phone to go into a pocket (proximity sensor covered for 1.5 s).
 2. **Protected**: a short buzz confirms it, once the screen is off or the phone locked.
-3. **Taken out while locked**: proximity uncovered for 0.8 s, plus evidence that it really left
-   the pocket:
-   - **Light**, when fresh readings arrive from both inside and outside the pocket, and outside
-     is brighter.
-   - **Jolt**: a push or pull over 2.5 m/s² (measured as |a| away from 1 g, so turning the phone
-     or shifting in a chair can't fake it) plus the sensor staying uncovered for 1.5 s. While
-     walking, every step is a jolt, so then only a jolt after the steps stop counts, and it takes
-     3 s uncovered after they stop. A pull made while you stood still still counts if the phone is
-     turned into a hand right after it, even while the thief walks off.
-   - **Turned to look**: no jolt (a careful, gentle pull), but the phone turns 45° or more away
-     from its pocket posture and the screen wakes as it turns.
-   - **Into another pocket**: out for at least a second, turned 60° or more, then covered again
-     at a new angle (30° or more from where it was). Sitting down or bending turns the phone one
-     way in one go and doesn't count; while walking, or after it rested somewhere, this also
-     needs the screen or light.
-
-   Without any of these it doesn't give up: it keeps watching how the phone turns, where it goes
-   and whether the screen wakes, until it goes back into the pocket or you unlock. A jolt-only
-   warning cancels itself if the sensor is covered again within 1 s (pocket fabric), though if
-   the phone was turned far meanwhile it is judged as going into another pocket; the others
-   don't cancel, since they mean a hand.
-4. **Warning**: beeps and vibration. Unlock within the grace period (default 5 s, 0-15 s) and
-   nothing else happens. With 0 there's no warning: the removal is confirmed faster (0.25 s
-   uncovered, 0.5 s on motion alone) and the siren starts at once. A motion-only siren still
-   stops by itself if the sensor is covered again within 1 s.
+3. **Taken out while locked**: the proximity sensor uncovered for 0.8 s is enough. Being armed
+   is your choice, so once armed it asks for no further proof: a careful thief gives none (no
+   jolt, no light, no turn). Fabric flickering over the sensor re-covers it within a second, and
+   a warning that is covered again within 1 s stops by itself, unless bright light showed it
+   really was out. Covered again at a new angle right after, it is judged as going into another
+   pocket and warns again.
+4. **Warning**: beeps and vibration. A plain uncover (or a table pick-up) stays silent for its
+   first 1.5 s, so taking out your own phone and unlocking it with a fingerprint makes no sound;
+   a yank or bright light beeps at once. Unlock within the grace period (default 5 s, 0-15 s) and
+   nothing else happens. With 0 there's no warning: the uncover is confirmed after 0.25 s and the
+   siren starts at once, and still stops by itself if covered again within 1 s.
 5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
    Disturb when allowed), volume buttons locked, torch strobe, "THIS PHONE IS STOLEN" over the lock
    screen, intruder photos.
@@ -65,31 +51,31 @@ app instead. The app refuses to arm without a PIN, pattern or password.
 ## On a table
 
 Face-down on a table the proximity sensor stays covered, so pocket rules can't see a theft. Lay
-the phone face-down while it's locked and keep it still: after about 10 s two short buzzes mean
+the phone face-down while it's locked and keep it still: after about 5 s two short buzzes mean
 it is guarding the table (the phone must be flat, still and on something hard; a lap, sofa, bag
-or a body never counts, because they rock, sink or breathe). Then:
+or a body never counts, because they rock, sink or breathe). Once it guards the table, any move
+that could be someone taking it warns:
 
 | What happens | Result |
 |---|---|
-| Tilted 20° or more, turned over to look | Warning |
+| Slid along the table (5 cm or more) | Warning |
+| Tilted 10° or more, turned over to look | Warning |
 | Lifted 3 cm or more, even level | Warning |
 | Picked up slowly and held (never still again, tilted 6°+) | Warning after 3 s |
 | Comes to rest at a new angle (8°+), like on a hand or a book | Warning |
 | Pushed off the edge (falling, without the kick of a bump) | Warning |
 | Sensor uncovered together with any lift-like motion | Warning |
-| Slid across the table (10 cm or more) | One beep; repeated slides beep for 3 s |
 | Knocked, bumped, a cup put down, its own vibration | Nothing |
 | Laid on a car seat, then driving | Stays guarded and quiet: an idling engine or the drive pauses the slow pick-up rules until it has been parked (still) for 30 s; picking it up afterwards warns like any table pick-up |
 | Picked up to answer a call, even in silent mode | Your pick-up: back to armed, silently |
 
-Table warnings and "turned to look" warnings stay silent for their first 1.5 s, so picking up your
-own phone and unlocking it with a fingerprint makes no sound. They beep on the alarm stream (heard
-in silent mode) without vibrating, so a phone put back down can tell it is still; a table siren
-starts vibrating once it can no longer be put back (10 s after the pick-up). Put it back down flat
-and still within the grace period and the
-warning stops by itself (3 times per 10 min at most). With no
-delay set, a table pick-up still gets these 1.5 s before the siren. Table mode can be switched
-off under Triggers.
+Table warnings stay silent for their first 1.5 s, so picking up your own phone and unlocking it
+with a fingerprint makes no sound. They beep on the alarm stream (heard in silent mode) without
+vibrating, so a phone put back down can tell it is still; a table siren starts vibrating once it
+can no longer be put back (10 s after the pick-up). Lifted or tilted and put back down flat and
+still within the grace period, the warning stops by itself (3 times per 10 min at most); a slide
+warns until you unlock. With no delay set, a table pick-up still gets these 1.5 s before the
+siren. Table mode can be switched off under Triggers.
 
 ## Setup requirement: the phone must lock immediately
 
@@ -117,8 +103,9 @@ test over. To test, let the screen turn off by itself once.
 | Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in pocket: buzz only) | Off | Nearby devices permission |
 | Phone restarted or app killed during an alarm | Alarm resumes, before the first unlock too | Always on | |
 
-**Auto-arm** (both off by default) when chosen earbuds or a watch connect, or when Google
-activity detection sees you board a bus, train or car. Auto-armed sessions turn off after 4 hours.
+**Arming reminders** (both off by default): when chosen earbuds or a watch connect, or when Google
+activity detection sees you board a bus, train or car, a notification asks whether to arm; one tap
+arms it. It never arms by itself on a guess, since that set off alarms nobody expected.
 Car stereos and speakers never count as earbuds, and you can pick the exact devices that count.
 
 Calls are ignored while the audio is at the earpiece, because the ear covers and uncovers the
@@ -160,7 +147,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | `GuardService.kt` | Foreground service: feeds sensors and system broadcasts to the engine, carries out its side effects, runs the lock check. Direct-boot aware. |
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
-| `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit auto-arm; boot and update re-arm. |
+| `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit arming reminders; boot and update re-arm. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
 | `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
@@ -213,10 +200,11 @@ version are tested but not released.
   screen is off. Settings → **Detection log** shows what the guard saw and decided during a test,
   including whether the motion sensor kept delivering; tap Copy to send it with a bug report.
 - iPhone isn't possible: iOS gives apps no background sensor access.
-- Motion can't tell the owner from a thief until someone unlocks. A thief who pulls the phone out
-  gently, never wakes the screen and keeps it at the pocket's angle, even while walking off (or
-  slips it upright into their own pocket), isn't caught by motion; the light, jolt and tamper
-  triggers still apply.
+- Nothing can tell the owner from a thief until someone unlocks, so armed it warns on every
+  uncover and every move on a table: arm it when you want that (or use the arming reminders), and
+  unlock within the silent start when it is you.
+- A thief who keeps a hand over the proximity sensor the whole time it comes out of the pocket
+  isn't seen by the pocket rule; the table, light and tamper triggers still apply.
 - The app reads only the accelerometer (no gyroscope yet), so slow, level slides under about
   10 cm/s aren't measured; any lift or tilt that follows is. For the same reason a car's
   acceleration can look like a tilt: an idling engine or a recognised push pauses the slow

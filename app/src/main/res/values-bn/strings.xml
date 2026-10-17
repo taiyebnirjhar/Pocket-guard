@@ -37,10 +37,10 @@
     <string name="triggers_charger_sub">লক অবস্থায় চার্জার খুলে নিলে সতর্ক করবে, যেমন ক্যাফেতে চার্জের সময়</string>
     <string name="triggers_earbuds">ইয়ারবাড বিচ্ছিন্ন হওয়ার অ্যালার্ম</string>
     <string name="triggers_earbuds_sub">ফোন পকেটের বাইরে ও লক অবস্থায় ইয়ারবাড বা ঘড়ির সংযোগ হারালে সতর্ক করবে</string>
-    <string name="triggers_auto_earbuds">ইয়ারবাড সংযুক্ত হলে নিজে চালু হবে</string>
-    <string name="triggers_auto_earbuds_sub">কানে ইয়ারবাড মানে সাধারণত আপনি চলার পথে</string>
-    <string name="triggers_auto_transit">বাস বা ট্রেনে উঠলে নিজে চালু হবে</string>
-    <string name="triggers_auto_transit_sub">Google-এর অ্যাক্টিভিটি শনাক্তকরণ ব্যবহার করে। গাড়িতেও চালু হতে পারে।</string>
+    <string name="triggers_auto_earbuds">ইয়ারবাড সংযুক্ত হলে চালু করতে বলবে</string>
+    <string name="triggers_auto_earbuds_sub">কানে ইয়ারবাড মানে সাধারণত আপনি চলার পথে। একটি নোটিফিকেশন জিজ্ঞেস করবে; এক ট্যাপে চালু।</string>
+    <string name="triggers_auto_transit">বাস বা ট্রেনে উঠলে চালু করতে বলবে</string>
+    <string name="triggers_auto_transit_sub">Google-এর অ্যাক্টিভিটি শনাক্তকরণ ব্যবহার করে (গাড়িতেও)। একটি নোটিফিকেশন জিজ্ঞেস করবে; এক ট্যাপে চালু।</string>
     <string name="devices_title">কোন ডিভাইসগুলো গণ্য হবে</string>
     <string name="devices_sub">কিছু না বাছলে যেকোনো ইয়ারবাড, হেডফোন বা ঘড়ি গণ্য হবে</string>
     <string name="devices_none">কোনো পেয়ার করা ইয়ারবাড বা ঘড়ি পাওয়া যায়নি</string>
@@ -78,7 +78,7 @@
     <string name="test_title">কীভাবে পরীক্ষা করবেন</string>
     <string name="test_1">টেস্ট মোড চালু করুন। হোমের গোল বোতামে চাপুন, ফোন লক করুন।</string>
     <string name="test_2">পকেটে রাখুন। ছোট একটা কম্পন মানে সুরক্ষিত।</string>
-    <string name="test_3">আনলক না করে বের করুন: বিপ শব্দ হবে (ইয়ারবাড থাকলে তাতে)।</string>
+    <string name="test_3">আনলক না করে বের করুন: ২ সেকেন্ড পর বিপ শব্দ হবে (ইয়ারবাড থাকলে তাতে)।</string>
     <string name="test_4">অপেক্ষা করুন: মৃদু সাইরেন বাজবে, টর্চ জ্বলবে-নিভবে, ছবি তোলা হবে।</string>
     <string name="test_5">ফিঙ্গারপ্রিন্ট বা পিন দিয়ে আনলক করুন: সব থেমে যাবে, আবার চালু হবে।</string>
     <string name="test_6">সাইরেনের সময় ভলিউম বাটনে আওয়াজ কমবে না।</string>
@@ -90,7 +90,7 @@
     <string name="onboarding_1_title">পকেটমারকে হাতেনাতে ধরুন</string>
     <string name="onboarding_1_body">আপনার ফিঙ্গারপ্রিন্ট ছাড়া ফোন পকেট থেকে বের হলেই Pocket Guard চিৎকার করে, যখন চোর তখনও আপনার পাশেই।</string>
     <string name="onboarding_2_title">ভিড়ে ঢোকার আগে চালু করুন</string>
-    <string name="onboarding_2_body">হোমের গোল বোতাম বা কুইক সেটিংস টাইলে চাপুন, তারপর লক করা ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। স্বাভাবিকভাবে বের করে আনলক করলে কিছুই হবে না।</string>
+    <string name="onboarding_2_body">হোমের গোল বোতাম বা কুইক সেটিংস টাইলে চাপুন, তারপর লক করা ফোন পকেটে রাখুন। ছোট কম্পন মানে সুরক্ষিত। বের করে ২ সেকেন্ডের মধ্যে আনলক করলে কোনো শব্দ হবে না।</string>
     <string name="onboarding_3_title">কেউ নিয়ে নিলে</string>
     <string name="onboarding_3_body">আপনার ইয়ারবাডে বিপ, তারপর এমন সাইরেন যা চোর বন্ধ করতে পারবে না, টর্চ জ্বলবে-নিভবে, আর যে ধরে আছে তার ছবি উঠবে। রিস্টার্ট করলেও থামবে না।</string>
     <string name="onboarding_4_title">সেটআপ করুন, তারপর পরীক্ষা করুন</string>
@@ -108,6 +108,8 @@
     <string name="trigger_power_menu">পাওয়ার মেনু খোলা হয়েছে</string>
     <string name="notify_auto_off">নিজে চালু হওয়ার ৪ ঘণ্টা পর Pocket Guard নিজে বন্ধ হয়েছে।</string>
     <string name="notify_need_lock">আপনাকে চোর থেকে আলাদা করতে Pocket Guard-এর স্ক্রিন লক (পিন, প্যাটার্ন বা পাসওয়ার্ড) লাগবে।</string>
+    <string name="notify_arm_transit">বাস, ট্রেন বা গাড়িতে? Pocket Guard চালু করতে ট্যাপ করুন।</string>
+    <string name="notify_arm_earbuds">ইয়ারবাড সংযুক্ত হয়েছে। Pocket Guard চালু করতে ট্যাপ করুন।</string>
     <string name="notify_rearm">Android Pocket Guard বন্ধ করে দিয়েছে। আবার চালু করতে ট্যাপ করুন এবং ব্যাটারি সেটিংসে অনুমতি দিন।</string>
     <string name="main_need_lock">আগে একটি স্ক্রিন লক (পিন, প্যাটার্ন বা পাসওয়ার্ড) সেট করুন</string>
     <string name="history_flicker">বাতিল: পকেট নড়ে গিয়েছিল</string>
@@ -138,7 +140,7 @@
     <string name="home_confirm_disarm">অ্যালার্ম থামাতে নিশ্চিত করুন যে এটি আপনি</string>
     <string name="triggers_sub">চালু থাকা অবস্থায় কী কী অ্যালার্ম বাজায়</string>
     <string name="triggers_alarms">অ্যালার্ম</string>
-    <string name="triggers_auto">নিজে চালু</string>
+    <string name="triggers_auto">চালু করার রিমাইন্ডার</string>
     <string name="triggers_evidence">প্রমাণ</string>
     <string name="triggers_pocket">পকেট বা ব্যাগ থেকে বের করা</string>
     <string name="triggers_pocket_sub">প্রক্সিমিটি, আলো ও নড়াচড়ার সেন্সর দিয়ে বোঝে। চালু থাকলে সবসময় কাজ করে।</string>
@@ -178,6 +180,6 @@
     <string name="trigger_table">টেবিল থেকে তোলা হয়েছে</string>
     <string name="history_put_back">বাতিল: আবার নামিয়ে রাখা হয়েছে</string>
     <string name="triggers_table">টেবিলে উপুড় করে রাখা</string>
-    <string name="triggers_table_sub">টেবিল থেকে তুললে, কাত করলে বা ঠেলে ফেললে সতর্ক করবে; সরালে শুধু বিপ। দুটি ছোট কম্পন মানে টেবিলে পাহারা চালু।</string>
-    <string name="test_9">টেবিলে: লক অবস্থায় উপুড় করে রাখুন, দুটি ছোট কম্পনের অপেক্ষা করুন। তুলুন বা কাত করুন: ১.৫ সেকেন্ড পর বিপ। আবার নামিয়ে রাখুন: থেমে যাবে।</string>
+    <string name="triggers_table_sub">সরালে, তুললে বা কাত করলে সতর্ক করবে, প্রথম ১.৫ সেকেন্ড নীরবে যাতে আপনি আনলক করতে পারেন। দুটি ছোট কম্পন মানে টেবিলে পাহারা চালু।</string>
+    <string name="test_9">টেবিলে: লক অবস্থায় উপুড় করে রাখুন, দুটি ছোট কম্পনের অপেক্ষা করুন (প্রায় ৫ সেকেন্ড)। সরান, তুলুন বা কাত করুন: ১.৫ সেকেন্ড পর বিপ। তুলে আবার স্থির করে নামিয়ে রাখুন: থেমে যাবে।</string>
 </resources>

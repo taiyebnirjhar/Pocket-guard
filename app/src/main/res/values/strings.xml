@@ -38,10 +38,10 @@
     <string name="triggers_charger_sub">Warns if it\'s unplugged while locked, e.g. charging at a café</string>
     <string name="triggers_earbuds">Earbuds disconnect alarm</string>
     <string name="triggers_earbuds_sub">Warns if your earbuds or watch lose the phone while it\'s out of your pocket and locked</string>
-    <string name="triggers_auto_earbuds">Auto-arm when earbuds connect</string>
-    <string name="triggers_auto_earbuds_sub">Earbuds in usually means you\'re on the move</string>
-    <string name="triggers_auto_transit">Auto-arm on bus or train</string>
-    <string name="triggers_auto_transit_sub">Uses Google activity detection. Also arms in cars.</string>
+    <string name="triggers_auto_earbuds">Offer to arm when earbuds connect</string>
+    <string name="triggers_auto_earbuds_sub">Earbuds in usually means you\'re on the move. A notification asks; one tap arms.</string>
+    <string name="triggers_auto_transit">Offer to arm on bus or train</string>
+    <string name="triggers_auto_transit_sub">Uses Google activity detection (cars too). A notification asks; one tap arms.</string>
     <string name="devices_title">Which devices count</string>
     <string name="devices_sub">None ticked means any earbuds, headphones or watch</string>
     <string name="devices_none">No paired earbuds or watch found</string>
@@ -79,7 +79,7 @@
     <string name="test_title">How to test</string>
     <string name="test_1">Turn on Test mode. Tap the round button on Home, lock the phone.</string>
     <string name="test_2">Put it in your pocket. A short buzz means it\'s protected.</string>
-    <string name="test_3">Pull it out without unlocking: beeps (in your earbuds if connected).</string>
+    <string name="test_3">Take it out without unlocking: after 2 s it beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
     <string name="test_5">Unlock with your fingerprint or PIN: everything stops and it re-arms.</string>
     <string name="test_6">Volume buttons during the siren shouldn\'t silence it.</string>
@@ -91,7 +91,7 @@
     <string name="onboarding_1_title">Catch pickpockets in the act</string>
     <string name="onboarding_1_body">Pocket Guard screams the moment your phone leaves your pocket without your fingerprint, while the thief is still next to you.</string>
     <string name="onboarding_2_title">Arm it before the crowd</string>
-    <string name="onboarding_2_body">Tap the round button on Home or the Quick Settings tile, then pocket your locked phone. A short buzz means it\'s protected. Take it out and unlock as usual: nothing happens.</string>
+    <string name="onboarding_2_body">Tap the round button on Home or the Quick Settings tile, then pocket your locked phone. A short buzz means it\'s protected. Take it out and unlock within 2 s: no sound.</string>
     <string name="onboarding_3_title">If someone takes it</string>
     <string name="onboarding_3_body">Beeps in your earbuds, then a siren the thief can\'t silence, a flashing torch and photos of whoever is holding it. Restarting the phone doesn\'t stop it.</string>
     <string name="onboarding_4_title">Set it up, then test it</string>
@@ -109,6 +109,8 @@
     <string name="trigger_power_menu">Power menu opened</string>
     <string name="notify_auto_off">Pocket Guard turned itself off after 4 hours armed automatically.</string>
     <string name="notify_need_lock">Pocket Guard needs a screen lock (PIN, pattern or password) to tell you from a thief.</string>
+    <string name="notify_arm_transit">On a bus, train or in a car? Tap to arm Pocket Guard.</string>
+    <string name="notify_arm_earbuds">Earbuds connected. Tap to arm Pocket Guard.</string>
     <string name="notify_rearm">Android stopped Pocket Guard. Tap to arm it again, and allow it in battery settings.</string>
     <string name="main_need_lock">Set a screen lock (PIN, pattern or password) first</string>
     <string name="history_flicker">cancelled: the pocket shifted</string>
@@ -139,7 +141,7 @@
     <string name="home_confirm_disarm">Confirm it\'s you to stop the alarm</string>
     <string name="triggers_sub">What sets off the alarm while armed</string>
     <string name="triggers_alarms">Alarms</string>
-    <string name="triggers_auto">Auto-arm</string>
+    <string name="triggers_auto">Arming reminders</string>
     <string name="triggers_evidence">Evidence</string>
     <string name="triggers_pocket">Taken out of pocket or bag</string>
     <string name="triggers_pocket_sub">Proximity, light and motion sensors decide. Always on while armed.</string>
@@ -179,6 +181,6 @@
     <string name="trigger_table">Picked up from the table</string>
     <string name="history_put_back">cancelled: put back down</string>
     <string name="triggers_table">Face-down on a table</string>
-    <string name="triggers_table_sub">Lift, tilt or push it off the table and it warns; sliding it only beeps. Two short buzzes mean it is guarding the table.</string>
-    <string name="test_9">On a table: lay it face-down, locked, and wait for two short buzzes. Lift or tilt it: beeps after 1.5 s. Put it back down: they stop.</string>
+    <string name="triggers_table_sub">Slide, lift or tilt it and it warns, silently for the first 1.5 s so you can unlock. Two short buzzes mean it is guarding the table.</string>
+    <string name="test_9">On a table: lay it face-down, locked, and wait for two short buzzes (about 5 s). Slide, lift or tilt it: beeps after 1.5 s. Lift it and put it back down still: they stop.</string>
 </resources>

@@ -49,6 +49,19 @@ object Notifications {
         return builder.build()
     }
 
+    /**
+     * Earbuds connected or a ride detected: ask instead of arming by itself, since arming on a
+     * guess is what set off alarms nobody expected. One tap arms it.
+     */
+    fun showArmPrompt(context: Context, text: Int) {
+        val intent = Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_ARM, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        notifyInfo(context, text, PendingIntent.getActivity(
+            context, 5, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ))
+    }
+
     /** Android stopped the guard (e.g. background restart refused): one tap arms it again. */
     fun showRearm(context: Context) {
         val intent = Intent(context, MainActivity::class.java)

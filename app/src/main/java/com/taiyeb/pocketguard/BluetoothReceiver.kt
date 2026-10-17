@@ -62,11 +62,7 @@ class BluetoothReceiver : BroadcastReceiver() {
         if (!Prefs.autoArmEarbuds(context) || GuardState.phase.value != Phase.OFF) return
         val device = IntentCompat.getParcelableExtra(intent, BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
         if (device == null || !isPaired(device) || !counts(context, device)) return
-        try {
-            GuardService.arm(context, auto = true)
-        } catch (e: Exception) {
-            Notifications.showRearm(context) // Background start refused: battery optimization still on.
-        }
+        Notifications.showArmPrompt(context, R.string.notify_arm_earbuds)
     }
 
     /** Only the user's own paired devices; another app could fake the broadcast with any device. */

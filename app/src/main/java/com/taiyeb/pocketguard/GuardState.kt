@@ -21,12 +21,12 @@ enum class Phase {
 
 /** Which rule confirmed a theft, for the log and for how the warning sounds. */
 enum class Evidence {
-    LIGHT, JOLT, PROXIMITY_ONLY, TILT_OUT, OUT_AND_IN,
-    TABLE_TILT, TABLE_LIFT, TABLE_HELD, TABLE_POSE, TABLE_FALL, TABLE_UNCOVER, MOTION_UNKNOWN,
+    LIGHT, JOLT, PROXIMITY_ONLY, UNCOVERED, TILT_OUT, OUT_AND_IN,
+    TABLE_TILT, TABLE_LIFT, TABLE_HELD, TABLE_POSE, TABLE_FALL, TABLE_UNCOVER, TABLE_SLIDE, MOTION_UNKNOWN,
     ;
 
     /** The person holding it is likely looking at it: give the owner a moment to unlock in silence. */
-    val ownerLikelyLooking get() = this == TILT_OUT || name.startsWith("TABLE_")
+    val ownerLikelyLooking get() = this == UNCOVERED || this == TILT_OUT || name.startsWith("TABLE_")
 }
 
 /** What caused an alarm. */

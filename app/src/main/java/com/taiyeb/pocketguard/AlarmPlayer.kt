@@ -9,7 +9,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -32,8 +31,6 @@ class AlarmPlayer(context: Context) {
     private val notifications = context.getSystemService(NotificationManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
 
-    /** Separate, so stopping the alarm can't strand a chirp's tone generator unreleased. */
-    private val chirpHandler = Handler(Looper.getMainLooper())
     private var savedInterruptionFilter: Int? = null
 
     private var track: AudioTrack? = null
@@ -75,23 +72,6 @@ class AlarmPlayer(context: Context) {
 
     /** Two quick buzzes: now guarding it on the table. */
     fun tableTick() = vibrate(VibrationEffect.createWaveform(longArrayOf(0, 40, 80, 40), -1))
-
-    /**
-     * A beep on the alarm stream (heard through silent mode) when someone slides the phone on the
-     * table; [burst] beeps for 3 s after repeated slides. No vibration: that would move it again.
-     */
-    fun chirp(burst: Boolean) {
-        val tones = try {
-            ToneGenerator(AudioManager.STREAM_ALARM, 60)
-        } catch (e: RuntimeException) {
-            return // Audio busy.
-        }
-        val count = if (burst) 6 else 1
-        for (i in 0 until count) {
-            chirpHandler.postDelayed({ tones.startTone(ToneGenerator.TONE_PROP_BEEP, 150) }, i * 500L)
-        }
-        chirpHandler.postDelayed({ tones.release() }, count * 500L + 300L)
-    }
 
     /**
      * Stage 1: beeps on the media stream (which goes to the earbuds when connected) plus vibration.

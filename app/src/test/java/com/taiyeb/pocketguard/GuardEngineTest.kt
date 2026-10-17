@@ -23,7 +23,6 @@ class GuardEngineTest {
         var credentialLocked = true
         var ringing = false
         var tableTicks = 0
-        val chirps = mutableListOf<Boolean>()
 
         /** When the phone last buzzed itself: motion streams shake the sensor for a moment after. */
         var lastBuzzAt = Long.MIN_VALUE / 2
@@ -59,9 +58,6 @@ class GuardEngineTest {
         override fun tableTick() {
             tableTicks++
             lastBuzzAt = time
-        }
-        override fun tableChirp(burst: Boolean) {
-            chirps += burst
         }
 
         /** Moves the clock forward, firing due timers in order, like the real Handler would. */
@@ -182,11 +178,15 @@ class GuardEngineTest {
     }
 
     @Test
-    fun uncoveredWithoutMotionOrLightIsAFlicker() {
+    fun uncoveredAloneWarns() {
+        // Armed and locked: being uncovered past the flicker filter is enough, no proof needed.
         pocket()
         engine.onProximity(false)
-        host.advance(1000)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS - 100)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        host.advance(200)
+        assertEquals(Phase.WARNING, engine.phase)
+        assertEquals(Evidence.UNCOVERED, engine.evidence)
     }
 
     @Test
@@ -199,15 +199,14 @@ class GuardEngineTest {
     }
 
     @Test
-    fun oldMotionDoesNotCount() {
+    fun oldMotionIsNotNotedAsAJolt() {
         pocket()
         engine.onMotion(8f)
         host.advance(GuardEngine.MOTION_WINDOW_MS + 100)
         engine.onProximity(false)
-        host.advance(GuardEngine.EVIDENCE_WINDOW_MS + 500)
-        // No warning, but it keeps watching instead of giving up (it may be in someone's hand).
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+        assertEquals(Evidence.UNCOVERED, engine.evidence)
     }
 
     @Test
@@ -334,12 +333,12 @@ class GuardEngineTest {
     }
 
     @Test
-    fun noDelaySirensWithinHalfASecondOnMotionAlone() {
+    fun noDelaySirensWithinAQuarterSecondOfTheUncover() {
         host.config = host.config.copy(graceMs = 0)
         pocket()
         engine.onMotion(8f) // Screen off: the light sensor sends nothing.
         engine.onProximity(false)
-        host.advance(GuardEngine.FAST_UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.FAST_REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.SIREN, engine.phase)
     }
 
@@ -349,7 +348,7 @@ class GuardEngineTest {
         pocket()
         engine.onMotion(8f)
         engine.onProximity(false)
-        host.advance(GuardEngine.FAST_UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.FAST_REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.SIREN, engine.phase)
         engine.onProximity(true)
         assertEquals(Phase.IN_POCKET, engine.phase)
@@ -384,7 +383,7 @@ class GuardEngineTest {
         pocket()
         engine.onMotion(8f)
         engine.onProximity(false)
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
         host.advance(3000)
         assertEquals(Phase.SIREN, engine.phase)
@@ -434,45 +433,34 @@ class GuardEngineTest {
     }
 
     @Test
-    fun darkRemovalWaitsForSustainedUncover() {
+    fun darkRemovalWarnsOnceUncoveredPastTheFilter() {
         pocket()
         engine.onMotion(8f)
         engine.onProximity(false)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS)
         assertEquals(Phase.WARNING, engine.phase)
+        assertEquals(Evidence.JOLT, engine.evidence)
     }
 
     @Test
-    fun darkFlickerWithYankThatRecoversIsIgnored() {
+    fun uncoverThatRecoversWithinASecondStopsTheWarning() {
         pocket()
         engine.onMotion(8f)
         engine.onProximity(false)
-        host.advance(1200)
-        engine.onProximity(true)
+        host.advance(1200) // Warned at 0.8 s...
+        engine.onProximity(true) // ...covered again 0.4 s later: the pocket shifted.
         host.advance(10_000)
         assertEquals(Phase.IN_POCKET, engine.phase)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        assertFalse(host.transitions.any { it.second == Phase.SIREN })
     }
 
     @Test
-    fun walkingMotionInDarkPocketIsIgnored() {
+    fun litOutsideButNotBrighterStillWarns() {
         pocket()
-        engine.onMotion(2f) // a step
-        engine.onProximity(false)
-        host.advance(5000)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
-    }
-
-    @Test
-    fun litOutsideButNotBrighterIsNotARemoval() {
-        pocket()
-        engine.onMotion(8f)
         engine.onProximity(false)
         engine.onLight(7f)
-        host.advance(5000)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
     }
 
     @Test
@@ -480,7 +468,7 @@ class GuardEngineTest {
         pocket()
         engine.onMotion(8f)
         engine.onProximity(false) // no light reading: confirmed by motion
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
         engine.onProximity(true)
         assertEquals(Phase.IN_POCKET, engine.phase)
@@ -497,17 +485,6 @@ class GuardEngineTest {
         assertEquals(Phase.WARNING, engine.phase)
         host.advance(3000)
         assertEquals(Phase.SIREN, engine.phase)
-    }
-
-    @Test
-    fun lateLightReadingStillCounts() {
-        pocket()
-        engine.onProximity(false)
-        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 100)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        engine.onLight(300f) // the light sensor wakes up late
-        host.advance(GuardEngine.RECHECK_MS + 10)
-        assertEquals(Phase.WARNING, engine.phase)
     }
 
     @Test
@@ -548,7 +525,7 @@ class GuardEngineTest {
         assertEquals(Phase.IN_POCKET, engine.phase)
         engine.onMotion(4f)
         engine.onProximity(false)
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
     }
 
@@ -557,7 +534,7 @@ class GuardEngineTest {
         pocket()
         engine.onMotion(4f)
         engine.onProximity(false)
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
     }
 
@@ -569,17 +546,17 @@ class GuardEngineTest {
         engine.onMotion(4f)
         engine.onProximity(false)
         engine.onLight(400f)
-        host.advance(GuardEngine.UNCOVERED_CONFIRM_MS + 10)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
     }
 
     @Test
-    fun frozenLightAndNoMotionIsIgnored() {
+    fun frozenLightAndNoMotionStillWarns() {
         engine.onProximity(true)
         host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
         engine.onProximity(false)
-        host.advance(5000)
-        assertFalse(host.transitions.any { it.second == Phase.WARNING })
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
     }
 
     @Test

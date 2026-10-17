@@ -184,26 +184,32 @@ unlock
 expect_phase WAITING_FOR_POCKET 4 "owner's unlock within grace stops it"
 expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
 
-log "Scenario 4: sensor uncovered without movement or light"
+log "Scenario 4: uncovered with no movement or light (a careful pull) still warns"
+screen_off
+reset_log
+pocket
+expect_phase IN_POCKET 6 "pocketed for the careful pull"
+calm_down
+reset_log
+uncovered
+expect_log "phase=WARNING .*evidence=UNCOVERED" 5 "uncovered while locked warns, no proof needed"
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock after the careful-pull warning"
+
+log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
 screen_off
 reset_log
 pocket
 expect_phase IN_POCKET 6 "pocketed for the flicker test"
 calm_down
 reset_log
-uncovered
-expect_no_phase WARNING 3 "uncovering without movement or light is ignored"
-
-log "Scenario 5: walking, pocket fabric flickers over the sensor for under a second"
-covered
-sleep 2
-reset_log
 jolt &
 uncovered
 sleep 0.3
 covered
 wait
-expect_no_phase WARNING 4 "brief flicker while walking is ignored"
+expect_no_phase SIREN 4 "brief flicker while walking never sirens"
 
 # --- 4. Tamper triggers ----------------------------------------------------------------------------
 
@@ -273,32 +279,10 @@ reset_log
 uncovered
 sleep 0.3
 face_up # Turned to look, slowly: |a| stays 1 g, so there is no jolt.
-sleep 0.7
-sh input keyevent KEYCODE_WAKEUP # The thief wakes the screen.
-expect_log "phase=WARNING .*evidence=TILT_OUT" 6 "a gentle pull turned to look warns"
+expect_log "phase=WARNING .*evidence=UNCOVERED" 6 "a gentle pull warns without any jolt or light"
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock after the gentle-pull warning"
-still
-
-log "Scenario 7d: out of the pocket and straight into another"
-screen_off
-reset_log
-pocket
-expect_phase IN_POCKET 6 "pocketed for the pocket swap"
-calm_down
-reset_log
-uncovered
-sleep 0.2
-face_up
-sleep 1.5
-emu sensor set acceleration 9.81:0:0 # Into the thief's pocket, sideways.
-sleep 1
-covered
-expect_log "phase=WARNING .*evidence=OUT_AND_IN" 6 "moved into another pocket at a new angle warns"
-reset_log
-unlock
-expect_phase WAITING_FOR_POCKET 6 "unlock after the pocket-swap warning"
 still
 uncovered
 

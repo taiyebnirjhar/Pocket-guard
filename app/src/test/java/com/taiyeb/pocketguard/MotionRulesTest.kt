@@ -144,14 +144,17 @@ class MotionRulesTest {
                 still(faceDown, 2000)
                 assertEquals("$label knock", Phase.ON_TABLE, engine.phase)
 
-                stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, -G) }
-                still(faceDown, 2000)
-                assertEquals("$label slide", Phase.ON_TABLE, engine.phase)
-                assertEquals("$label slide chirp", 1, host.chirps.size)
-
                 stream(600) { t -> faceDownTilted(60f * t / 600f) }
                 still(faceDownTilted(60f), 400)
                 assertEquals("$label tilt", Phase.WARNING, engine.phase)
+                stream(600) { t -> faceDownTilted(60f - 60f * t / 600f) }
+                still(faceDown, 4000)
+                assertEquals("$label put back", Phase.ON_TABLE, engine.phase)
+
+                stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, -G) }
+                still(faceDown, 2500)
+                assertEquals("$label slide", Phase.WARNING, engine.phase)
+                assertEquals("$label slide", Evidence.TABLE_SLIDE, engine.evidence)
             }
         }
     }
@@ -170,12 +173,14 @@ class MotionRulesTest {
             still(upright, 1000)
             engine.onProximity(true)
             stream(4000, swing)
-            // Fabric flicking off the sensor, on and off, while walking for 20 s.
+            // Fabric flicking off the sensor for a fraction of a second at a time, walking for 20 s.
             var elapsed = 4000L
-            repeat(10) { i ->
-                engine.onProximity(i % 2 == 1)
-                stream(2000) { swing(it + elapsed) }
-                elapsed += 2000
+            repeat(25) {
+                engine.onProximity(false)
+                stream(300) { swing(it + elapsed) }
+                engine.onProximity(true)
+                stream(500) { swing(it + elapsed + 300) }
+                elapsed += 800
             }
             assertFalse("seed $seed", host.transitions.any { it.second.isAlarm })
         }
@@ -303,24 +308,36 @@ class MotionRulesTest {
     }
 
     @Test
-    fun slideOnlyChirps() {
+    fun slideWarns() {
         placeOnTable()
-        // Slid 20 cm along the table in 1.2 s.
+        // Slid 20 cm along the table in 1.2 s: someone drawing it towards them.
         stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, -G) }
-        still(faceDown, 2000)
-        assertEquals(Phase.ON_TABLE, engine.phase)
-        assertEquals(listOf(false), host.chirps)
-        neverWarned()
+        still(faceDown, 2500)
+        warnedWith(Evidence.TABLE_SLIDE)
     }
 
     @Test
-    fun repeatedSlidesBeepLonger() {
+    fun gentleSlideOfAFewCentimetresWarns() {
         placeOnTable()
-        repeat(4) {
-            stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, -G) }
-            still(faceDown, 2000)
-        }
-        assertEquals(listOf(false, false, false, true), host.chirps)
+        stream(1000) { t -> floatArrayOf(minJerkAccel(8f, 1000, t), 0f, -G) }
+        still(faceDown, 2500)
+        warnedWith(Evidence.TABLE_SLIDE)
+    }
+
+    @Test
+    fun smallTiltOfTenDegreesWarns() {
+        placeOnTable()
+        stream(800) { t -> faceDownTilted(12f * t / 800f) }
+        still(faceDownTilted(12f), 500)
+        warnedWith(Evidence.TABLE_TILT)
+    }
+
+    @Test
+    fun tableModeStartsWithinAFewSeconds() {
+        still(faceDown, 1000)
+        engine.onProximity(true)
+        still(faceDown, 6000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
     }
 
     @Test
@@ -331,7 +348,6 @@ class MotionRulesTest {
         still(faceDown, 2000)
         assertEquals(Phase.ON_TABLE, engine.phase)
         neverWarned()
-        assertTrue(host.chirps.isEmpty())
     }
 
     @Test
@@ -359,49 +375,6 @@ class MotionRulesTest {
         noise = 0.08f
         still(faceDown, 1500) // Engine idling at the lights: the launch comes partway into a burst.
         stream(7000) { floatArrayOf(1.2f, 0f, -G) }
-        assertEquals(Phase.ON_TABLE, engine.phase)
-        neverWarned()
-    }
-
-    @Test
-    fun smallTiltProppedUpStaysProtected() {
-        placeOnTable()
-        // One edge raised a few degrees onto something and left: no car, so it stays protected.
-        stream(1000) { t -> faceDownTilted(6f * t / 1000f) }
-        still(faceDownTilted(6f), 10_000)
-        assertEquals(Phase.ON_TABLE, engine.phase)
-    }
-
-    @Test
-    fun proppedUpPhoneIgnoresASensorGlitch() {
-        placeOnTable()
-        stream(1000) { t -> faceDownTilted(6f * t / 1000f) }
-        still(faceDownTilted(6f), 3000)
-        engine.onProximity(false) // Nothing moved it: the sensor flickered.
-        still(faceDownTilted(6f), 1500)
-        engine.onProximity(true)
-        still(faceDownTilted(6f), 1000)
-        assertEquals(Phase.ON_TABLE, engine.phase)
-        neverWarned()
-    }
-
-    @Test
-    fun proppedUpPhoneWithASensorOffsetStaysProtected() {
-        bias = floatArrayOf(0f, 0.3f, 0f) // Along the way it gets tilted.
-        placeOnTable()
-        stream(1000) { t -> faceDownTilted(5f * t / 1000f) }
-        still(faceDownTilted(5f), 15_000)
-        assertEquals(Phase.ON_TABLE, engine.phase)
-        neverWarned()
-    }
-
-    @Test
-    fun proppedUpPhoneOnABusyTableIsNotHeld() {
-        placeOnTable()
-        stream(1500) { t -> faceDownTilted(5f * t / 1500f) }
-        still(faceDownTilted(5f), 6000)
-        noise = 0.05f // Writing, typing, cutlery on the table: it is never still.
-        still(faceDownTilted(5f), 8000)
         assertEquals(Phase.ON_TABLE, engine.phase)
         neverWarned()
     }
@@ -439,18 +412,6 @@ class MotionRulesTest {
             noise = 0.01f
             assertTrue("grade $grade, $accel m/s²", host.transitions.none { it.second.isAlarm })
         }
-    }
-
-    @Test
-    fun proppedThenDroppedFlatOnABusyTableIsNotHeld() {
-        placeOnTable()
-        stream(1000) { t -> faceDownTilted(7f * t / 1000f) } // One end on a saucer rim.
-        still(faceDownTilted(7f), 6000)
-        noise = 0.05f // The plate goes, and the phone drops back flat on a table that is never still.
-        stream(100) { t -> faceDownTilted(7f - 7f * t / 100f) }
-        still(faceDown, 20_000)
-        noise = 0.01f
-        neverWarned()
     }
 
     @Test
@@ -583,6 +544,25 @@ class MotionRulesTest {
     }
 
     @Test
+    fun nudgedOntoSomethingAFewDegreesWarns() {
+        placeOnTable()
+        stream(1000) { t -> faceDownTilted(6f * t / 1000f) }
+        still(faceDownTilted(6f), 3000)
+        assertTrue(engine.phase.isAlarm)
+    }
+
+    @Test
+    fun sensorGlitchWithNothingMovingIsIgnored() {
+        placeOnTable()
+        engine.onProximity(false)
+        still(faceDown, 1500)
+        engine.onProximity(true)
+        still(faceDown, 1000)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        neverWarned()
+    }
+
+    @Test
     fun laidDownEdgeFirstStillBecomesProtected() {
         still(faceDownTilted(15f), 1000)
         engine.onProximity(true) // Covered on the way down, one edge first.
@@ -607,14 +587,6 @@ class MotionRulesTest {
         stream(6000) { floatArrayOf(2f, 0f, -G) }
         still(faceDown, 3000)
         neverWarned()
-    }
-
-    @Test
-    fun liftedOntoABookAtAnAngleWarns() {
-        placeOnTable()
-        stream(1500) { t -> faceDownTilted(15f * t / 1500f) }
-        still(faceDownTilted(15f), 3000)
-        assertEquals(Phase.WARNING, engine.phase)
     }
 
     @Test
@@ -719,112 +691,35 @@ class MotionRulesTest {
     // --- Pocket: the gentle pull -------------------------------------------------------------------------
 
     @Test
-    fun gentlePullTurnedToLookWarns() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(80f * t / 800f) } // No jolt: a slow, careful pull.
-        engine.onDisplayOn() // The thief presses power to look.
-        still(uprightTurned(80f), 1500)
-        warnedWith(Evidence.TILT_OUT)
-    }
-
-    @Test
-    fun screenWokenJustBeforeItCameOutIsACue() {
-        pocketUpright()
-        engine.onDisplayOn() // Power pressed while drawing it out.
-        still(upright, 300)
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(85f * t / 800f) }
-        still(uprightTurned(85f), 1500)
-        warnedWith(Evidence.TILT_OUT)
-    }
-
-    @Test
-    fun gentlePullWithoutLookingKeepsWatchingThenCatchesTheLook() {
+    fun gentlePullWarnsWithoutAnyJoltOrLight() {
+        // The field report: drawn out slowly in the dark, nothing but the uncover. That is enough.
         pocketUpright()
         engine.onProximity(false)
         stream(800) { t -> uprightTurned(80f * t / 800f) }
-        still(uprightTurned(80f), 4000)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        neverWarned()
-        // Later the thief turns it over to look at it.
-        stream(600) { t -> uprightTurned(80f + 60f * t / 600f) }
-        engine.onDisplayOn()
-        still(uprightTurned(140f), 1000)
-        warnedWith(Evidence.TILT_OUT)
+        assertTrue(engine.phase.isAlarm)
+        assertEquals(Evidence.UNCOVERED, engine.evidence)
     }
 
     @Test
-    fun outOfOnePocketAndIntoAnotherWarns() {
+    fun keptAtThePocketAngleStillWarns() {
         pocketUpright()
         engine.onProximity(false)
-        stream(700) { t -> uprightTurned(90f * t / 700f) }
-        still(uprightTurned(90f), 1000)
-        // Into the thief's pocket, sideways.
-        stream(700) { t ->
-            val r = (90f * t / 700f) * PI.toFloat() / 180f
-            floatArrayOf(G * sin(r), 0f, G * cos(r))
-        }
+        still(upright, 1000)
+        warnedWith(Evidence.UNCOVERED)
+    }
+
+    @Test
+    fun pocketedAgainRightAfterTheWarningAtANewAngleStillWarns() {
+        pocketUpright()
+        engine.onProximity(false)
+        stream(300) { floatArrayOf(6f, 6f, 18f) } // Yanked out...
+        stream(500) { t -> uprightTurned(100f * t / 500f) }
+        assertTrue(engine.phase.isAlarm)
+        // ...turned about and, within a second of the warning, into the thief's pocket at a new angle.
+        stream(300) { t -> uprightTurned(100f - 40f * t / 300f) }
         engine.onProximity(true)
-        still(floatArrayOf(G, 0f, 0f), 2500)
-        warnedWith(Evidence.OUT_AND_IN)
-    }
-
-    @Test
-    fun slowPocketSwapStillWarns() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(1000) { t -> uprightTurned(90f * t / 1000f) }
-        still(uprightTurned(90f), 2000) // Looked at it for a while.
-        stream(800) { t ->
-            val r = (90f * t / 800f) * PI.toFloat() / 180f
-            floatArrayOf(G * sin(r), 0f, G * cos(r))
-        }
-        engine.onProximity(true)
-        still(floatArrayOf(G, 0f, 0f), 2500)
-        warnedWith(Evidence.OUT_AND_IN)
-    }
-
-    @Test
-    fun sittingDownWithAnOpenPocketIsNotTheft() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(85f * t / 800f) } // One smooth turn, seat reached.
-        still(uprightTurned(85f), 500)
-        engine.onProximity(true)
-        still(uprightTurned(85f), 3000)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        neverWarned()
-    }
-
-    @Test
-    fun pocketSwapWhileWalkingNeedsTheScreenToo() {
-        pocketUpright()
-        // Walking: steps every 550 ms.
-        stream(5000) { t -> floatArrayOf(0f, G + if (t % 550 < 60) 3f else 0f, 0f) }
-        engine.onProximity(false)
-        stream(700) { t -> uprightTurned(90f * t / 700f) }
-        still(uprightTurned(90f), 1000)
-        stream(700) { t ->
-            val r = (90f * t / 700f) * PI.toFloat() / 180f
-            floatArrayOf(G * sin(r), 0f, G * cos(r))
-        }
-        engine.onProximity(true)
-        still(floatArrayOf(G, 0f, 0f), 2500)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        neverWarned()
-    }
-
-    @Test
-    fun notificationOnADeskDoesNotWarn() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(90f * t / 800f) }
-        still(faceUp, 15_000) // Taken out and left face-up on the desk, locked.
-        engine.onDisplayOn() // A message lights the screen; nobody touched it.
-        still(faceUp, 2000)
-        assertEquals(Phase.IN_POCKET, engine.phase)
-        neverWarned()
+        still(uprightTurned(60f), 2500)
+        assertTrue(engine.phase.isAlarm)
     }
 
     @Test
@@ -836,121 +731,6 @@ class MotionRulesTest {
         engine.onDisplayOn()
         still(uprightTurned(80f), 1500)
         neverWarned()
-    }
-
-    @Test
-    fun screenWokenByTheChargerIsNoCue() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(80f * t / 800f) }
-        engine.onPowerEvent()
-        engine.onDisplayOn()
-        still(uprightTurned(80f), 1500)
-        neverWarned()
-    }
-
-    @Test
-    fun turnToLookWarningDoesNotRecoverWhenCovered() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(800) { t -> uprightTurned(80f * t / 800f) }
-        engine.onDisplayOn()
-        still(uprightTurned(80f), 1500)
-        warnedWith(Evidence.TILT_OUT)
-        engine.onProximity(true) // A hand over the sensor.
-        still(uprightTurned(80f), 500)
-        assertEquals(Phase.WARNING, engine.phase)
-    }
-
-    @Test
-    fun walkingJoltsNeedTheStepsToStop() {
-        pocketUpright()
-        val walk = { t: Long -> floatArrayOf(0f, G + if (t % 550 < 60) 3f else 0f, 0f) }
-        stream(4000, walk)
-        // Walking with fabric flicking off the sensor: steps are jolts, but it isn't a theft.
-        engine.onProximity(false)
-        stream(6000) { walk(it + 4000) }
-        neverWarned()
-        still(upright, 5000) // Stopped, sensor still uncovered: the last steps don't count.
-        neverWarned()
-    }
-
-    @Test
-    fun thiefHurryingOffAfterTheYankStillWarns() {
-        // Yanked out of a standing owner's pocket, turned into the hand and hurried off at once: the
-        // getaway steps fall into a rhythm with the yank, but the yank was made standing still. It
-        // must warn while he is still walking.
-        for (gap in 0L until 400L step 40L) {
-            setUp()
-            pocketUpright()
-            var uncovered = false
-            stream(30_000) { t ->
-                if (!uncovered) { uncovered = true; engine.onProximity(false) }
-                val v = uprightTurned(70f * t.coerceAtMost(300L) / 300f)
-                val yank = if (t < 200) 5f * sin(PI.toFloat() * t / 200f) else 0f
-                val ph = if (t >= 40 + gap) (t - 40 - gap) % 400 else -1L
-                val step = if (ph in 0L..119L) 3.5f * sin(PI.toFloat() * ph / 120f) else 0f
-                val k = 1f + step / G
-                floatArrayOf(v[0] * k, v[1] * k + yank, v[2] * k)
-            }
-            assertTrue("gap $gap", host.transitions.any { it.second.isAlarm })
-        }
-    }
-
-    @Test
-    fun shortWalkWithAPocketOpenAtTheFirstStepsIsQuiet() {
-        // Setting off with a loose pocket that opens in the first steps, a few steps across a room,
-        // then standing: the first steps are jolts made "standing still", but nothing turned it.
-        for (uncoverAt in listOf(300L, 800L, 1300L)) for (steps in 4..7) {
-            setUp()
-            pocketUpright()
-            var uncovered = false
-            val walkMs = steps * 520L
-            stream(walkMs + 200) { t ->
-                if (!uncovered && t >= uncoverAt) { uncovered = true; engine.onProximity(false) }
-                val ph = t % 520
-                val step = if (t < walkMs && ph < 120) 3.5f * sin(PI.toFloat() * ph / 120f) else 0f
-                val v = uprightTurned(12f * sin(2 * PI.toFloat() * t / 1040f))
-                v.map { it * (1f + step / G) }.toFloatArray()
-            }
-            still(upright, 8000)
-            assertTrue("uncover $uncoverAt, $steps steps", host.transitions.none { it.second.isAlarm })
-        }
-    }
-
-    @Test
-    fun seatedKneeDipWithAnOpenPocketIsQuiet() {
-        // Sitting, the pocket gaping open, in the dark: the thigh dips 15-30 degrees about the hip and
-        // back. Its swing moves |a| by 1-2 m/s², under a jolt, so it must stay quiet.
-        val dips = listOf(15.0 to 800L, 15.0 to 1200L, 20.0 to 1200L, 25.0 to 1500L, 30.0 to 1500L)
-        for ((deg, ms) in dips) for (seed in 1L..2L) {
-            setUp()
-            random = Random(seed)
-            bias = floatArrayOf(0.2f, -0.3f, 0.25f)
-            still(faceUp, 1000)
-            engine.onProximity(true)
-            still(faceUp, 15_000)
-            assertEquals(Phase.IN_POCKET, engine.phase)
-            engine.onProximity(false)
-            stream(ms + 200) { t -> pivoted(deg, ms, 0.25, t) }
-            still(faceUp, 6000)
-            assertTrue("dip $deg in $ms ms, seed $seed", host.transitions.none { it.second.isAlarm })
-        }
-    }
-
-    @Test
-    fun joltWarningCoveredAgainAtANewAngleStillWarns() {
-        pocketUpright()
-        engine.onProximity(false)
-        stream(300) { floatArrayOf(6f, 6f, 18f) } // Yanked out...
-        stream(600) { t -> uprightTurned(100f * t / 600f) }
-        still(uprightTurned(100f), 700)
-        warnedWith(Evidence.JOLT)
-        // ...and within a second into the thief's own pocket, at a new angle.
-        stream(300) { t -> uprightTurned(100f - 40f * t / 300f) }
-        engine.onProximity(true)
-        still(uprightTurned(60f), 2500)
-        warnedWith(Evidence.OUT_AND_IN)
     }
 
     @Test

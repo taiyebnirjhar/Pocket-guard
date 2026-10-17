@@ -34,6 +34,13 @@ teams (missed thefts, false alarms, platform pitfalls) and revised against every
 - Tests: `MotionProcessorTest`, `MotionRulesTest` (including sweeps over 5 seeds, 25/50/100 Hz,
   noise and +-0.3 m/s² offsets) and e2e scenarios 7b-7d.
 
+**Changed in v1.3.0** (field feedback: false alarms came from arming on a guess, while missed
+thefts are the greater danger): arming is the user's decision, and auto-arm became a reminder
+that asks. Once armed it is sensitive. In a pocket any uncover past the 0.8 s flicker filter
+warns, with no light, jolt or turn required (the P-JOLT/P-TILT_OUT/WATCH evidence rules are gone;
+flicker recovery and the out-and-in decision after it remain). On a table a slide of 5 cm warns,
+T-TILT needs 10°, and the hard-surface test takes 3 s. A plain uncover gets the 1.5 s silent start.
+
 **Not yet** (later steps): the gyroscope, the edge-based owner check and display-state
 DisplayListener ranks, the call-state pause and charger watch, the hand (H) rules in shadow mode,
 traces and the detection lab, the watchdog and heartbeat, resampling and rate tiers, and the

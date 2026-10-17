@@ -544,10 +544,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         DetectionLog.add(message)
     }
 
-    override fun tableChirp(burst: Boolean) {
-        Log.i(TAG, "table slide chirp burst=$burst")
-        alarm.chirp(burst)
-    }
 
     override fun schedule(timer: GuardEngine.Timer, delayMs: Long) {
         cancel(timer)

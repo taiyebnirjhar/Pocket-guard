@@ -138,6 +138,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleFixLock(intent)
+        // An arming reminder tapped while the app was already open.
+        if (intent.getBooleanExtra(EXTRA_ARM, false)) {
+            intent.removeExtra(EXTRA_ARM)
+            if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun handleFixLock(intent: Intent?) {
