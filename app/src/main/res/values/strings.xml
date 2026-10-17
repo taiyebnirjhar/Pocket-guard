@@ -9,6 +9,8 @@
     <string name="alarm_owner_unlock">I\'m the owner, unlock</string>
     <string name="channel_status">Guard status</string>
     <string name="channel_alarm">Theft alarm</string>
+    <string name="channel_problems">Guard problems</string>
+    <string name="notify_restore">After the restart, Android keeps the camera, microphone and location off for Pocket Guard until you open it. Tap to open it once: intruder photos, SOS video and location come back.</string>
     <string name="phase_off">Guard is off</string>
     <string name="phase_off_hint">Tap the round button before you get into a crowd</string>
     <string name="phase_waiting">Armed</string>

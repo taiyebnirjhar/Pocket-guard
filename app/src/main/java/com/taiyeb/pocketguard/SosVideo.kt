@@ -34,6 +34,15 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
 
         /** 480p at this rate is about 12 MB a minute with the sound. */
         private const val LOW_RES_BITRATE = 1_500_000
+
+        /** 720p at this rate is about 30 MB a minute: 15 minutes stay under half a gigabyte. */
+        private const val HD_BITRATE = 4_000_000
+
+        /** A piece starts only with this much free space left, so recording never fills the phone. */
+        private const val MIN_FREE_BYTES = 300L * 1024 * 1024
+
+        /** Pieces that fail one after another: the camera is gone, so stop instead of looping. */
+        private const val MAX_FAILED_PIECES = 3
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -42,6 +51,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     private var recording: Recording? = null
     private var active = false
     private var pieces = 0
+    private var failed = 0
     private lateinit var dir: File
     private lateinit var prefix: String
     private var onPiece: (File) -> Unit = {}
@@ -60,6 +70,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
         }
         active = true
         pieces = 0
+        failed = 0
         this.dir = dir
         this.prefix = prefix
         this.onPiece = onPiece
@@ -74,6 +85,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
             } else {
                 Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+                    .setTargetVideoEncodingBitRate(HD_BITRATE)
                     .build()
             }
             val cameras = try {
@@ -114,7 +126,13 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     @SuppressLint("MissingPermission") // Checked just before.
     private fun record() {
         val output = recorder ?: return
-        if (!active || pieces >= MAX_PIECES) {
+        if (!active || pieces >= MAX_PIECES || failed >= MAX_FAILED_PIECES) {
+            active = false
+            release()
+            return
+        }
+        if (dir.usableSpace < MIN_FREE_BYTES) {
+            Log.w(GuardService.TAG, "SOS video: stopped, the phone is nearly full")
             active = false
             release()
             return
@@ -128,6 +146,9 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
                 is VideoRecordEvent.Start -> Log.i(GuardService.TAG, "SOS video recording: ${file.name}")
                 is VideoRecordEvent.Finalize -> {
                     recording = null
+                    // Ended early (an error): the next piece gets its own full minute.
+                    handler.removeCallbacks(nextPiece)
+                    if (event.hasError() && file.length() == 0L) failed++ else failed = 0
                     if (file.length() > 0) {
                         Log.i(GuardService.TAG, "SOS video saved: ${file.name} (${file.length() / 1024} KB)")
                         onPiece(file)

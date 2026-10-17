@@ -8,6 +8,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -236,7 +237,9 @@ private fun SetupChecklist(setup: SetupStatus) {
             ok = null,
             fixLabel = stringResource(R.string.action_open),
         ) { SetupActions.secureLock(context) }
-        CheckRow(R.drawable.ic_bell, stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
+        if (Build.VERSION.SDK_INT < 35) {
+            CheckRow(R.drawable.ic_bell, stringResource(R.string.setup_dnd), setup.doNotDisturb) { SetupActions.doNotDisturb(context) }
+        }
         CheckRow(
             R.drawable.ic_bolt,
             stringResource(R.string.setup_autostart),

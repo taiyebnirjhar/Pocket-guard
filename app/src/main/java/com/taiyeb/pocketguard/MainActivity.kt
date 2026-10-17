@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Expired entries and recordings past the cap go even if the phone never alarms again.
+        val app = applicationContext
+        Thread { History.prune(app) }.start()
         // Only on first creation: a rotation re-delivers the same intent and would re-arm after a disarm.
         if (savedInstanceState == null && intent?.getBooleanExtra(EXTRA_ARM, false) == true) {
             if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
@@ -154,5 +157,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshKey.intValue++
+        // Open now: Android grants the camera, microphone and location types again (they may have
+        // been refused when the guard restarted from boot or the background).
+        GuardService.refreshForeground()
     }
 }

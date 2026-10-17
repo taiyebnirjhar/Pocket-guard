@@ -27,6 +27,9 @@ object History {
     private const val MAX = 50
     private const val DAY_MS = 24 * 60 * 60_000L
 
+    /** SOS recordings kept on the phone at most; the oldest SOS's go first. */
+    private const val MAX_VIDEO_BYTES = 1024L * 1024 * 1024
+
     /** Warnings that never escalated are kept a week, real alarms 90 days. */
     private fun expired(incident: Incident, now: Long) =
         now - incident.startedAt > (if (incident.escalated) 90 else 7) * DAY_MS
@@ -62,28 +65,63 @@ object History {
     fun save(context: Context, incident: Incident) {
         try {
             val now = System.currentTimeMillis()
-            val existing = read(context) ?: run {
-                // Unreadable: keep it aside for inspection instead of silently losing it.
+            val earlier = read(context)
+            if (earlier == null) {
+                // Unreadable: keep it aside for inspection instead of silently losing it, and keep
+                // every photo and recording too (they're no longer listed, but they're evidence).
                 File(context.filesDir, FILE).renameTo(File(context.filesDir, "$FILE.damaged"))
-                emptyList()
             }
-            val all = existing.filter { it.id != incident.id }.toMutableList()
+            val all = (earlier ?: emptyList()).filter { it.id != incident.id }.toMutableList()
             all.add(0, incident)
             val kept = all.filter { it.id == incident.id || !expired(it, now) }
                 .sortedByDescending { it.startedAt }
                 .take(MAX)
-            val keptPhotos = kept.flatMap { it.photos }.toSet()
-            photosDir(context).listFiles()
-                ?.filter { it.name !in keptPhotos && !it.name.startsWith("i${incident.id}") }
-                ?.forEach { it.delete() }
-            val keptVideos = kept.flatMap { it.videos }.toSet()
-            videosDir(context).listFiles()
-                ?.filter { it.name !in keptVideos && !it.name.startsWith("s${incident.id}") }
-                ?.forEach { it.delete() }
+            if (earlier != null) deleteUnlisted(context, kept, keep = setOf(incident.id))
             write(context, kept)
         } catch (e: Exception) {
             // Storage locked before the first unlock; the alarm and SMS still work.
         }
+    }
+
+    /**
+     * Drops expired entries and their files, and the oldest recordings past [MAX_VIDEO_BYTES]
+     * (run at app start, so a phone that never alarms again still cleans up).
+     */
+    fun prune(context: Context) {
+        try {
+            val now = System.currentTimeMillis()
+            val all = read(context) ?: return
+            val kept = all.filter { !expired(it, now) }.sortedByDescending { it.startedAt }.take(MAX)
+            var changed = kept.size != all.size
+            var bytes = kept.sumOf { i -> i.videos.sumOf { File(videosDir(context), it).length() } }
+            for (incident in kept.asReversed()) {
+                if (bytes <= MAX_VIDEO_BYTES) break
+                if (incident.endedAt == null || incident.videos.isEmpty()) continue // Still recording.
+                bytes -= incident.videos.sumOf { File(videosDir(context), it).length() }
+                incident.videos.clear()
+                changed = true
+            }
+            // Entries still running may be writing a file they don't list yet.
+            deleteUnlisted(context, kept, keep = kept.filter { it.endedAt == null }.map { it.id }.toSet())
+            if (changed) {
+                write(context, kept)
+                version.value++
+            }
+        } catch (e: Exception) {
+            // Storage locked.
+        }
+    }
+
+    /** Photos and recordings of no listed entry; [keep]: entries still adding files. */
+    private fun deleteUnlisted(context: Context, kept: List<Incident>, keep: Set<Long>) {
+        val keptPhotos = kept.flatMap { it.photos }.toSet()
+        photosDir(context).listFiles()
+            ?.filter { f -> f.name !in keptPhotos && keep.none { f.name.startsWith("i${it}_") || f.name.startsWith("i$it.") } }
+            ?.forEach { it.delete() }
+        val keptVideos = kept.flatMap { it.videos }.toSet()
+        videosDir(context).listFiles()
+            ?.filter { f -> f.name !in keptVideos && keep.none { f.name.startsWith("s${it}_") } }
+            ?.forEach { it.delete() }
     }
 
     fun clear(context: Context) {

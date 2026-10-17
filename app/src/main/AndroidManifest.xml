@@ -108,6 +108,7 @@
 
         <service
             android:name=".SosTileService"
+            android:directBootAware="true"
             android:exported="true"
             android:icon="@drawable/ic_warning"
             android:label="@string/action_sos"

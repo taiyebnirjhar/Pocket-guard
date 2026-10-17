@@ -18,7 +18,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import kotlin.math.roundToInt
 
-class AlarmPlayer(context: Context) {
+class AlarmPlayer(private val context: Context) {
 
     private val audio = context.getSystemService(AudioManager::class.java)
     private val camera = context.getSystemService(CameraManager::class.java)
@@ -111,7 +111,7 @@ class AlarmPlayer(context: Context) {
         stop()
         overrideDoNotDisturb()
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-        savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        saveAlarmVolume()
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
         handler.post(volumeLock)
         play(Tones.siren(), AudioAttributes.USAGE_ALARM)
@@ -127,7 +127,7 @@ class AlarmPlayer(context: Context) {
         stop()
         overrideDoNotDisturb()
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-        savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        saveAlarmVolume()
         targetAlarmVolume = if (quiet) maxOf(1, (max * 0.3f).roundToInt()) else max
         handler.post(volumeLock)
         play(Tones.sos(), AudioAttributes.USAGE_ALARM)
@@ -170,8 +170,9 @@ class AlarmPlayer(context: Context) {
         torchOn = false
         savedMusicVolume?.let { setVolume(AudioManager.STREAM_MUSIC, it) }
         savedMusicVolume = null
-        savedAlarmVolume?.let { setVolume(AudioManager.STREAM_ALARM, it) }
+        (savedAlarmVolume ?: Prefs.savedAlarmVolume(context))?.let { setVolume(AudioManager.STREAM_ALARM, it) }
         savedAlarmVolume = null
+        Prefs.setSavedAlarmVolume(context, null)
         savedInterruptionFilter?.let {
             try {
                 notifications.setInterruptionFilter(it)
@@ -182,8 +183,21 @@ class AlarmPlayer(context: Context) {
         savedInterruptionFilter = null
     }
 
-    /** "Total silence" Do Not Disturb mutes even alarms; lift it while the siren plays, if allowed. */
+    /** The volume to go back to: the one from before any siren, even one cut off by a restart. */
+    private fun saveAlarmVolume() {
+        val earlier = Prefs.savedAlarmVolume(context)
+        savedAlarmVolume = earlier ?: audio.getStreamVolume(AudioManager.STREAM_ALARM).also {
+            Prefs.setSavedAlarmVolume(context, it)
+        }
+    }
+
+    /**
+     * "Total silence" Do Not Disturb mutes even alarms; lift it while the siren plays, if allowed.
+     * From Android 15 an app can only switch its own Do Not Disturb mode, not the user's, and
+     * "restoring" the user's filter would switch on a silent mode of the app's own: so not there.
+     */
     private fun overrideDoNotDisturb() {
+        if (Build.VERSION.SDK_INT >= 35) return
         if (!notifications.isNotificationPolicyAccessGranted) return
         val filter = notifications.currentInterruptionFilter
         if (filter == NotificationManager.INTERRUPTION_FILTER_ALL) return

@@ -13,7 +13,12 @@ object Notifications {
     private const val ALARM_ID = 2
     private const val INFO_ID = 3
     private const val LOCK_WARNING_ID = 4
+    private const val RESTORE_ID = 6
     private const val STATUS_CHANNEL = "guard_status"
+
+    // Problems the owner must hear about (the guard stopped, the lock is slow, protection is
+    // reduced): an ordinary notification with sound, unlike the silent status.
+    private const val PROBLEMS_CHANNEL = "guard_problems"
     private const val ALARM_CHANNEL = "guard_alarm"
 
     fun createChannels(context: Context) {
@@ -28,6 +33,9 @@ object Notifications {
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setBypassDnd(true)
             },
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(PROBLEMS_CHANNEL, context.getString(R.string.channel_problems), NotificationManager.IMPORTANCE_DEFAULT),
         )
         manager.deleteNotificationChannel("guard_stealth") // Fake shutdown, removed feature.
     }
@@ -67,7 +75,22 @@ object Notifications {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         notifyInfo(context, text, PendingIntent.getActivity(
             context, 5, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        ))
+        ), channel = STATUS_CHANNEL)
+    }
+
+    /**
+     * After a restart Android lets a service started in the background record and locate only
+     * once the app has been opened: until then intruder photos, SOS video and location are off.
+     */
+    fun showRestore(context: Context) {
+        notifyInfo(context, R.string.notify_restore, PendingIntent.getActivity(
+            context, 6, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        ), RESTORE_ID)
+    }
+
+    fun cancelRestore(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(RESTORE_ID)
     }
 
     /** Android stopped the guard (e.g. background restart refused): one tap arms it again. */
@@ -105,9 +128,15 @@ object Notifications {
         ))
     }
 
-    private fun notifyInfo(context: Context, text: Int, tap: PendingIntent, id: Int = INFO_ID) {
+    private fun notifyInfo(
+        context: Context,
+        text: Int,
+        tap: PendingIntent,
+        id: Int = INFO_ID,
+        channel: String = PROBLEMS_CHANNEL,
+    ) {
         createChannels(context)
-        val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_shield)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(context.getString(text))

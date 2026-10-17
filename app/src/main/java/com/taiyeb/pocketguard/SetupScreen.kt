@@ -80,7 +80,10 @@ fun setupSteps(context: Context, status: SetupStatus = SetupStatus.read(context)
             ),
         )
     }
-    add(SetupStep("dnd", R.drawable.ic_moon, R.string.ready_dnd, R.string.ready_dnd_why, false, status.doNotDisturb))
+    // From Android 15 apps can't lift the user's Do Not Disturb, so the access would do nothing.
+    if (Build.VERSION.SDK_INT < 35) {
+        add(SetupStep("dnd", R.drawable.ic_moon, R.string.ready_dnd, R.string.ready_dnd_why, false, status.doNotDisturb))
+    }
 }
 
 /** Required steps still missing; the guard can't be relied on until this is zero. */

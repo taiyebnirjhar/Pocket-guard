@@ -327,14 +327,21 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             disarm()
             return START_NOT_STICKY
         }
-        // Also reached with a null intent when the system restarts a killed service: re-arm.
+        // Also reached with a null intent when the system restarts a killed service: re-arm, and
+        // an auto-armed session keeps its end time (as after a reboot).
         val wasArmed = engine != null
-        val auto = intent?.getBooleanExtra(EXTRA_AUTO, false) == true
+        val restarted = intent == null
+        val auto = if (restarted) Prefs.autoArmed(this) else intent?.getBooleanExtra(EXTRA_AUTO, false) == true
         startMonitoring()
-        if (!wasArmed) Prefs.setAutoArmed(this, auto)
         if (!wasArmed && auto) {
-            alarm.notice()
-            handler.postDelayed(autoDisarm, AUTO_DISARM_MS)
+            val now = System.currentTimeMillis()
+            val earlier = Prefs.autoArmUntil(this)
+            val until = if (Prefs.autoArmed(this) && earlier > now) earlier else now + AUTO_DISARM_MS
+            Prefs.setAutoArmed(this, true)
+            Prefs.setAutoArmUntil(this, until)
+            if (!restarted) alarm.notice()
+            handler.removeCallbacks(autoDisarm)
+            handler.postDelayed(autoDisarm, (until - now).coerceAtLeast(0L))
         } else if (!auto) {
             Prefs.setAutoArmed(this, false)
             handler.removeCallbacks(autoDisarm) // The user armed it: keep it on until they disarm.
@@ -357,7 +364,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         }
         // SOS records sound with its video; the microphone, like the camera, must be declared now.
         var withMicrophone = withCamera
-        if (Build.VERSION.SDK_INT >= 30 && Prefs.sosButtons(this) && granted(Manifest.permission.RECORD_AUDIO)) {
+        // Whenever granted: SOS from the tile or the notification records too, buttons or not.
+        if (Build.VERSION.SDK_INT >= 30 && granted(Manifest.permission.RECORD_AUDIO)) {
             withMicrophone = withMicrophone or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
         // SOS alerts carry the location: read only while SOS runs, but declared from the start, since
@@ -369,6 +377,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         for (types in listOf(withLocation, withMicrophone, withCamera, base).distinct()) {
             try {
                 ServiceCompat.startForeground(this, Notifications.STATUS_ID, notification, types)
+                // Refused some types (started from boot or the background): opening the app restores them.
+                if (types != withLocation) Notifications.showRestore(this) else Notifications.cancelRestore(this)
                 return true
             } catch (e: Exception) {
                 // Android 15 refuses the camera type from boot: drop to the plain type.
@@ -432,8 +442,11 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         handler.removeCallbacks(accelHealth)
         handler.postDelayed(accelHealth, ACCEL_HEALTH_MS)
         newEngine.arm()
-        // The phone restarted or the app was killed mid-alarm: carry on screaming.
-        if (Prefs.alarmActive(this)) newEngine.resumeAlarm()
+        // The phone restarted or the app was killed mid-alarm: carry on screaming. A call for help
+        // comes back as one, with its alerts, location and recording.
+        if (Prefs.alarmActive(this)) {
+            if (Prefs.alarmSos(this)) newEngine.onSos() else newEngine.resumeAlarm()
+        }
     }
 
     fun disarm() {
@@ -441,6 +454,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         stopMonitoring()
         Prefs.setArmed(this, false)
         Prefs.setAlarmActive(this, false)
+        Prefs.setAlarmSos(this, false)
+        Prefs.setAutoArmed(this, false)
         GuardState.phase.value = Phase.OFF
         refreshTile()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -744,6 +759,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             }
             Phase.SIREN -> if (trigger == Trigger.SOS) {
                 Prefs.setAlarmActive(this, true)
+                Prefs.setAlarmSos(this, true)
+                // Also when it came on top of a theft siren: the owner's call, so their unlock ends it.
+                GuardState.unlockStopsAlarm.value = true
                 alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
                 alerts.start()
                 Notifications.showAlarm(this)
@@ -762,6 +780,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             }
             Phase.OFF, Phase.WAITING_FOR_POCKET, Phase.IN_POCKET, Phase.ON_TABLE -> if (from.isAlarm) {
                 Prefs.setAlarmActive(this, false)
+                Prefs.setAlarmSos(this, false)
                 alarm.stop()
                 Notifications.cancelAlarm(this)
                 // Back to IN_POCKET: the pocket fabric flickered. Back to ON_TABLE: put back down.

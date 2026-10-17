@@ -8,6 +8,8 @@
     <string name="alarm_owner_unlock">আমি মালিক, আনলক করুন</string>
     <string name="channel_status">গার্ডের অবস্থা</string>
     <string name="channel_alarm">চুরির অ্যালার্ম</string>
+    <string name="channel_problems">গার্ডের সমস্যা</string>
+    <string name="notify_restore">রিস্টার্টের পর Android Pocket Guard খোলা না পর্যন্ত ক্যামেরা, মাইক্রোফোন আর অবস্থান বন্ধ রাখে। একবার খুলতে চাপুন: অনুপ্রবেশকারীর ছবি, SOS ভিডিও আর অবস্থান ফিরে আসবে।</string>
     <string name="phase_off">গার্ড বন্ধ</string>
     <string name="phase_off_hint">ভিড়ে ঢোকার আগে গোল বোতামে চাপুন</string>
     <string name="phase_waiting">চালু</string>

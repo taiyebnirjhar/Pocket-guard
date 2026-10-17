@@ -58,6 +58,22 @@ object Prefs {
     fun alarmActive(context: Context) = get(context, "alarm_active", false)
     fun setAlarmActive(context: Context, value: Boolean) = put(context, "alarm_active", value)
 
+    /** The running alarm is SOS: after a restart it comes back as SOS, alerts and all. */
+    fun alarmSos(context: Context) = get(context, "alarm_sos", false)
+    fun setAlarmSos(context: Context, value: Boolean) = put(context, "alarm_sos", value)
+
+    /**
+     * The alarm volume from before the siren raised it, kept until it's restored: a siren cut off
+     * by a restart must not leave the maximum as the volume to go back to.
+     */
+    fun savedAlarmVolume(context: Context) = prefs(context).getInt("saved_alarm_volume", -1).takeIf { it >= 0 }
+    fun setSavedAlarmVolume(context: Context, value: Int?) =
+        prefs(context).edit().putInt("saved_alarm_volume", value ?: -1).apply()
+
+    /** When an auto-armed session ends by itself (wall clock, so it survives a restart). */
+    fun autoArmUntil(context: Context) = prefs(context).getLong("auto_arm_until", 0L)
+    fun setAutoArmUntil(context: Context, value: Long) = prefs(context).edit().putLong("auto_arm_until", value).apply()
+
     /** Siren the moment airplane mode is turned on while the phone is locked. */
     fun airplaneAlarm(context: Context) = get(context, "tamper_alarm", true)
     fun setAirplaneAlarm(context: Context, value: Boolean) = put(context, "tamper_alarm", value)
