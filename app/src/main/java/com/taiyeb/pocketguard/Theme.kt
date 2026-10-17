@@ -67,7 +67,7 @@ val Phase.color
     get() = when (this) {
         Phase.OFF -> Muted
         Phase.WAITING_FOR_POCKET -> Lavender
-        Phase.IN_POCKET -> Purple
+        Phase.IN_POCKET, Phase.ON_TABLE -> Purple
         Phase.WARNING -> Amber
         Phase.SIREN -> Red
     }

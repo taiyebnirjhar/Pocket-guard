@@ -387,7 +387,7 @@ private val Phase.ringSpeed
     get() = when (this) {
         Phase.OFF -> 0.2f
         Phase.WAITING_FOR_POCKET -> 0.55f
-        Phase.IN_POCKET -> 0.4f
+        Phase.IN_POCKET, Phase.ON_TABLE -> 0.4f
         Phase.WARNING -> 1.8f
         Phase.SIREN -> 3f
     }
@@ -396,7 +396,7 @@ private val Phase.ringWobble
     get() = when (this) {
         Phase.OFF -> 0.35f
         Phase.WAITING_FOR_POCKET -> 0.8f
-        Phase.IN_POCKET -> 1f
+        Phase.IN_POCKET, Phase.ON_TABLE -> 1f
         Phase.WARNING -> 1.6f
         Phase.SIREN -> 2.2f
     }

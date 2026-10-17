@@ -6,11 +6,27 @@ enum class Phase {
     OFF,
     WAITING_FOR_POCKET,
     IN_POCKET,
+
+    /** Lying face-down on a table or desk: lifting, tilting or pushing it off sets it off. */
+    ON_TABLE,
     WARNING,
     SIREN,
     ;
 
     val isAlarm get() = this == WARNING || this == SIREN
+
+    /** Watching for theft: in a pocket or bag, or on a table. */
+    val isProtected get() = this == IN_POCKET || this == ON_TABLE
+}
+
+/** Which rule confirmed a theft, for the log and for how the warning sounds. */
+enum class Evidence {
+    LIGHT, JOLT, PROXIMITY_ONLY, TILT_OUT, OUT_AND_IN,
+    TABLE_TILT, TABLE_LIFT, TABLE_HELD, TABLE_POSE, TABLE_FALL, TABLE_UNCOVER, MOTION_UNKNOWN,
+    ;
+
+    /** The person holding it is likely looking at it: give the owner a moment to unlock in silence. */
+    val ownerLikelyLooking get() = this == TILT_OUT || name.startsWith("TABLE_")
 }
 
 /** What caused an alarm. */
@@ -24,6 +40,9 @@ enum class Trigger {
 
     /** Only in history saved by older builds, which had a power-menu alarm. */
     POWER_MENU,
+
+    /** Lifted, tilted or pushed off the table it lay face-down on. */
+    TABLE_MOVED,
 }
 
 object GuardState {

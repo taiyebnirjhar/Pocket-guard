@@ -166,4 +166,12 @@
     <string name="ready_camera_why">সাইরেন বাজলে অনুপ্রবেশকারীর ছবি তোলে।</string>
     <string name="ready_dnd">বিরক্ত করবেন না মোডেও সাইরেন</string>
     <string name="ready_dnd_why">সম্পূর্ণ নীরব মোডেও সাইরেন বাজতে দেয়।</string>
+    <string name="phase_on_table">টেবিলে সুরক্ষিত</string>
+    <string name="phase_on_table_hint">তুললে, কাত করলে বা ঠেলে ফেললে সতর্ক করবে। তোলার সময় আনলক করুন।</string>
+    <string name="status_on_table">টেবিলে</string>
+    <string name="trigger_table">টেবিল থেকে তোলা হয়েছে</string>
+    <string name="history_put_back">বাতিল: আবার নামিয়ে রাখা হয়েছে</string>
+    <string name="triggers_table">টেবিলে উপুড় করে রাখা</string>
+    <string name="triggers_table_sub">টেবিল থেকে তুললে, কাত করলে বা ঠেলে ফেললে সতর্ক করবে; সরালে শুধু বিপ। দুটি ছোট কম্পন মানে টেবিলে পাহারা চালু।</string>
+    <string name="test_9">টেবিলে: লক অবস্থায় উপুড় করে রাখুন, দুটি ছোট কম্পনের অপেক্ষা করুন। তুলুন বা কাত করুন: ১.৫ সেকেন্ড পর বিপ। আবার নামিয়ে রাখুন: থেমে যাবে।</string>
 </resources>

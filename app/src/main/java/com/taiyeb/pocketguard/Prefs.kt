@@ -86,6 +86,10 @@ object Prefs {
     fun setAutoArmTransit(context: Context, value: Boolean) = put(context, "auto_arm_transit", value)
 
     fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
+
+    /** Guard a phone lying face-down on a table, not only one in a pocket. */
+    fun tableGuard(context: Context) = get(context, "table_guard", true)
+    fun setTableGuard(context: Context, value: Boolean) = put(context, "table_guard", value)
     fun setIntruderPhotos(context: Context, value: Boolean) = put(context, "intruder_photos", value)
 
     fun onboarded(context: Context) = get(context, "onboarded", false)
