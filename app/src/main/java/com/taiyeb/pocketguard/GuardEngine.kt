@@ -232,6 +232,13 @@ class GuardEngine(
         if (evidence != Evidence.JOLT && evidence != Evidence.PROXIMITY_ONLY) return
         cancelAll()
         go(Phase.IN_POCKET)
+        // Turned far while it was out: maybe the thief's own pocket, so decide as for any re-cover.
+        if (hasMotionData && (peakHeld || motion.gravityAngleTo(preX, preY, preZ) >= OUT_AND_IN_FINAL_DEG)) {
+            deciding = true
+            decideCue = cueInEpisode
+            decideFromWatch = false
+            host.schedule(Timer.DECIDE, OUT_AND_IN_DECIDE_MS)
+        }
     }
 
     fun onLight(value: Float) {
@@ -251,10 +258,12 @@ class GuardEngine(
     fun onAccel(t: Long, x: Float, y: Float, z: Float) {
         if (!hasMotionSensor) return
         val events = motion.onSample(t, x, y, z)
-        if (events and MotionProcessor.Event.JOLT != 0) lastMotionAt = t
+        // A sideways jolt is confirmed a moment after it happened.
+        if (events and MotionProcessor.Event.JOLT != 0) lastMotionAt = motion.lastJoltAt
+        if (!phase.isAlarm) table.trackSettle(t)
         when (phase) {
-            Phase.IN_POCKET -> if (near == true && !episodeActive && host.config().tableGuard &&
-                table.readyToEnter(t, host.credentialLocked())
+            Phase.IN_POCKET -> if (near == true && !episodeActive && table.latched && host.config().tableGuard &&
+                table.readyToEnter(t) { host.credentialLocked() }
             ) {
                 enterTable(t)
             }
@@ -275,6 +284,19 @@ class GuardEngine(
         val atUncover = uncovered != null && now - uncovered in -500L..1500L
         val afterTurn = now - lastRotationAt <= 1500L
         if (atUncover || afterTurn) displayCueAt = now
+    }
+
+    /**
+     * A call was answered (the audio mode switched to a call). Picked up off the table to answer
+     * it, even in silent mode where nothing rang: the owner's, as for a ringing call.
+     */
+    fun onCallAnswered() {
+        if (trigger != Trigger.TABLE_MOVED || !phase.isAlarm) return
+        if (phase == Phase.SIREN && host.now() - tableTriggerAt > PUT_BACK_FROM_SIREN_MS) return
+        table.clearLatch()
+        cancelAll()
+        resetEpisode()
+        go(Phase.WAITING_FOR_POCKET)
     }
 
     /** Charger plugged or unplugged: those wake the screen by themselves. */
@@ -398,14 +420,18 @@ class GuardEngine(
             if (insideTrustworthy && outside >= DARK_LUX) return RemovalCheck.None
         }
         val motionAt = lastMotionAt
-        val jolted = motionAt != null && now - motionAt < MOTION_WINDOW_MS
+        // Steps are jolts too: only one after the walking stopped counts.
+        val jolted = motionAt != null && now - motionAt < MOTION_WINDOW_MS &&
+            (!hasMotionData || motionAt > motion.lastGaitAt + MotionProcessor.STEP_MAX_MS)
         if (hasMotionSensor && !jolted) return RemovalCheck.None
-        val uncoveredFor = now - (uncoveredAt ?: now)
+        var since = uncoveredAt ?: now
         var needed = uncoveredConfirmMs
         if (hasMotionData && motion.walkedWithin(now, GAIT_RECENT_MS)) {
             if (motion.walking(now)) return RemovalCheck.WaitLonger(RECHECK_MS)
             needed = maxOf(needed, GAIT_UNCOVERED_MS)
+            since = maxOf(since, motion.lastGaitAt)
         }
+        val uncoveredFor = now - since
         return if (uncoveredFor >= needed) {
             RemovalCheck.Confirmed(false, Evidence.JOLT)
         } else {
@@ -468,6 +494,8 @@ class GuardEngine(
         episodeStart = now
         watching = false
         cueInEpisode = now - displayOnAt in 0L..500L
+        // Woken just before it came out: the display cue for the turn that follows.
+        if (cueInEpisode) displayCueAt = now
         pathDeg = 0f
         peakSince = -1L
         peakHeld = false
@@ -499,7 +527,7 @@ class GuardEngine(
         postureRing[i] = motion.sx; postureRing[i + 1] = motion.sy; postureRing[i + 2] = motion.sz
         postureFrames++
         // The path the phone turned through, from the uncover until the out-and-in decision.
-        if (phase == Phase.IN_POCKET && (episodeActive || deciding)) {
+        if (episodeActive || deciding || (phase.isAlarm && trigger == Trigger.POCKET_REMOVAL)) {
             pathDeg += MotionProcessor.angle(lastX, lastY, lastZ, motion.fx, motion.fy, motion.fz)
             lastX = motion.fx; lastY = motion.fy; lastZ = motion.fz
         }

@@ -1,6 +1,7 @@
 package com.taiyeb.pocketguard
 
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -31,7 +32,9 @@ class TableMonitor(private val m: MotionProcessor) {
         const val TABLE_REST_MS = 8000L
         const val TABLE_FLAT_DEG = 10f
         const val CREEP_DEG = 0.15f
-        const val BODY_DEG = 0.3f
+
+        /** Rocking of the one-second means beyond this is breathing, a lap or a cushion. */
+        const val BODY_DEG = 0.15f
 
         /** Lift-type rules. */
         const val TILT_DEG = 20f
@@ -52,9 +55,18 @@ class TableMonitor(private val m: MotionProcessor) {
         const val BURST_CAP_MS = 3000L
         const val SLIDE_CM = 10f
 
-        /** A vehicle pulling away: one-way horizontal acceleration this long. */
+        /**
+         * A vehicle pulling away pushes one way for seconds (a hand accelerates and stops). After
+         * [DRIVE_MS] of that the phone is a vehicle suspect: slow-hand rules pause, tilt, uncover
+         * and fall stay armed. It leaves table mode only once confirmed by road or engine
+         * vibration, or by a push lasting [DRIVE_CONFIRM_MS]; otherwise it goes back to normal.
+         */
         const val DRIVE_ACCEL = 0.2f
         const val DRIVE_MS = 2000L
+        const val DRIVE_CONFIRM_MS = 5000L
+        const val SUSPECT_MS = 10_000L
+        const val VEHICLE_SIGMA = 0.12f
+        const val VEHICLE_VIBRATION_MS = 3000L
 
         /** After the app's own buzz, motion is ignored this long. */
         const val OWN_VIBRATION_MS = 500L
@@ -71,7 +83,7 @@ class TableMonitor(private val m: MotionProcessor) {
     private var latchX = 0f
     private var latchY = 0f
     private var latchZ = 0f
-    private var settleChecked = false
+    private var settled = false
 
     // Hard-surface test over the current stretch of stillness.
     private var testRestSince = -1L
@@ -91,7 +103,7 @@ class TableMonitor(private val m: MotionProcessor) {
         latched = true
         latchAt = t
         latchX = m.fx; latchY = m.fy; latchZ = m.fz
-        settleChecked = false
+        settled = false
         testRestSince = -1L
     }
 
@@ -105,16 +117,25 @@ class TableMonitor(private val m: MotionProcessor) {
         testRestSince = -1L
     }
 
-    /** True once a latched placement has passed the hard-surface test. Call for every sample. */
-    fun readyToEnter(t: Long, credentialLocked: Boolean): Boolean {
-        if (!latched) return false
-        if (!settleChecked && t - latchAt >= LATCH_SETTLE_MS) {
-            settleChecked = true
-            if (!m.atRest || m.restSince > latchAt + LATCH_SETTLE_MS) {
-                latched = false
-                return false
-            }
+    /**
+     * Every sample while not alarming: the settle check. Judged as soon as stillness arrives, so
+     * the app's own pocket buzz a moment later can't spoil it. The pose it settled in becomes the
+     * placement pose: it may have been covered at an angle, or still at one just before it was
+     * laid flat, so any stillness that began within the settle time counts.
+     */
+    fun trackSettle(t: Long) {
+        if (!latched) return
+        if (m.atRest && m.restSince <= latchAt + LATCH_SETTLE_MS) {
+            settled = true
+            latchX = m.restX; latchY = m.restY; latchZ = m.restZ
+        } else if (!settled && t - latchAt > LATCH_SETTLE_MS) {
+            latched = false
         }
+    }
+
+    /** True once a settled placement has passed the hard-surface test. Call for every sample. */
+    fun readyToEnter(t: Long, credentialLocked: () -> Boolean): Boolean {
+        if (!latched || !settled) return false
         if (!m.atRest) {
             testRestSince = -1L
             return false
@@ -147,7 +168,7 @@ class TableMonitor(private val m: MotionProcessor) {
             return false
         }
         if (m.gravityAngleTo(0f, 0f, -1f) > TABLE_FLAT_DEG) return false
-        return credentialLocked
+        return credentialLocked()
     }
 
     private fun restartTest(t: Long) {
@@ -163,6 +184,11 @@ class TableMonitor(private val m: MotionProcessor) {
     private var refY = 0f
     private var refZ = 0f
     private var refG0 = MotionProcessor.G
+
+    /** The latest resting reading: movement starts from here (the phone may rest a little tilted). */
+    private var baseX = 0f
+    private var baseY = 0f
+    private var baseZ = 0f
     private var ignoreUntil = 0L
 
     private var burstActive = false
@@ -171,21 +197,32 @@ class TableMonitor(private val m: MotionProcessor) {
     private var liftDone = false
     private var tiltSince = -1L
     private var lastLiftLikeAt = Long.MIN_VALUE / 2
+    private var poseCheckedFor = -1L
+
+    // One-way push tracking (vehicles), on every sample.
+    private var driveSince = -1L
     private var driveX = 0f
     private var driveY = 0f
     private var driveZ = 0f
-    private var driveSince = -1L
     private var driveMeasured = 0f
     private var driveExpected = 0f
-    private var poseCheckedFor = -1L
+    private var driveLowSince = -1L
+    private var suspectSince = -1L
+    private var vibrationSince = -1L
+
+    /** A vehicle pulling away is suspected: slow-hand rules pause until it is confirmed or not. */
+    val vehicleSuspect get() = suspectSince >= 0
 
     /** Enters table watch: the reference pose is where it lies now. */
     fun start(t: Long) {
         refX = m.restX; refY = m.restY; refZ = m.restZ
+        baseX = refX; baseY = refY; baseZ = refZ
         refG0 = m.g0
         burstActive = false
         tiltSince = -1L
         driveSince = -1L
+        suspectSince = -1L
+        vibrationSince = -1L
         poseCheckedFor = m.restSince
         ignoreUntil = t + OWN_VIBRATION_MS
     }
@@ -225,15 +262,42 @@ class TableMonitor(private val m: MotionProcessor) {
             tiltSince = -1L
         }
 
+        // Vehicles: a steady one-way push, then road or engine vibration.
+        val pushing = trackDrive(t)
+        if (events and MotionProcessor.Event.FRAME != 0 && vehicleSuspect) {
+            if (m.lastSigma >= VEHICLE_SIGMA) {
+                if (vibrationSince < 0) vibrationSince = t
+            } else {
+                vibrationSince = -1L
+            }
+        }
+        if (vehicleSuspect) {
+            val confirmed = (vibrationSince >= 0 && t - vibrationSince >= VEHICLE_VIBRATION_MS) ||
+                (pushing && t - driveSince >= DRIVE_CONFIRM_MS)
+            if (confirmed) {
+                suspectSince = -1L
+                burstActive = false
+                return Signal.DRIVE_OFF
+            }
+            if (t - suspectSince >= SUSPECT_MS && !pushing) {
+                suspectSince = -1L // Not a vehicle after all: full rules again.
+                poseCheckedFor = -1L
+            }
+        }
+        val slowRulesPaused = pushing || vehicleSuspect
+
         // Resting again, but at a new angle: not lying on that table any more.
-        if (m.atRest && poseCheckedFor != m.restSince && t - m.restSince >= 0) {
+        if (m.atRest && poseCheckedFor != m.restSince && !slowRulesPaused) {
             poseCheckedFor = m.restSince
             val moved = MotionProcessor.angle(m.restX, m.restY, m.restZ, refX, refY, refZ)
             if (moved >= POSE_DEG) {
                 // A steady push (a car pulling away) fakes a tilt, but raises |a| above 1 g by
                 // g (1 / cos θ - 1); a real tilt leaves it at 1 g.
                 val excess = m.g0 - refG0
-                if (excess >= 0.1f && excess >= 0.8f * fakeTiltExcess(moved)) return Signal.DRIVE_OFF
+                if (excess >= 0.05f && excess >= 0.8f * fakeTiltExcess(moved)) {
+                    suspectSince = t
+                    return Signal.NONE
+                }
                 return Signal.POSE
             }
             // Rocked a little and settled: follow it, within limits.
@@ -242,14 +306,15 @@ class TableMonitor(private val m: MotionProcessor) {
             }
         }
 
-        val deviation = deviationFromRest()
         if (!burstActive) {
-            if (deviation >= BURST_START) {
+            if (m.atRest) {
+                baseX = m.restX; baseY = m.restY; baseZ = m.restZ
+            }
+            if (deviationFromBase() >= BURST_START) {
                 burstActive = true
                 burstStart = t
                 liftDone = false
-                burst.start(refX, refY, refZ, m)
-                driveSince = -1L
+                burst.start(baseX, baseY, baseZ, m)
             }
             return Signal.NONE
         }
@@ -258,42 +323,17 @@ class TableMonitor(private val m: MotionProcessor) {
         val elapsed = t - burstStart
         if (burst.up * 100f >= 1f) lastLiftLikeAt = t
 
-        // Lifted: |a| above 1 g, integrated twice, rises >= 3 cm within the first second.
-        if (!liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
-            liftDone = true
-            return Signal.LIFT
-        }
-
-        // A vehicle pulling away pushes one way for seconds; a hand accelerates and stops. Without
-        // a gyroscope a steady push looks just like a slow tilt, except that acceleration adds to
-        // gravity: |a| = sqrt(g² + h²) rises above 1 g, while a real tilt leaves it at 1 g.
-        val hx = burst.hx
-        val hy = burst.hy
-        val hz = burst.hz
-        val h = sqrt(hx * hx + hy * hy + hz * hz)
-        if (h >= DRIVE_ACCEL) {
-            val sameWay = driveSince >= 0 && MotionProcessor.angle(hx, hy, hz, driveX, driveY, driveZ) <= 30f
-            if (!sameWay) {
-                driveSince = t
-                driveX = hx; driveY = hy; driveZ = hz
-                driveMeasured = 0f
-                driveExpected = 0f
-            } else {
-                driveMeasured += m.magnitude - m.g0
-                driveExpected += h * h / (2f * m.g0)
-                if (t - driveSince >= DRIVE_MS && driveExpected > 0f && driveMeasured >= 0.5f * driveExpected) {
-                    burstActive = false
-                    return Signal.DRIVE_OFF
-                }
+        if (!slowRulesPaused) {
+            // Lifted: acceleration along gravity, integrated twice, rises >= 3 cm within a second.
+            if (!liftDone && elapsed <= LIFT_WINDOW_MS && burst.up * 100f >= LIFT_CM) {
+                liftDone = true
+                return Signal.LIFT
             }
-        } else if (driveSince >= 0 && h < DRIVE_ACCEL / 2) {
-            driveSince = -1L
-        }
-
-        // Held in a hand: never still again, and tilted.
-        if (elapsed >= HELD_MS && tilt >= HELD_DEG) {
-            burstActive = false
-            return Signal.HELD
+            // Held in a hand: never still again, and tilted.
+            if (elapsed >= HELD_MS && tilt >= HELD_DEG && !m.atRest) {
+                burstActive = false
+                return Signal.HELD
+            }
         }
 
         // The burst ends when it is still again (or at the cap): a slide if it travelled far.
@@ -305,24 +345,64 @@ class TableMonitor(private val m: MotionProcessor) {
             if (MotionProcessor.angle(m.restX, m.restY, m.restZ, refX, refY, refZ) < 3f) {
                 refX = m.restX; refY = m.restY; refZ = m.restZ
             }
-            return if (d >= SLIDE_CM) Signal.SLIDE else Signal.NONE
+            return if (d >= SLIDE_CM && !slowRulesPaused) Signal.SLIDE else Signal.NONE
         }
         if (elapsed >= BURST_CAP_MS) {
             burstActive = false
-            return if (burst.horizontalCm() >= SLIDE_CM) Signal.SLIDE else Signal.NONE
+            return if (burst.horizontalCm() >= SLIDE_CM && !slowRulesPaused) Signal.SLIDE else Signal.NONE
         }
         return Signal.NONE
     }
 
+    /**
+     * Follows a one-way horizontal push across samples and bursts. Without a gyroscope a steady
+     * push looks just like a slow tilt, except that acceleration adds to gravity: |a| rises above
+     * 1 g by about h² / 2g, while a real tilt leaves it at 1 g. True while such a push is on.
+     */
+    private fun trackDrive(t: Long): Boolean {
+        val n = sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ).coerceAtLeast(1e-3f)
+        val ux = baseX / n
+        val uy = baseY / n
+        val uz = baseZ / n
+        val ex = m.ax - baseX
+        val ey = m.ay - baseY
+        val ez = m.az - baseZ
+        val along = ex * ux + ey * uy + ez * uz
+        val hx = ex - along * ux
+        val hy = ey - along * uy
+        val hz = ez - along * uz
+        val h = sqrt(hx * hx + hy * hy + hz * hz)
+        if (h >= DRIVE_ACCEL) {
+            driveLowSince = -1L
+            val sameWay = driveSince >= 0 && MotionProcessor.angle(hx, hy, hz, driveX, driveY, driveZ) <= 30f
+            if (!sameWay) {
+                driveSince = t
+                driveX = hx; driveY = hy; driveZ = hz
+                driveMeasured = 0f
+                driveExpected = 0f
+            } else {
+                driveMeasured += m.magnitude - refG0
+                driveExpected += h * h / (2f * refG0)
+            }
+        } else if (driveSince >= 0 && h < DRIVE_ACCEL / 2) {
+            if (driveLowSince < 0) driveLowSince = t
+            if (t - driveLowSince >= 200L) driveSince = -1L
+        }
+        val pushing = driveSince >= 0 && t - driveSince >= 500L && driveExpected > 0f &&
+            driveMeasured >= 0.5f * driveExpected
+        if (pushing && t - driveSince >= DRIVE_MS && suspectSince < 0) suspectSince = t
+        return pushing
+    }
+
     /** How much a sideways push faking a tilt of [deg] would raise |a| above 1 g. */
     private fun fakeTiltExcess(deg: Float) =
-        refG0 * (1f / kotlin.math.cos(Math.toRadians(deg.toDouble())).toFloat() - 1f)
+        refG0 * (1f / cos(Math.toRadians(deg.toDouble())).toFloat() - 1f)
 
-    /** How far the current sample is from the resting acceleration. */
-    private fun deviationFromRest(): Float {
-        val dx = m.ax - refX
-        val dy = m.ay - refY
-        val dz = m.az - refZ
+    /** How far the current sample is from the latest resting reading. */
+    private fun deviationFromBase(): Float {
+        val dx = m.ax - baseX
+        val dy = m.ay - baseY
+        val dz = m.az - baseZ
         return sqrt(dx * dx + dy * dy + dz * dz)
     }
 
@@ -354,14 +434,6 @@ class TableMonitor(private val m: MotionProcessor) {
         private var py = 0f
         private var pz = 0f
 
-        /** Horizontal acceleration of the latest sample (for the drive-off test). */
-        var hx = 0f
-            private set
-        var hy = 0f
-            private set
-        var hz = 0f
-            private set
-
         fun start(restX: Float, restY: Float, restZ: Float, m: MotionProcessor) {
             bx = restX; by = restY; bz = restZ
             val n = sqrt(bx * bx + by * by + bz * bz).coerceAtLeast(1e-3f)
@@ -372,7 +444,6 @@ class TableMonitor(private val m: MotionProcessor) {
             vUp = 0f; up = 0f
             vx = 0f; vy = 0f; vz = 0f
             px = 0f; py = 0f; pz = 0f
-            hx = 0f; hy = 0f; hz = 0f
         }
 
         fun step(m: MotionProcessor) {
@@ -384,9 +455,11 @@ class TableMonitor(private val m: MotionProcessor) {
             val ez = m.az - bz
             val along = ex * ux + ey * uy + ez * uz
             // The rest reading points up (it is the push of the table), so "along" > 0 is upward.
-            vUp += (m.ax * ux + m.ay * uy + m.az * uz - restAlong) * dt
+            vUp += along * dt
             up += vUp * dt
-            hx = ex - along * ux; hy = ey - along * uy; hz = ez - along * uz
+            val hx = ex - along * ux
+            val hy = ey - along * uy
+            val hz = ez - along * uz
             vx += hx * dt; vy += hy * dt; vz += hz * dt
             px += vx * dt; py += vy * dt; pz += vz * dt
         }
