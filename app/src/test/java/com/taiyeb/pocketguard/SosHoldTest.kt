@@ -29,16 +29,18 @@ class SosHoldTest {
     private fun volumeDown(down: Boolean) = hold.press(up = false, down = down)
 
     @Test
-    fun volumeUpHeldCallsForHelp() {
+    fun volumeUpHeldCallsForHelpOnce() {
         up(true)
-        advance(SosHold.UP_MS - 1)
+        advance(SosHold.HOLD_MS - 1)
         assertEquals(emptyList<String>(), fired)
         advance(1)
+        assertEquals(listOf("volume up held"), fired)
+        advance(10_000)
         assertEquals(listOf("volume up held"), fired)
     }
 
     @Test
-    fun aVolumeChangeIsNotACall() {
+    fun aVolumeChangeIsNot() {
         repeat(5) {
             up(true)
             advance(800)
@@ -49,40 +51,37 @@ class SosHoldTest {
     }
 
     @Test
-    fun bothKeysHeldThreeSecondsCallsOnce() {
-        up(true)
-        volumeDown(true)
-        advance(SosHold.BOTH_MS)
-        assertEquals(listOf("both volume keys held"), fired)
-        // Still holding: the volume-up count doesn't fire on top.
-        advance(SosHold.UP_MS)
-        assertEquals(listOf("both volume keys held"), fired)
-    }
-
-    @Test
-    fun lettingGoOfVolumeDownStartsTheVolumeUpCountAgain() {
-        up(true)
-        advance(SosHold.UP_MS - 1000)
-        volumeDown(true)
-        advance(1000)
-        volumeDown(false)
-        advance(SosHold.UP_MS - 1)
-        assertEquals(emptyList<String>(), fired)
-        advance(1)
-        assertEquals(listOf("volume up held"), fired)
-    }
-
-    @Test
-    fun volumeDownAloneDoesNothing() {
+    fun volumeDownIsNot() {
         volumeDown(true)
         advance(10_000)
         assertEquals(emptyList<String>(), fired)
     }
 
     @Test
+    fun volumeDownTooCancelsIt() {
+        up(true)
+        advance(1000)
+        volumeDown(true)
+        advance(10_000)
+        assertEquals(emptyList<String>(), fired)
+    }
+
+    @Test
+    fun lettingGoStartsTheCountAgain() {
+        up(true)
+        advance(1500)
+        up(false)
+        up(true)
+        advance(SosHold.HOLD_MS - 1)
+        assertEquals(emptyList<String>(), fired)
+        advance(1)
+        assertEquals(listOf("volume up held"), fired)
+    }
+
+    @Test
     fun resetForgetsHeldKeys() {
         up(true)
-        advance(SosHold.UP_MS - 1000)
+        advance(1000)
         hold.reset()
         advance(10_000)
         assertEquals(emptyList<String>(), fired)

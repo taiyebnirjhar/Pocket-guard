@@ -7,8 +7,8 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * Sees the volume keys themselves, which no ordinary app can: both held together for
- * [SosHold.BOTH_MS], or volume up held for [SosHold.UP_MS], is the SOS call. It only watches:
+ * Sees the volume keys themselves, which no ordinary app can: volume up held for
+ * [SosHold.HOLD_MS] is the SOS call. It only watches:
  * every key still does what it always does. It is opt-in, after the disclosure; without it
  * there is no SOS hold.
  */
@@ -60,7 +60,7 @@ class SosAccessibilityService : AccessibilityService() {
     }
 }
 
-/** What the SOS setup card shows: is the key watcher on, and does the system shortcut clash. */
+/** What the SOS setup card shows: is the key watcher on, and where to turn it on. */
 object SosSetup {
     fun keysEnabled(context: android.content.Context): Boolean {
         val enabled = android.provider.Settings.Secure.getString(
@@ -68,14 +68,6 @@ object SosSetup {
         ) ?: return false
         val ours = android.content.ComponentName(context, SosAccessibilityService::class.java)
         return enabled.split(':').any { android.content.ComponentName.unflattenFromString(it) == ours }
-    }
-
-    /** A target is assigned to Android's volume-keys accessibility shortcut (hold + and −). */
-    fun systemShortcutSet(context: android.content.Context): Boolean {
-        val target = runCatching {
-            android.provider.Settings.Secure.getString(context.contentResolver, "accessibility_shortcut_target_service")
-        }.getOrNull()
-        return !target.isNullOrBlank()
     }
 
     /** Our own switch in Accessibility where the phone can open it directly, else the whole list. */

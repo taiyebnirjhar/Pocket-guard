@@ -244,14 +244,6 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (plugType() == 0) engine?.onChargerUnplugged()
     }
 
-    private val powerPresses = PowerPresses { sos("power pressed 5 times") }
-
-    /** Each power press turns the screen on or off; calls toggle it with the proximity sensor. */
-    private fun countPowerPress() {
-        if (!Prefs.sosPowerPresses(this) || callModeNow()) return
-        powerPresses.screenChanged(SystemClock.elapsedRealtime())
-    }
-
     private val eventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val engine = engine ?: return
@@ -261,13 +253,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                     log("unlocked")
                     onUnlocked(engine)
                 }
-                Intent.ACTION_SCREEN_ON -> {
-                    log("screen on")
-                    countPowerPress()
-                }
+                Intent.ACTION_SCREEN_ON -> log("screen on")
                 Intent.ACTION_SCREEN_OFF -> {
                     log("screen off")
-                    countPowerPress()
                     engine.onScreenOff()
                     handler.removeCallbacks(lockCheck)
                     handler.postDelayed(lockCheck, LOCK_CHECK_DELAY_MS)

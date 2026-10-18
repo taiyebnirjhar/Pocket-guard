@@ -38,7 +38,6 @@ fun TriggersScreen(refreshKey: Int) {
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
     var tableGuard by remember { mutableStateOf(Prefs.tableGuard(context)) }
     var sosButtons by remember { mutableStateOf(Prefs.sosButtons(context)) }
-    var sosPower by remember { mutableStateOf(Prefs.sosPowerPresses(context)) }
     var camera by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -55,7 +54,6 @@ fun TriggersScreen(refreshKey: Int) {
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
     val setUpKeys = rememberSosKeysSetup(refreshKey)
-    val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
     val askRecord = rememberDisclosedPermission(
         R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
     ) {
@@ -81,10 +79,6 @@ fun TriggersScreen(refreshKey: Int) {
                 Prefs.setTableGuard(context, it)
             }
             if (Prefs.SOS_AVAILABLE) {
-                ToggleRow(R.drawable.ic_power, stringResource(R.string.triggers_sos_power), stringResource(R.string.triggers_sos_power_sub), sosPower) {
-                    sosPower = it
-                    Prefs.setSosPowerPresses(context, it)
-                }
                 ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
                     sosButtons = it
                     Prefs.setSosButtons(context, it)
@@ -94,7 +88,6 @@ fun TriggersScreen(refreshKey: Int) {
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
                     if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { setUpKeys() }
-                    if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash), stringResource(R.string.action_open_settings)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }

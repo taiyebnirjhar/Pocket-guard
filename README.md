@@ -83,9 +83,9 @@ siren. Table mode can be switched off under Triggers.
 
 ## SOS: a call for help
 
-For harassment in a crowd: while the guard is armed, **press power quickly 5 times** (screen on
-or off, nothing to set up), or **wake the screen and hold volume up, or volume + and −
-together, for 3 s** (by feel, in a pocket works). A buzz confirms it, and at once:
+For harassment in a crowd: while the guard is armed, **wake the screen (power, or a fingerprint
+unlock) and hold volume up for 2 s** (one button, by feel; in a pocket works). A buzz confirms it,
+and at once:
 
 - the SOS alarm: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when
   the app shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with
@@ -139,18 +139,11 @@ turn on **Pocket Guard SOS buttons** in Accessibility (the app explains what it 
 first, then opens the switch itself). Installed outside the Play Store, Android 13+ greys that
 switch out ("restricted setting"); the app then shows the three steps, each with a button to the
 right screen: try the switch once, App info → ⋮ → Allow restricted settings, then turn it on. It watches the volume keys and
-nothing else, and every key still works as usual. Why press power first: with the screen off,
+nothing else, and every key still works as usual. Why wake the screen first: with the screen off,
 Android shows the volume keys to no app at all, accessibility included; the lock screen is
-enough.
-
-Power pressed 5 times needs no setting at all: no app sees the power key, but each press turns the
-screen on or off, and four such changes within 4 s count (Android can merge one when presses are
-very fast); two or three (checking the time) never do, and calls are left out. Many phones have
-their own Emergency SOS on the same 5 presses (Settings → Safety and emergency); if it's on, both
-start, and the phone also calls the emergency number. Holding + and − is also
-Android's accessibility shortcut: by default it does nothing, but if a shortcut is assigned the
-app says so, since both would start. A short squeeze, volume down alone, or taps don't count, and
-a volume change never lasts the 3 s that volume up needs.
+enough. One button on purpose: the power key is taken by the phone's own gestures (camera on two
+presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. A tap
+or a short volume change doesn't count, and pressing volume down as well cancels it.
 
 ## Setup requirement: the phone must lock immediately
 

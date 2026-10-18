@@ -340,7 +340,7 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
-log "Scenario 7e: SOS, power pressed, then volume + and - held together for 3 s"
+log "Scenario 7e: SOS, power pressed, then volume up held for 2 s"
 A11Y="$PKG/.SosAccessibilityService"
 # Real key events written to the input device that owns the volume keys (root, emulator only):
 # accessibility key filters never see keys injected with "adb shell input" (those count as
@@ -353,10 +353,10 @@ hw_key() {
   case "$1" in KEY_VOLUMEUP) code=115 ;; KEY_VOLUMEDOWN) code=114 ;; esac
   adb shell "sendevent $KEYDEV 1 $code $2; sendevent $KEYDEV 0 0 0" >/dev/null 2>&1
 }
-hold_both() {
-  hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
+hold_up() {
+  hw_key KEY_VOLUMEUP 1
   sleep "$(awk "BEGIN { print $1 / 1000 }")"
-  hw_key KEY_VOLUMEDOWN 0; hw_key KEY_VOLUMEUP 0
+  hw_key KEY_VOLUMEUP 0
 }
 expect_true '[ -n "$KEYDEV" ]' "found the input device with the volume keys ($KEYDEV)"
 reset_log
@@ -366,11 +366,11 @@ expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) c
 screen_off
 sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed: the lock screen shows.
 reset_log
-hold_both 800
-expect_no_phase SIREN 3 "a short squeeze of both keys is not SOS"
+hold_up 800
+expect_no_phase SIREN 3 "a short volume press is not SOS"
 reset_log
-hold_both 3500
-expect_log "phase=SIREN .*trigger=SOS" 6 "both keys held 3 s on the lock screen sounds the SOS alarm"
+hold_up 2600
+expect_log "phase=SIREN .*trigger=SOS" 6 "volume up held 2 s on the lock screen sounds the SOS alarm"
 expect_log "SOS video recording" 10 "recording starts with the SOS alarm"
 sleep 3
 reset_log
@@ -384,35 +384,6 @@ expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 
-log "Scenario 7h: SOS, power pressed 5 times quickly (no accessibility needed)"
-# The emulator's own power-key gestures (double press for the camera, 5 presses for its Emergency
-# SOS) would act on the same presses; real hardware events at human speed, ~250 ms apart.
-sh settings put secure camera_double_tap_power_gesture_disabled 1
-sh settings put secure emergency_gesture_enabled 0
-PWRDEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/add device/ { d = $4 } /KEY_POWER/ { print d; exit }')
-press_power() {
-  local i
-  for i in $(seq 1 "$1"); do
-    if [ -n "$PWRDEV" ]; then
-      adb shell "sendevent $PWRDEV 1 116 1; sendevent $PWRDEV 0 0 0; sendevent $PWRDEV 1 116 0; sendevent $PWRDEV 0 0 0" >/dev/null 2>&1
-    else
-      sh input keyevent KEYCODE_POWER
-    fi
-    sleep 0.25
-  done
-}
-reset_log
-press_power 3
-expect_no_phase SIREN 6 "three power presses (checking the time) are not SOS"
-reset_log
-press_power 5
-expect_log "phase=SIREN .*trigger=SOS" 8 "power pressed 5 times sounds the SOS alarm"
-expect_log "SOS: power pressed 5 times" 2 "the log says it came from the power key"
-sleep 3
-reset_log
-unlock
-expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
-sleep 2
 
 log "Scenario 7g: SOS alerts an approved emergency contact by SMS and email, with the live location"
 # The emulator's own number receives the SMS; the stand-in for Brevo receives the email. The
