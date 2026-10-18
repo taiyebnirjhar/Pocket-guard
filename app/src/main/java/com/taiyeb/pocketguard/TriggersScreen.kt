@@ -38,6 +38,7 @@ fun TriggersScreen(refreshKey: Int) {
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
     var tableGuard by remember { mutableStateOf(Prefs.tableGuard(context)) }
     var sosButtons by remember { mutableStateOf(Prefs.sosButtons(context)) }
+    var sosPower by remember { mutableStateOf(Prefs.sosPowerPresses(context)) }
     var camera by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -80,6 +81,10 @@ fun TriggersScreen(refreshKey: Int) {
                 Prefs.setTableGuard(context, it)
             }
             if (Prefs.SOS_AVAILABLE) {
+                ToggleRow(R.drawable.ic_power, stringResource(R.string.triggers_sos_power), stringResource(R.string.triggers_sos_power_sub), sosPower) {
+                    sosPower = it
+                    Prefs.setSosPowerPresses(context, it)
+                }
                 ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
                     sosButtons = it
                     Prefs.setSosButtons(context, it)

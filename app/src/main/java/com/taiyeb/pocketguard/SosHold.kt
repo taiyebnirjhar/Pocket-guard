@@ -13,8 +13,8 @@ class SosHold(
     companion object {
         const val BOTH_MS = 3000L
 
-        /** Longer than any volume change: holding it this long is on purpose. */
-        const val UP_MS = 5000L
+        /** Longer than a volume change: holding it this long is on purpose. */
+        const val UP_MS = 3000L
     }
 
     private var upDown = false

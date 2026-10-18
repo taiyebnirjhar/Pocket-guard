@@ -124,6 +124,10 @@ object Prefs {
 
     /** SOS: both volume keys held 3 s sounds a call for help and records, while armed and locked. */
     fun sosButtons(context: Context) = SOS_AVAILABLE && get(context, "sos_buttons", true)
+
+    /** Power pressed about five times quickly calls for help (no setup; works with the screen off). */
+    fun sosPowerPresses(context: Context) = SOS_AVAILABLE && get(context, "sos_power_presses", true)
+    fun setSosPowerPresses(context: Context, value: Boolean) = put(context, "sos_power_presses", value)
     fun setSosButtons(context: Context, value: Boolean) = put(context, "sos_buttons", value)
 
     /** Guard a phone lying face-down on a table, not only one in a pocket. */

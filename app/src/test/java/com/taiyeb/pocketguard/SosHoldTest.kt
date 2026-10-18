@@ -29,7 +29,7 @@ class SosHoldTest {
     private fun volumeDown(down: Boolean) = hold.press(up = false, down = down)
 
     @Test
-    fun volumeUpHeldFiveSecondsCallsForHelp() {
+    fun volumeUpHeldCallsForHelp() {
         up(true)
         advance(SosHold.UP_MS - 1)
         assertEquals(emptyList<String>(), fired)
@@ -62,7 +62,7 @@ class SosHoldTest {
     @Test
     fun lettingGoOfVolumeDownStartsTheVolumeUpCountAgain() {
         up(true)
-        advance(4000)
+        advance(SosHold.UP_MS - 1000)
         volumeDown(true)
         advance(1000)
         volumeDown(false)
@@ -82,7 +82,7 @@ class SosHoldTest {
     @Test
     fun resetForgetsHeldKeys() {
         up(true)
-        advance(3000)
+        advance(SosHold.UP_MS - 1000)
         hold.reset()
         advance(10_000)
         assertEquals(emptyList<String>(), fired)

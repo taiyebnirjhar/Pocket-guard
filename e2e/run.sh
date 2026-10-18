@@ -384,6 +384,36 @@ expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 
+log "Scenario 7h: SOS, power pressed 5 times quickly (no accessibility needed)"
+# The emulator's own power-key gestures (double press for the camera, 5 presses for its Emergency
+# SOS) would act on the same presses; real hardware events at human speed, ~250 ms apart.
+sh settings put secure camera_double_tap_power_gesture_disabled 1
+sh settings put secure emergency_gesture_enabled 0
+PWRDEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/add device/ { d = $4 } /KEY_POWER/ { print d; exit }')
+press_power() {
+  local i
+  for i in $(seq 1 "$1"); do
+    if [ -n "$PWRDEV" ]; then
+      adb shell "sendevent $PWRDEV 1 116 1; sendevent $PWRDEV 0 0 0; sendevent $PWRDEV 1 116 0; sendevent $PWRDEV 0 0 0" >/dev/null 2>&1
+    else
+      sh input keyevent KEYCODE_POWER
+    fi
+    sleep 0.25
+  done
+}
+reset_log
+press_power 3
+expect_no_phase SIREN 6 "three power presses (checking the time) are not SOS"
+reset_log
+press_power 5
+expect_log "phase=SIREN .*trigger=SOS" 8 "power pressed 5 times sounds the SOS alarm"
+expect_log "SOS: power pressed 5 times" 2 "the log says it came from the power key"
+sleep 3
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+sleep 2
+
 log "Scenario 7g: SOS alerts an approved emergency contact by SMS and email, with the live location"
 # The emulator's own number receives the SMS; the stand-in for Brevo receives the email. The
 # contact list and its approval are written the way the app stores them (the approval covers the
