@@ -159,6 +159,9 @@ fun TriggersScreen(refreshKey: Int) {
             }
         }
 
+        SectionLabel(stringResource(R.string.triggers_schedule_section))
+        GlassCard { ScheduleCard(refreshKey) }
+
         SectionLabel(stringResource(R.string.triggers_evidence))
         GlassCard {
             ToggleRow(R.drawable.ic_camera, stringResource(R.string.emergency_photos), stringResource(R.string.emergency_photos_sub), photos) {

@@ -146,6 +146,24 @@
             android:name=".TransitReceiver"
             android:exported="false" />
 
+        <!-- The schedule's alarm and notification buttons: private to the app. -->
+        <receiver
+            android:name=".ScheduleActionReceiver"
+            android:directBootAware="true"
+            android:exported="false" />
+
+        <!-- Clock or time zone changes (protected broadcasts): only plans the schedule again. -->
+        <receiver
+            android:name=".ScheduleReceiver"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".BootReceiver"
             android:directBootAware="true"

@@ -100,6 +100,7 @@ write_prefs() {
 <map>
     <boolean name="onboarded" value="$onboarded" />
     <int name="grace_seconds" value="15" />
+    ${EXTRA_PREFS:-}
 </map>
 EOF
   sh am force-stop $PKG
@@ -523,6 +524,30 @@ expect_log "phase=SIREN .*trigger=RESTARTED" 30 "alarm resumes after the restart
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
+
+# --- 9b. Arming schedule -----------------------------------------------------------------------------
+
+log "Scenario 9b: an arming schedule arms the guard by itself; a pause holds it off"
+# One window covering every whole day (start = end), so it's "inside" in any time zone. Opening
+# the app catches up on the schedule, as after a missed alarm.
+ALL_DAY='<boolean name="schedule_on" value="true" /><string name="schedule">[{&quot;days&quot;:[1,2,3,4,5,6,7],&quot;start&quot;:&quot;00:00&quot;,&quot;end&quot;:&quot;00:00&quot;}]</string>'
+NOW_MS=$(( $(sh date +%s | tr -d '\r') * 1000 ))
+open_app_unlocked() {
+  sh input keyevent KEYCODE_WAKEUP; sleep 0.7
+  if keyguard_showing; then unlock; fi
+  sh am start -W -n $PKG/.MainActivity >/dev/null
+}
+EXTRA_PREFS="$ALL_DAY<long name=\"schedule_paused_until\" value=\"$((NOW_MS + 600000))\" />" write_prefs
+reset_log
+open_app_unlocked
+expect_no_phase WAITING_FOR_POCKET 6 "a paused schedule leaves the guard off"
+expect_true 'sh dumpsys notification --noredact | grep -q "arms again at"' "the pause says when it arms again"
+EXTRA_PREFS="$ALL_DAY<long name=\"schedule_paused_until\" value=\"$((NOW_MS - 1000))\" />" write_prefs
+reset_log
+open_app_unlocked
+expect_phase WAITING_FOR_POCKET 10 "inside its window the schedule arms the guard by itself"
+expect_true 'sh dumpsys notification --noredact | grep -q "Armed by your schedule"' "it says the schedule armed it"
+write_prefs # Schedule off again for the rest.
 
 # --- 8. UI ------------------------------------------------------------------------------------------
 

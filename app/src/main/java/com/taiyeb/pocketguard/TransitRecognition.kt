@@ -76,11 +76,13 @@ class BootReceiver : BroadcastReceiver() {
         }
         if (Prefs.armed(context) && GuardState.phase.value == Phase.OFF) {
             try {
-                GuardService.arm(context, auto = Prefs.autoArmed(context))
+                GuardService.arm(context, auto = Prefs.autoArmed(context), byUser = false)
             } catch (e: Exception) {
                 Notifications.showRearm(context)
             }
         }
+        // Alarms don't survive a restart: plan the schedule again (it may also arm now).
+        ArmScheduler.apply(context)
         if (intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED && Prefs.autoArmTransit(context)) {
             TransitRecognition.enable(context)
         }

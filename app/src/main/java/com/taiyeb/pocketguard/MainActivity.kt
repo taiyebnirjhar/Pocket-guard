@@ -166,5 +166,7 @@ class MainActivity : ComponentActivity() {
         // Open now: Android grants the camera, microphone and location types again (they may have
         // been refused when the guard restarted from boot or the background).
         GuardService.refreshForeground()
+        // Catches up if an alarm was missed (the phone was off, or Android delayed it).
+        ArmScheduler.apply(this)
     }
 }

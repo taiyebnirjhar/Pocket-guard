@@ -177,6 +177,17 @@ activity detection sees you board a bus, train or car, a notification asks wheth
 arms it. It never arms by itself on a guess, since that set off alarms nobody expected.
 Car stereos and speakers never count as earbuds, and you can pick the exact devices that count.
 
+**Schedule** (Triggers → Schedule, off by default): arm by itself at set times, like a Focus mode
+schedule. Add up to 5 times, each with days and a start and end (*every day 09:00–18:00*, or
+*Fri 22:00–02:00*, which runs past midnight; equal start and end means the whole day). At the
+start it arms and says until when; at the end it turns off, unless you had armed it yourself
+before the time began. Turning it off by hand inside a scheduled time pauses it for 15 minutes,
+then it arms again; Home and the notification offer **Arm now**, **+15 min** and **Skip today**
+(off until that time ends; on the lock screen those last two ask for your unlock first). It
+follows the phone's clock and time zone, survives restarts, and catches up when the app is
+opened. The GitHub build starts on the minute once "Alarms & reminders" is allowed; otherwise
+Android may start it a few minutes late.
+
 Calls are ignored while the audio is at the earpiece, because the ear covers and uncovers the
 proximity sensor.
 
@@ -216,6 +227,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit arming reminders; boot and update re-arm. |
+| `ArmSchedule.kt`, `ArmScheduler.kt`, `ScheduleUi.kt` | The arming schedule: its time windows (unit-tested), arming, pausing and the next alarm, and its screens. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
 | `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |

@@ -74,6 +74,22 @@ object Prefs {
     fun autoArmUntil(context: Context) = prefs(context).getLong("auto_arm_until", 0L)
     fun setAutoArmUntil(context: Context, value: Long) = prefs(context).edit().putLong("auto_arm_until", value).apply()
 
+    // --- Schedule (see ArmScheduler) --------------------------------------------------------------
+
+    fun scheduleOn(context: Context) = get(context, "schedule_on", false)
+    fun setScheduleOn(context: Context, value: Boolean) = put(context, "schedule_on", value)
+    fun scheduleJson(context: Context): String? = prefs(context).getString("schedule", null)
+    fun setScheduleJson(context: Context, value: String) = prefs(context).edit().putString("schedule", value).apply()
+
+    /** The schedule is paused (turned off by hand in a window) until this time; 0 when not. */
+    fun schedulePausedUntil(context: Context) = prefs(context).getLong("schedule_paused_until", 0L)
+    fun setSchedulePausedUntil(context: Context, value: Long) =
+        prefs(context).edit().putLong("schedule_paused_until", value).apply()
+
+    /** The guard is on because of the schedule (or was armed by hand inside a window), so it ends with it. */
+    fun scheduleArmed(context: Context) = get(context, "schedule_armed", false)
+    fun setScheduleArmed(context: Context, value: Boolean) = put(context, "schedule_armed", value)
+
     /** Siren the moment airplane mode is turned on while the phone is locked. */
     fun airplaneAlarm(context: Context) = get(context, "tamper_alarm", true)
     fun setAirplaneAlarm(context: Context, value: Boolean) = put(context, "tamper_alarm", value)
