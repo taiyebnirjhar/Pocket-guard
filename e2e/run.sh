@@ -289,6 +289,7 @@ face_down
 sleep 1
 reset_log
 covered
+sleep 1 # Let the reading reach the app first: covered at the lock means a pocket, not a table.
 screen_off
 expect_phase IN_POCKET 2 "laid face-down and locked: protected at once"
 expect_phase ON_TABLE 25 "lying still face-down: table protection"
