@@ -241,6 +241,10 @@
     <string name="sos_recordings">Recordings</string>
     <string name="alarm_help_recording">Recording</string>
     <string name="history_share">Share</string>
+    <string name="history_open_with">Open with</string>
+    <string name="history_save">Save to phone</string>
+    <string name="history_saved">Saved %1$d to your gallery (Pocket Guard album).</string>
+    <string name="history_save_failed">Couldn\'t save to the phone. Check the free space and try again.</string>
     <string name="history_play">Play recording %1$d</string>
     <string name="sos_keys_disclosure_title">SOS buttons use Accessibility</string>
     <string name="sos_keys_disclosure">Pocket Guard uses the Accessibility service to detect volume up held for 2 seconds, to start the SOS alarm and recording, even on the lock screen and when the app is closed. It only watches the volume buttons: it does not read your screen, collect what you type, or change any settings, and the buttons keep working as usual. Nothing it sees leaves your phone. You can turn it off any time in Accessibility settings.</string>

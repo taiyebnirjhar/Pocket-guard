@@ -240,6 +240,10 @@
     <string name="sos_recordings">রেকর্ডিং</string>
     <string name="alarm_help_recording">রেকর্ড হচ্ছে</string>
     <string name="history_share">শেয়ার</string>
+    <string name="history_open_with">যেটি দিয়ে খুলবেন</string>
+    <string name="history_save">ফোনে সেভ করুন</string>
+    <string name="history_saved">%1$dটি গ্যালারিতে সেভ হয়েছে (Pocket Guard অ্যালবাম)।</string>
+    <string name="history_save_failed">ফোনে সেভ করা যায়নি। খালি জায়গা দেখে আবার চেষ্টা করুন।</string>
     <string name="history_play">রেকর্ডিং %1$d চালান</string>
     <string name="sos_keys_disclosure_title">SOS বাটন Accessibility ব্যবহার করে</string>
     <string name="sos_keys_disclosure">Pocket Guard ভলিউম আপ ২ সেকেন্ড চেপে ধরা চিনতে Accessibility সার্ভিস ব্যবহার করে, SOS অ্যালার্ম আর রেকর্ডিং শুরু করার জন্য, লক স্ক্রিনে আর অ্যাপ বন্ধ থাকলেও। এটি শুধু ভলিউম বাটন দেখে: আপনার স্ক্রিন পড়ে না, আপনি যা টাইপ করেন তা সংগ্রহ করে না, কোনো সেটিং বদলায় না, আর বাটন আগের মতোই কাজ করে। এর দেখা কিছুই ফোনের বাইরে যায় না। Accessibility সেটিংসে যেকোনো সময় বন্ধ করতে পারেন।</string>

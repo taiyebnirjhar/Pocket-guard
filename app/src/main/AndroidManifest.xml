@@ -14,6 +14,10 @@
 
     <!-- Live location and alert emails during SOS (Backend.kt). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 9 and older only: "Save to phone" copies photos and videos to Pictures and Movies. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />

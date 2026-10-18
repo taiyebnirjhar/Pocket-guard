@@ -193,7 +193,11 @@ proximity sensor.
 ## Evidence
 
 - **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
-- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90.
+- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90. Photos and
+  recordings stay in the app's private storage (intruder photos never leave the phone; SOS videos
+  are also uploaded only for the live link). Tap one to open it full screen in an app you choose;
+  **Save to phone** copies them to the gallery (Pictures and Movies, "Pocket Guard" albums), and
+  **Share** sends them anywhere.
 
 Both stay on the phone, for when it's recovered.
 
