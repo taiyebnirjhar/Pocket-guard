@@ -1,7 +1,7 @@
 # Setting up the free backend (for WP4 and WP5)
 
 Pocket Guard's online features (account, live location page, alert emails, photo and video
-upload) run on free tiers: Supabase, Cloudflare R2 and Brevo; the live page is on GitHub Pages. This takes about
+upload) run on free tiers: Supabase, Cloudflare R2 and Brevo; the live page is on Cloudflare Pages. This takes about
 20 minutes. **Never paste keys into chat or commit them:** they go into GitHub Secrets (or
 Supabase's own secret store), where CI reads them.
 
@@ -60,8 +60,10 @@ secret**.
    | `R2_SECRET_ACCESS_KEY` | From step 4 |
    | `R2_BUCKET` | `pocket-guard-media` |
 
-No Cloudflare API token is needed: the keys above can reach only this bucket, and the live page
-is hosted on GitHub Pages with the privacy policy.
+6. For the website (the live location page and the privacy policy, at pocket-guard.pages.dev):
+   **My Profile → API Tokens → Create Token → Create Custom Token**, permission
+   **Account · Cloudflare Pages · Edit**, nothing else. Add it as the GitHub secret
+   `CLOUDFLARE_API_TOKEN`. It can publish the site only; it can't reach R2 or anything else.
 
 ## 4. Tell Claude
 
@@ -76,6 +78,6 @@ the server functions with their keys and sets the sign-in options on every chang
 | Supabase | 500 MB database, 5 GB egress a month, pauses after 7 days idle | Accounts, contacts, live location (a daily job keeps it awake) |
 | Brevo | 300 emails a day, small Brevo logo on emails | Alert and login emails |
 | Cloudflare R2 | 10 GB storage, free downloads | Photos and 480p video, deleted after 90 days |
-| GitHub Pages | Free static hosting | The privacy policy and the live location page |
+| Cloudflare Pages | Free static hosting | The privacy policy and the live location page |
 
 These are the free plans as of writing; check each provider's pricing page.

@@ -439,7 +439,7 @@ expect_true 'grep -q "Taiyeb needs help" <<<"$(sent_sms)"' "the SMS names the ow
 expect_true 'grep -q "maps.google.com/?q=23.81" <<<"$(sent_sms)"' "the SMS carries the location"
 LIVE_TOKEN=""
 if [ "$LIVE" = true ]; then
-  expect_true 'grep -q "Live location: https://taiyebnirjhar.github.io/Pocket-guard/live/#t=" <<<"$(sent_sms)"' "the SMS carries the live location link"
+  expect_true 'grep -q "Live location: https://pocket-guard.pages.dev/live/#t=" <<<"$(sent_sms)"' "the SMS carries the live location link"
   LIVE_TOKEN=$(grep -oE '#t=[0-9a-f]{48}' <<<"$(sent_sms)" | tail -n 1 | cut -c4-)
   expect_true 'view_incident "$LIVE_TOKEN" | grep -q "\"status\": *\"active\""' "the live page sees the SOS as active"
   expect_log "Live location: email sent to 1" 8 "the contact with an address gets the alert by email"

@@ -113,7 +113,7 @@ jobs:
           BREVO_API_KEY: test
           BREVO_API_URL: http://host.docker.internal:9999/v3
           BREVO_SENDER_EMAIL: alerts@example.com
-          LIVE_PAGE_URL: https://taiyebnirjhar.github.io/Pocket-guard/live/
+          LIVE_PAGE_URL: https://pocket-guard.pages.dev/live/
           R2_ENDPOINT: http://host.docker.internal:9000
           R2_PUBLIC_ENDPOINT: http://127.0.0.1:9000
           R2_ACCESS_KEY_ID: S3RVER

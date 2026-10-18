@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
 /** Public, as Google Play requires; also linked in the Play listing. */
-const val PRIVACY_POLICY_URL = "https://taiyebnirjhar.github.io/Pocket-guard/privacy.html"
+const val PRIVACY_POLICY_URL = "https://pocket-guard.pages.dev/privacy.html"
 
 @Composable
 fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {

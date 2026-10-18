@@ -1,7 +1,9 @@
 name: Pages
 
-# Publishes site/ to GitHub Pages: the privacy policy Google Play links to, and the live
-# location page the SOS alerts link to.
+# Publishes site/ to Cloudflare Pages (https://pocket-guard.pages.dev): the privacy policy Google
+# Play links to, and the live location page the SOS alerts link to. Cloudflare rather than GitHub
+# Pages because the repository is private. Needs the CLOUDFLARE_API_TOKEN secret (Cloudflare
+# Pages: Edit) and CLOUDFLARE_ACCOUNT_ID.
 on:
   push:
     branches: [main]
@@ -10,8 +12,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -20,12 +20,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
       # The live page reads the trail with the project's public (publishable) key.
       - name: Point the live page at the backend
         env:
@@ -52,8 +48,18 @@ jobs:
                      f'<p>Questions or requests, including deletion: email <a href="mailto:{e}">{e}</a>.</p>', s, flags=re.S)
           open(p, "w").write(s)
           EOF
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets first."
+            exit 1
+          fi
+          # The first run creates the project; later runs find it there already.
+          npx -y wrangler@4.20.0 pages project list | grep -q ' pocket-guard ' ||
+            npx -y wrangler@4.20.0 pages project create pocket-guard --production-branch main
+          # Always the production site, whichever branch a manual run starts from.
+          npx -y wrangler@4.20.0 pages deploy site --project-name pocket-guard --branch main --commit-dirty=true
+          npx -y wrangler@4.20.0 pages project list
