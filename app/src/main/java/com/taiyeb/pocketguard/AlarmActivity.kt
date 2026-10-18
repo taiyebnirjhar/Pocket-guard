@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -165,7 +167,20 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.alarm_open_app), color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center)
         }
-        Spacer(Modifier.height(48.dp))
+        if (!sos) {
+            // The owner may be the one who grabbed it, from someone harassing her: one tap turns
+            // the theft alarm into SOS (contacts, location, recording). Harmless if a thief taps it.
+            Spacer(Modifier.height(32.dp))
+            Button(
+                onClick = { GuardService.requestSos("alarm screen") },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFB91C1C)),
+                contentPadding = PaddingValues(horizontal = 36.dp, vertical = 20.dp),
+            ) {
+                Text("🆘 " + stringResource(R.string.alarm_need_help), fontSize = 20.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(if (sos) 48.dp else 20.dp))
         OutlinedButton(
             onClick = onOwner,
             shape = CircleShape,

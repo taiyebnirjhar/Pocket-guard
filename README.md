@@ -146,6 +146,12 @@ presses, Emergency SOS on five on many phones), and two-button holds are hard in
 playing (that's someone turning the volume up), fewer than 4 or slower than 2 s don't count, and
 volume down starts the count over.
 
+Harassed with the guard armed: grabbing the phone from the pocket starts the theft warning as
+usual. Wake the screen and tap volume up 4 times, or tap **🆘 I need help** on the alarm screen
+(no unlock needed): the theft alarm becomes SOS, with the alerts, location and recording. The taps
+count while the alarm sounds, even though its beeps play like music. If a thief taps the button,
+the owner's contacts are told and the recording starts, which only helps her.
+
 ## Setup requirement: the phone must lock immediately
 
 A phone pocketed with the screen just turned off, but not yet locked, would let a thief pass as

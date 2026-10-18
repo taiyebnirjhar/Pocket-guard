@@ -219,6 +219,7 @@
     <string name="sos_title">SOS alarm</string>
     <string name="sos_speech">Help! Stop it! Help!</string>
     <string name="alarm_help">I NEED HELP</string>
+    <string name="alarm_need_help">I need help (SOS)</string>
     <string name="alarm_help_sub">This person called for help. Please stay with them, or call the local emergency number.</string>
     <string name="triggers_sos">SOS: tap volume up 4 times quickly</string>
     <string name="triggers_sos_sub">While armed, with the screen on (locked or unlocked, so waking it with your fingerprint is fine): tap volume up 4 times within 2 s. Not while music, a video or a call is playing. A loud whistle and a spoken call for help, and it records video with sound until you unlock.</string>

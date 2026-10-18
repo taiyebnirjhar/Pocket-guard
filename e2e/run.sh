@@ -380,6 +380,23 @@ for _ in $(seq 1 20); do grep -q '\.mp4' <<<"$(history)" && break; sleep 0.25; d
 expect_true 'grep -q "\.mp4" <<<"$(history)"' "history links the SOS recording"
 VIDEOS=$(adb shell run-as $PKG ls -l files/sos 2>/dev/null | grep -c mp4)
 expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
+
+log "Scenario 7e2: harassed while armed: she grabs the phone from her pocket, then 4 taps turn the theft alarm into SOS"
+reset_log
+pocket_and_lock
+expect_phase IN_POCKET 5 "pocketed and locked: protected"
+calm_down
+reset_log
+pull_out
+expect_phase WARNING 5 "pulling it out starts the theft warning (unchanged)"
+sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed to see the screen; the warning goes on.
+tap_up 4
+expect_log "phase=SIREN .*trigger=SOS" 6 "4 volume taps during the theft warning switch it to SOS"
+sleep 3
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+sleep 2
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
 

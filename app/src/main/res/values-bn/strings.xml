@@ -218,6 +218,7 @@
     <string name="sos_title">SOS অ্যালার্ম</string>
     <string name="sos_speech">বাঁচাও! থামো! বাঁচাও!</string>
     <string name="alarm_help">আমার সাহায্য দরকার</string>
+    <string name="alarm_need_help">আমার সাহায্য দরকার (SOS)</string>
     <string name="alarm_help_sub">এই ব্যক্তি সাহায্য চেয়েছেন। অনুগ্রহ করে পাশে থাকুন, বা জরুরি নম্বরে (বাংলাদেশে ৯৯৯) কল করুন।</string>
     <string name="triggers_sos">SOS: ভলিউম আপ দ্রুত ৪ বার চাপুন</string>
     <string name="triggers_sos_sub">গার্ড চালু থাকলে, স্ক্রিন জাগানো অবস্থায় (লক বা আনলক, তাই আঙুলের ছাপে জাগানোও চলবে): ২ সেকেন্ডের মধ্যে ভলিউম আপ ৪ বার চাপুন। গান, ভিডিও বা কল চলার সময় নয়। জোরে বাঁশি আর মুখে সাহায্যের ডাক, আর আনলক না করা পর্যন্ত শব্দসহ ভিডিও রেকর্ড হবে।</string>

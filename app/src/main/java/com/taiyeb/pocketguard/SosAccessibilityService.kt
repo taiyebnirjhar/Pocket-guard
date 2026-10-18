@@ -37,9 +37,14 @@ class SosAccessibilityService : AccessibilityService() {
         }
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             // Music, a video or a call playing: taps are someone turning it up, not a call for help.
+            // Our own warning beeps count as "music", but during a theft alarm the taps must work:
+            // the owner grabbed her phone because someone is harassing her (SOS takes over).
             val audio = getSystemService(android.media.AudioManager::class.java)
-            val busy = audio.isMusicActive || audio.mode == android.media.AudioManager.MODE_IN_CALL ||
-                audio.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+            val ownAlarm = GuardState.phase.value.isAlarm
+            val busy = !ownAlarm && (
+                audio.isMusicActive || audio.mode == android.media.AudioManager.MODE_IN_CALL ||
+                    audio.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+                )
             if (busy) taps.reset() else taps.press(up, event.eventTime)
         }
         return false
