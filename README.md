@@ -84,7 +84,7 @@ siren. Table mode can be switched off under Triggers.
 ## SOS: a call for help
 
 For harassment in a crowd: while the guard is armed, **wake the screen (power, or a fingerprint
-unlock) and hold volume up for 2 s** (one button, by feel; in a pocket works). A buzz confirms it,
+unlock) and tap volume up 4 times quickly** (one button, by feel; in a pocket works). A buzz confirms it,
 and at once:
 
 - the SOS alarm: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when
@@ -142,8 +142,9 @@ right screen: try the switch once, App info → ⋮ → Allow restricted setting
 nothing else, and every key still works as usual. Why wake the screen first: with the screen off,
 Android shows the volume keys to no app at all, accessibility included; the lock screen is
 enough. One button on purpose: the power key is taken by the phone's own gestures (camera on two
-presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. A tap
-or a short volume change doesn't count, and pressing volume down as well cancels it.
+presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. Taps don't count while music, a video or a call is
+playing (that's someone turning the volume up), fewer than 4 or slower than 2 s don't count, and
+volume down starts the count over.
 
 ## Setup requirement: the phone must lock immediately
 

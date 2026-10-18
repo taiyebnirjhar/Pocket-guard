@@ -3,12 +3,10 @@ package com.taiyeb.pocketguard
 import android.accessibilityservice.AccessibilityService
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import android.os.Handler
-import android.os.Looper
 
 /**
- * Sees the volume keys themselves, which no ordinary app can: volume up held for
- * [SosHold.HOLD_MS] is the SOS call. It only watches:
+ * Sees the volume keys themselves, which no ordinary app can: volume up tapped [SosTaps.TAPS]
+ * times quickly is the SOS call. It only watches:
  * every key still does what it always does. It is opt-in, after the disclosure; without it
  * there is no SOS hold.
  */
@@ -20,11 +18,7 @@ class SosAccessibilityService : AccessibilityService() {
             private set
     }
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val hold = SosHold(
-        post = { task, delayMs -> handler.postDelayed(task, delayMs) },
-        cancel = handler::removeCallbacks,
-    ) { gesture -> GuardService.onSosHold(gesture) }
+    private val taps = SosTaps { gesture -> GuardService.onSosHold(gesture) }
 
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")
@@ -41,9 +35,12 @@ class SosAccessibilityService : AccessibilityService() {
         if (event.repeatCount == 0) {
             android.util.Log.d(GuardService.TAG, "SOS key watcher: ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"}")
         }
-        when (event.action) {
-            KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) hold.press(up, true)
-            KeyEvent.ACTION_UP -> hold.press(up, false)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            // Music, a video or a call playing: taps are someone turning it up, not a call for help.
+            val audio = getSystemService(android.media.AudioManager::class.java)
+            val busy = audio.isMusicActive || audio.mode == android.media.AudioManager.MODE_IN_CALL ||
+                audio.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+            if (busy) taps.reset() else taps.press(up, event.eventTime)
         }
         return false
     }
@@ -54,7 +51,7 @@ class SosAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         connected = false
-        hold.reset()
+        taps.reset()
         GuardService.refreshSos()
         return super.onUnbind(intent)
     }

@@ -340,7 +340,7 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
-log "Scenario 7e: SOS, power pressed, then volume up held for 2 s"
+log "Scenario 7e: SOS, power pressed, then volume up tapped 4 times"
 A11Y="$PKG/.SosAccessibilityService"
 # Real key events written to the input device that owns the volume keys (root, emulator only):
 # accessibility key filters never see keys injected with "adb shell input" (those count as
@@ -353,10 +353,9 @@ hw_key() {
   case "$1" in KEY_VOLUMEUP) code=115 ;; KEY_VOLUMEDOWN) code=114 ;; esac
   adb shell "sendevent $KEYDEV 1 $code $2; sendevent $KEYDEV 0 0 0" >/dev/null 2>&1
 }
-hold_up() {
-  hw_key KEY_VOLUMEUP 1
-  sleep "$(awk "BEGIN { print $1 / 1000 }")"
-  hw_key KEY_VOLUMEUP 0
+tap_up() {
+  local i
+  for i in $(seq 1 "$1"); do hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEUP 0; sleep 0.2; done
 }
 expect_true '[ -n "$KEYDEV" ]' "found the input device with the volume keys ($KEYDEV)"
 reset_log
@@ -366,11 +365,11 @@ expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) c
 screen_off
 sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed: the lock screen shows.
 reset_log
-hold_up 800
-expect_no_phase SIREN 3 "a short volume press is not SOS"
+tap_up 2
+expect_no_phase SIREN 3 "two volume taps (turning it up) are not SOS"
 reset_log
-hold_up 2600
-expect_log "phase=SIREN .*trigger=SOS" 6 "volume up held 2 s on the lock screen sounds the SOS alarm"
+tap_up 4
+expect_log "phase=SIREN .*trigger=SOS" 6 "volume up tapped 4 times on the lock screen sounds the SOS alarm"
 expect_log "SOS video recording" 10 "recording starts with the SOS alarm"
 sleep 3
 reset_log

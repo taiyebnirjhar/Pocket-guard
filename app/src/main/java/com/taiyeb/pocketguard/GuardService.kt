@@ -90,7 +90,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.updateSos()
         }
 
-        /** An SOS key gesture ([source] names it, see [SosHold]). Main thread. */
+        /** An SOS key gesture ([source] names it, see [SosTaps]). Main thread. */
         fun onSosHold(source: String) {
             instance?.sosHold(source)
         }
