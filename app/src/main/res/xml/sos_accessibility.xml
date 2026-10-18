@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only key events are wanted: no window content, no events. -->
+<!-- Only key events are wanted: no window content, and no events from other apps (an event type
+     must be named, so it's announcements from this app only). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeAnnouncement"
+    android:packageNames="com.taiyeb.pocketguard"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRequestFilterKeyEvents"
     android:canRequestFilterKeyEvents="true"

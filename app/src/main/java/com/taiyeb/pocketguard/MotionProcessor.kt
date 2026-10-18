@@ -167,7 +167,6 @@ class MotionProcessor {
     /** Angle of the fast gravity estimate away from (x, y, z). */
     fun fastAngleTo(x: Float, y: Float, z: Float) = angle(fx, fy, fz, x, y, z)
     fun gravityAngleTo(x: Float, y: Float, z: Float) = angle(gx, gy, gz, x, y, z)
-    fun slowAngleTo(x: Float, y: Float, z: Float) = angle(sx, sy, sz, x, y, z)
 
     /** |a| minus the at-rest magnitude: positive while accelerating away from the ground. */
     val vertical get() = magnitude - g0

@@ -389,7 +389,11 @@ class GuardEngine(
     fun onEarbudsDisconnected() {
         if (!host.config().earbudsAlarm) return
         when (phase) {
-            Phase.IN_POCKET, Phase.ON_TABLE -> host.noticeBuzz()
+            Phase.IN_POCKET, Phase.ON_TABLE -> {
+                host.noticeBuzz()
+                // Its own double buzz must not read as the phone being slid or tilted on the table.
+                table.ownVibration(host.now(), 300)
+            }
             Phase.WAITING_FOR_POCKET -> if (host.isLocked()) warn(Trigger.EARBUDS_DISCONNECTED)
             else -> Unit
         }

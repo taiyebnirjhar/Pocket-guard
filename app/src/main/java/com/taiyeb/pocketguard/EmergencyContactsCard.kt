@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.provider.ContactsContract
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -51,7 +52,7 @@ import androidx.compose.ui.unit.sp
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EmergencyContactsCard() {
+fun EmergencyContactsCard(refreshKey: Int) {
     val context = LocalContext.current
     var version by remember { mutableIntStateOf(0) }
     val contacts = remember(version) { EmergencyContacts.list(context) }
@@ -95,7 +96,11 @@ fun EmergencyContactsCard() {
     val askPermissions = rememberDisclosedPermission(
         if (BuildConfig.PLAY_STORE) R.string.disclose_location else R.string.disclose_location_sms,
         permissions,
-    ) { GuardService.refreshForeground() }
+    ) {
+        GuardService.refreshForeground()
+        version++ // Re-reads the permissions, so "Allow location" goes once it's granted.
+    }
+    val hasLocation = remember(refreshKey, version) { SosAlerts.hasLocation(context) }
 
     SettingRow(R.drawable.ic_bell, stringResource(R.string.contacts_title), stringResource(if (BuildConfig.PLAY_STORE) R.string.contacts_sub_play else R.string.contacts_sub))
     OutlinedTextField(
@@ -188,10 +193,12 @@ fun EmergencyContactsCard() {
         if (approved) {
             Text(stringResource(R.string.contacts_approved, reachable.size), color = Lavender, fontSize = 13.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { SosAlerts.sendTest(context) }) {
+                TextButton(onClick = {
+                    if (SosAlerts.sendTest(context)) Toast.makeText(context, R.string.contacts_test_sent, Toast.LENGTH_SHORT).show()
+                }) {
                     Text(stringResource(R.string.contacts_test), color = Lavender, fontWeight = FontWeight.Bold)
                 }
-                if (!SosAlerts.hasLocation(context)) {
+                if (!hasLocation) {
                     TextButton(onClick = askPermissions) {
                         Text(stringResource(R.string.contacts_allow_location), color = Lavender, fontWeight = FontWeight.Bold)
                     }
@@ -214,6 +221,7 @@ fun EmergencyContactsCard() {
     draft?.let { picked ->
         ContactDialog(
             initial = picked,
+            isNew = true,
             onSave = { save(contacts + it) },
             onDismiss = { draft = null },
         )
@@ -258,7 +266,8 @@ fun EmergencyContactsCard() {
                         val app = context.applicationContext
                         Thread { Backend.signIn(app) }.start()
                     }
-                    askPermissions()
+                    // Only when something's missing: the explanation needn't come back on every approval.
+                    if (!hasLocation || (!BuildConfig.PLAY_STORE && !SosAlerts.canSendSms(context))) askPermissions()
                 }) { Text(stringResource(R.string.contacts_approve), color = Lavender, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
@@ -274,18 +283,24 @@ fun EmergencyContactsCard() {
 
 /** Adds a person ([initial] null) or edits one: a number, an email address, or both. */
 @Composable
-private fun ContactDialog(initial: EmergencyContact?, onSave: (EmergencyContact) -> Unit, onDismiss: () -> Unit) {
+private fun ContactDialog(
+    initial: EmergencyContact?,
+    onSave: (EmergencyContact) -> Unit,
+    onDismiss: () -> Unit,
+    // A picked contact whose number needs fixing is still a new one.
+    isNew: Boolean = initial == null,
+) {
     val context = LocalContext.current
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
     var phone by rememberSaveable { mutableStateOf(initial?.phone.orEmpty()) }
     var email by rememberSaveable { mutableStateOf(initial?.email.orEmpty()) }
-    val phoneOk = EmergencyContacts.normalize(phone).count { it.isDigit() } >= 6
+    val phoneOk = EmergencyContacts.canText(phone)
     val emailOk = EmergencyContacts.looksLikeEmail(email)
     // An address only counts when it can be emailed, which needs the online part.
     val canEmail = Backend.enabled(context)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(if (initial == null) R.string.contacts_add_number else R.string.contacts_edit)) },
+        title = { Text(stringResource(if (isNew) R.string.contacts_add_number else R.string.contacts_edit)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.contacts_contact_name)) }, singleLine = true)
@@ -317,7 +332,7 @@ private fun ContactDialog(initial: EmergencyContact?, onSave: (EmergencyContact)
                 },
             ) {
                 Text(
-                    stringResource(if (initial == null) R.string.contacts_add else R.string.contacts_save),
+                    stringResource(if (isNew) R.string.contacts_add else R.string.contacts_save),
                     color = Lavender,
                     fontWeight = FontWeight.Bold,
                 )

@@ -87,8 +87,14 @@ calm_down() { still; sleep 3.5; } # let the motion window (3 s) expire
 # has seen the cover (after a reset_log) before pressing power.
 pocket_and_lock() {
   pocket
-  for _ in $(seq 1 15); do app_log | grep -q "log: covered" && break; sleep 0.2; done
+  wait_for_cover
   screen_off
+}
+# Up to 6 s (slow 2-core runners): said in the log when it never came, so a wrong phase later is
+# easy to trace back to it.
+wait_for_cover() {
+  for _ in $(seq 1 30); do app_log | grep -q "log: covered" && return 0; sleep 0.2; done
+  log "  (the app never logged the cover before the lock)"
 }
 
 # Settings are written straight into the app's device-protected storage (debug build: run-as).
@@ -135,14 +141,18 @@ view_incident() {
     -H "Content-Type: application/json" -d "{\"token\":\"$1\"}"
 }
 
+# The app's own actions (arm, fix the lock) go through a non-exported alias, which only the app's
+# notifications and tile can start; root (adb root, below) may start it too.
+OWNER="$PKG/.OwnerAction"
 arm() {
-  sh am start -W -n $PKG/.MainActivity --ez arm true >/dev/null
+  sh am start -W -n $OWNER --ez arm true >/dev/null
   expect_phase WAITING_FOR_POCKET 10 "$1"
 }
 
 # --- Device setup -------------------------------------------------------------------------------
 
-log "Setup: PIN lock that locks instantly"
+log "Setup: root (for the app's non-exported actions and real key presses), PIN lock that locks instantly"
+adb root >/dev/null 2>&1; sleep 2; adb wait-for-device
 sh locksettings set-pin "$PIN" >/dev/null
 sh settings put secure lock_screen_lock_after_timeout 0
 sh settings put system screen_off_timeout 600000
@@ -154,6 +164,8 @@ sh dumpsys deviceidle whitelist +$PKG >/dev/null
 write_prefs
 write_backend
 log "Online part: $([ "$LIVE" = true ] && echo "local backend at $EMU_API" || echo "off (no local backend)")"
+# On CI the online checks must run: skipping them quietly would still read as a pass.
+if [ "${CI:-}" = true ] && [ "$LIVE" != true ]; then fail "the local backend isn't configured (E2E_API_URL, E2E_PUBLISHABLE_KEY)"; fi
 still
 uncovered
 emu sensor set light 400
@@ -198,6 +210,7 @@ sleep 2
 log "Scenario 2: light sensor frozen (no readings while pocketed), motion must still catch it"
 reset_log
 covered # no light change at all
+wait_for_cover
 screen_off
 expect_phase IN_POCKET 6 "pocketed with a frozen light sensor"
 calm_down
@@ -223,7 +236,7 @@ pull_out
 expect_phase WARNING 5 "owner's own pull-out warns first"
 unlock
 expect_phase WAITING_FOR_POCKET 4 "owner's unlock within grace stops it"
-expect_no_phase SIREN 9 "no siren when the owner unlocks in time"
+expect_no_phase SIREN 12 "no siren when the owner unlocks in time"
 
 log "Scenario 4: uncovered with no movement or light (a careful pull) still warns"
 reset_log
@@ -248,7 +261,8 @@ uncovered
 sleep 0.3
 covered
 wait
-expect_no_phase SIREN 4 "brief flicker while walking never sirens"
+# Longer than the 15 s grace: a warning the flicker wrongly left running would siren by then.
+expect_no_phase SIREN 17 "brief flicker while walking never sirens"
 
 # --- 4. Tamper triggers ----------------------------------------------------------------------------
 
@@ -298,7 +312,8 @@ tilted_off_table
 expect_log "phase=WARNING .*trigger=TABLE_MOVED" 5 "tilting it up off the table warns (sensor still covered)"
 face_down
 expect_log "phase=ON_TABLE from=WARNING" 8 "put back down: the warning stops by itself"
-expect_no_phase SIREN 2 "no siren after putting it back"
+# Longer than the 15 s grace: a siren timer the put-back failed to cancel would fire by then.
+expect_no_phase SIREN 17 "no siren after putting it back"
 reset_log
 uncovered
 tilted_off_table
@@ -341,7 +356,7 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
-log "Scenario 7e: SOS, power pressed, then volume up tapped 4 times"
+log "Scenario 7e: SOS: screen woken, then volume up tapped 4 times"
 A11Y="$PKG/.SosAccessibilityService"
 # Real key events written to the input device that owns the volume keys (root, emulator only):
 # accessibility key filters never see keys injected with "adb shell input" (those count as
@@ -509,7 +524,7 @@ expect_true 'app_prefs | grep -q "lock_check\">FAILED"' "the failure stays store
 sh settings put secure lock_screen_lock_after_timeout 0
 unlock
 # Same flags as the warning notification: reaches the running app through onNewIntent.
-sh am start -W --activity-clear-top --activity-single-top -n $PKG/.MainActivity --ez fix_lock true >/dev/null
+sh am start -W --activity-clear-top --activity-single-top -n $OWNER --ez fix_lock true >/dev/null
 sleep 2
 expect_true '! lock_warning_shown' "tapping Fix clears the warning and starts the test over"
 sh input keyevent KEYCODE_HOME; sleep 1
@@ -584,6 +599,7 @@ shot() {
 }
 # -S restarts the app, since a running task would only be brought to the front, ignoring the extras.
 open_tab() { sh am start -S -W -n $PKG/.MainActivity --es tab "$1" "${@:2}" >/dev/null; }
+open_owner_tab() { sh am start -S -W -n $OWNER --es tab "$1" "${@:2}" >/dev/null; }
 swipe() { sh input swipe $((W * $1 / 100)) $((H * $2 / 100)) $((W * $3 / 100)) $((H * $4 / 100)) 400; }
 adb logcat -c
 write_prefs false
@@ -604,7 +620,7 @@ open_tab settings
 shot 7-settings
 swipe 50 80 50 25
 shot 8-settings-checklist
-open_tab home --ez arm true
+open_owner_tab home --ez arm true
 shot 4-home-armed
 screen_off
 sh cmd connectivity airplane-mode enable
@@ -655,6 +671,8 @@ if [ "$LIVE" = true ] && [ -n "$LIVE_TOKEN" ] && command -v google-chrome >/dev/
   expect_true 'grep -q "Taiyeb.s location" "$OUT/live-page.html"' "the live page shows whose location it is"
   expect_true 'grep -q "FALSE ALARM" "$OUT/live-page.html"' "the live page shows the false alarm"
   expect_true '[ "$(stat -c %s "$OUT/screens/11-live-page.png" 2>/dev/null || echo 0)" -gt 10240 ]' "the live page rendered for a screenshot"
+elif [ "${CI:-}" = true ]; then
+  fail "the live page wasn't checked (no live incident from scenario 7g, or no Chrome on the runner)"
 fi
 
 app_log >>"$FULL_LOG"

@@ -90,14 +90,14 @@ fun ScheduleCard(refreshKey: Int) {
     val save = { list: List<ArmSchedule.Window> ->
         Prefs.setScheduleJson(context, ArmSchedule.toJson(list))
         windows = list
-        ArmScheduler.apply(context)
+        ArmScheduler.apply(context, quiet = true)
     }
 
     ToggleRow(R.drawable.ic_timer, stringResource(R.string.triggers_schedule), stringResource(R.string.triggers_schedule_sub), on) {
         on = it
         Prefs.setScheduleOn(context, it)
         if (it && windows.isEmpty()) editing = -1
-        ArmScheduler.apply(context)
+        ArmScheduler.apply(context, quiet = true)
     }
     if (!on) return
 
@@ -139,7 +139,15 @@ fun ScheduleCard(refreshKey: Int) {
                 save(if (index < 0) windows + w else windows.mapIndexed { j, old -> if (j == index) w else old })
                 editing = null
             },
-            onDismiss = { editing = null },
+            onDismiss = {
+                editing = null
+                // Switched on and then no time added: back off, rather than "on" with nothing set.
+                if (windows.isEmpty()) {
+                    on = false
+                    Prefs.setScheduleOn(context, false)
+                    ArmScheduler.apply(context, quiet = true)
+                }
+            },
         )
     }
 }
@@ -225,7 +233,9 @@ fun HomeScheduleCard(refreshKey: Int) {
     val status = remember(refreshKey, version, phase) { ArmScheduler.status(context) } ?: return
     val paused = status.pausedUntil
     val text = when {
+        paused != null && status.skipped -> stringResource(R.string.home_schedule_skipped, timeText(context, paused))
         paused != null -> stringResource(R.string.home_schedule_paused, timeText(context, paused))
+        status.notArmed -> stringResource(R.string.home_schedule_not_armed)
         status.armedUntil != null -> stringResource(R.string.home_schedule_on, timeText(context, status.armedUntil))
         status.nextStart != null -> stringResource(
             R.string.home_schedule_next,
@@ -237,13 +247,18 @@ fun HomeScheduleCard(refreshKey: Int) {
     Spacer(Modifier.height(12.dp))
     GlassCard {
         SettingRow(R.drawable.ic_timer, stringResource(R.string.triggers_schedule), text)
-        if (paused != null || status.armedUntil != null) {
+        // Never during an alarm: pausing turns the guard off, which only the owner's unlock may do.
+        if (!phase.isAlarm && (paused != null || status.armedUntil != null || status.notArmed)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (paused != null) {
+                if (paused != null || status.notArmed) {
                     PillAction(stringResource(R.string.schedule_arm_now), { ArmScheduler.armNow(context) })
+                }
+                if (paused != null && !status.skipped) {
                     PillAction(stringResource(R.string.schedule_pause_more), { ArmScheduler.pauseMore(context) })
                 }
-                PillAction(stringResource(R.string.schedule_skip), { ArmScheduler.skipToday(context) }, color = Muted)
+                if (!status.skipped) {
+                    PillAction(stringResource(R.string.schedule_skip), { ArmScheduler.skipToday(context) }, color = Muted)
+                }
             }
         }
     }

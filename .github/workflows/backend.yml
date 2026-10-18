@@ -27,7 +27,13 @@ env:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Only a push to main that passed CI (a pull request whose branch is called main doesn't
+    # count), or a manual run from main.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,18 +41,32 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      # CI runs can finish out of order: never deploy a commit older than one already on main's tip.
+      - name: Skip if main has moved on
+        id: latest
+        run: |
+          git fetch -q origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "This commit is no longer main's tip; the newer one deploys after its own CI."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: supabase/setup-cli@v1
+        if: steps.latest.outputs.stale != 'true'
         with:
           version: 2.121.0
 
       - name: Database
+        if: steps.latest.outputs.stale != 'true'
         run: |
           supabase link --project-ref "$PROJECT_REF"
           supabase db push --dry-run
           supabase db push
 
       - name: Function keys
+        if: steps.latest.outputs.stale != 'true'
         env:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
@@ -61,10 +81,12 @@ jobs:
             R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" R2_BUCKET="$R2_BUCKET"
 
       - name: Functions
+        if: steps.latest.outputs.stale != 'true'
         run: supabase functions deploy --project-ref "$PROJECT_REF" --use-api
 
       # Anonymous sign-in for the phones, and Brevo for any sign-in email Supabase sends.
       - name: Sign-in settings
+        if: steps.latest.outputs.stale != 'true'
         env:
           SMTP_USER: ${{ secrets.BREVO_SMTP_LOGIN }}
           SMTP_PASS: ${{ secrets.BREVO_SMTP_KEY }}
@@ -84,10 +106,12 @@ jobs:
           [ "$code" = 200 ] || { head -c 500 /tmp/auth.json; exit 1; }
 
       - uses: denoland/setup-deno@v2
+        if: steps.latest.outputs.stale != 'true'
         with:
           deno-version: v2.x
 
       - name: Check the live backend
+        if: steps.latest.outputs.stale != 'true'
         env:
           API_URL: ${{ secrets.SUPABASE_URL }}
           PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

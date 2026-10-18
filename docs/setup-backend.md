@@ -43,7 +43,7 @@ secret**.
    `BREVO_SMTP_KEY`. CI enters them in Supabase's email settings (Supabase's built-in email is
    only for testing and heavily rate-limited).
 
-## 3. Cloudflare R2 (photo and video storage)
+## 3. Cloudflare R2 (SOS video storage)
 
 1. Sign up at cloudflare.com. Note the **Account ID** (R2 → Overview → Account Details).
 2. **R2 → Create bucket:** name `pocket-guard-media`, location hint Asia-Pacific. Leave public
@@ -76,8 +76,8 @@ the server functions with their keys and sets the sign-in options on every chang
 | Service | Free limit | What uses it |
 |---|---|---|
 | Supabase | 500 MB database, 5 GB egress a month, pauses after 7 days idle | Accounts, contacts, live location (a daily job keeps it awake) |
-| Brevo | 300 emails a day, small Brevo logo on emails | Alert and login emails |
-| Cloudflare R2 | 10 GB storage, free downloads | Photos and 480p video, deleted after 90 days |
+| Brevo | 300 emails a day, small Brevo logo on emails | Alert emails |
+| Cloudflare R2 | 10 GB storage, free downloads | 480p SOS video, deleted after 90 days |
 | Cloudflare Pages | Free static hosting | The privacy policy and the live location page |
 
 These are the free plans as of writing; check each provider's pricing page.

@@ -69,7 +69,8 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     // Contacts set up but the message or people changed since approval (or the language, or the
     // live link setting): SOS alerts are off until the owner approves again.
     val alertsOff = remember(refreshKey) { EmergencyContacts.needsReapproval(context) }
-    val lastAlarm = remember(historyVersion) { History.load(context).maxOfOrNull { it.startedAt } }
+    // Real alarms only: a warning the pocket's fabric started and ended by itself isn't one.
+    val lastAlarm = remember(historyVersion) { History.load(context).filter { it.escalated }.maxOfOrNull { it.startedAt } }
     val confirmTitle = stringResource(R.string.home_confirm_disarm)
 
     val confirmOwner = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -139,7 +140,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         }
         if (phase.isAlarm && !unlockStops) {
             Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.alarm_open_app), color = Amber, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.home_confirm_to_stop), color = Amber, fontSize = 13.sp, textAlign = TextAlign.Center)
         }
 
         Spacer(Modifier.height(24.dp))

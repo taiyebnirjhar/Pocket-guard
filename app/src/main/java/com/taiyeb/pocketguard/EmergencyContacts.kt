@@ -132,9 +132,13 @@ object EmergencyContacts {
         return if (args.isEmpty()) english.getString(chosen) else english.getString(chosen, *args)
     }
 
-    /** The time an SMS says, in English digits. */
+    /**
+     * The time an SMS says, in English digits. Plain spaces only: Android 14+ puts a narrow
+     * no-break space before AM/PM, which isn't in the SMS alphabet and would double the parts.
+     */
     fun smsTime(time: java.util.Date = java.util.Date()): String =
         java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT, Locale.ENGLISH).format(time)
+            .replace('\u202F', ' ').replace('\u00A0', ' ')
 
     fun sosText(context: Context, time: String, lat: Double?, lng: Double?, accuracy: Float?, live: String? = null): String {
         val name = ownerName(context)

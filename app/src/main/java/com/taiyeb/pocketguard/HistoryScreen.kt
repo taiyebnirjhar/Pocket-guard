@@ -168,10 +168,18 @@ private fun IncidentCard(incident: Incident) {
 private fun MediaButtons(files: List<File>) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val save: () -> Unit = {
+    // One save at a time: a second tap on a long recording would copy it twice in parallel.
+    var saving by remember { mutableStateOf(false) }
+    val save: () -> Unit = save@{
+        if (saving) return@save
+        saving = true
         val app = context.applicationContext
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { MediaActions.saveToPhone(app, files) }
+            val saved = try {
+                withContext(Dispatchers.IO) { MediaActions.saveToPhone(app, files) }
+            } finally {
+                saving = false
+            }
             val text = if (saved == files.size) {
                 app.getString(R.string.history_saved, saved)
             } else {

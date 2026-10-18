@@ -74,6 +74,9 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_LOCKED_BOOT_COMPLETED, Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> Unit
             else -> return
         }
+        // Alarms don't survive a restart: plan the schedule first. A window that ended while the
+        // phone was off turns its guard off here, before it would be started again below.
+        ArmScheduler.apply(context, mayArm = false)
         if (Prefs.armed(context) && GuardState.phase.value == Phase.OFF) {
             try {
                 GuardService.arm(context, auto = Prefs.autoArmed(context), byUser = false)
@@ -81,7 +84,7 @@ class BootReceiver : BroadcastReceiver() {
                 Notifications.showRearm(context)
             }
         }
-        // Alarms don't survive a restart: plan the schedule again (it may also arm now).
+        // Inside a window now: the schedule arms it (if it wasn't on already).
         ArmScheduler.apply(context)
         if (intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED && Prefs.autoArmTransit(context)) {
             TransitRecognition.enable(context)

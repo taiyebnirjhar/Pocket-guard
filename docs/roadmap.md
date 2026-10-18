@@ -7,6 +7,8 @@ Owner: **C** = Claude writes it · **T** = Taiyeb does it (accounts, consoles, p
 
 ## WP1 · SOS: hold + and − with recording (v1.5.0)
 
+Superseded in v2.2.0: SOS is now volume up tapped 4 times quickly (see the detection plan).
+
 | ID | Task | Owner | Done when |
 |---|---|---|---|
 | 1.1 | Gesture: press power, then hold volume + and − for 3 s (screen on or lock screen) | C | Key watcher fires SOS; e2e passes |
