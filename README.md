@@ -217,8 +217,13 @@ trigger.
 
 ## Install
 
-Download the latest `PocketGuard-vX.Y.Z.apk` from [Releases](../../releases), along with
-screenshots of every screen.
+Download it from **https://pocket-guard.pages.dev** on the phone, or the latest
+`PocketGuard-vX.Y.Z.apk` from [Releases](../../releases), along with screenshots of every screen.
+The website's download button (`/download/PocketGuard.apk`, with `/download/latest.json` for the
+version) serves the latest release's APK: `.github/workflows/pages.yml` fetches it on every deploy,
+and CI's `site` job runs that workflow right after a new release. The APK is never committed.
+To show the Google Play badge on the site once the listing is live, follow the `GOOGLE PLAY`
+comment in `site/index.html`.
 Open the release on the phone, download the APK and allow installs from your browser. Official
 builds share one signing key, so a new build installs over the old one and keeps your settings.
 
@@ -246,7 +251,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
 | `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record with its live location and video, alert emails. |
 | `supabase/` | The backend: database and its access rules (`migrations/`), the email, recordings (R2 signed links) and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
-| `site/` | Cloudflare Pages (pocket-guard.pages.dev): the privacy policy and the live location page (`site/live/`). |
+| `site/` | Cloudflare Pages (pocket-guard.pages.dev): the landing page (`index.html`, plain HTML/CSS/JS, no build step), the privacy policy and the live location page (`site/live/`). |
 
 ## CI pipeline
 
