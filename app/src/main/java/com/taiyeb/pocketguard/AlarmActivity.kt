@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -193,6 +194,8 @@ private fun AlarmScreen(onOwner: () -> Unit) {
             Spacer(Modifier.height(32.dp))
             Button(
                 onClick = { GuardService.requestSos("alarm screen") },
+                // A touch only: a key press (a keyboard's Enter, a remote) must never send an SOS.
+                modifier = Modifier.focusProperties { canFocus = false },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFB91C1C)),
                 contentPadding = PaddingValues(horizontal = 36.dp, vertical = 20.dp),

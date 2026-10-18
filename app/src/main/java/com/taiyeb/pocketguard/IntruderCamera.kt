@@ -19,7 +19,8 @@ class IntruderCamera(private val context: Context, private val owner: LifecycleO
     companion object {
         private const val SETTLE_MS = 700L
         private const val BETWEEN_MS = 1500L
-        private const val TIMEOUT_MS = 8000L
+        // Slow phones (and 2-core CI emulators) can take several seconds to open the camera.
+        private const val TIMEOUT_MS = 12_000L
     }
 
     private val handler = Handler(Looper.getMainLooper())
