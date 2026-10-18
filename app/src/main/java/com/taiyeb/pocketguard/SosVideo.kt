@@ -56,6 +56,12 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     private lateinit var prefix: String
     private var onPiece: (File) -> Unit = {}
 
+    /**
+     * Bumped by every [start]: the last piece of a stopped recording finalizes later, and if a new
+     * SOS has started by then, that old callback must not touch the new recording.
+     */
+    private var session = 0
+
     private val nextPiece = Runnable { recording?.stop() } // Finalize starts the next one.
 
     /**
@@ -69,6 +75,8 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
             return
         }
         active = true
+        session++
+        val mySession = session
         pieces = 0
         failed = 0
         this.dir = dir
@@ -76,7 +84,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
         this.onPiece = onPiece
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
-            if (!active) return@addListener
+            if (!active || mySession != session) return@addListener
             val built = if (lowRes) {
                 Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(Quality.SD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
@@ -139,19 +147,26 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
         }
         val file = File(dir, "${prefix}_$pieces.mp4")
         pieces++
+        val mySession = session
+        val piece = onPiece
         val pending = output.prepareRecording(context, FileOutputOptions.Builder(file).build())
         if (granted(Manifest.permission.RECORD_AUDIO)) pending.withAudioEnabled()
         recording = pending.start(ContextCompat.getMainExecutor(context)) { event ->
             when (event) {
                 is VideoRecordEvent.Start -> Log.i(GuardService.TAG, "SOS video recording: ${file.name}")
                 is VideoRecordEvent.Finalize -> {
+                    if (mySession != session) {
+                        // From a recording stopped before the current one began: just keep its piece.
+                        if (file.length() > 0) piece(file) else file.delete()
+                        return@start
+                    }
                     recording = null
                     // Ended early (an error): the next piece gets its own full minute.
                     handler.removeCallbacks(nextPiece)
                     if (event.hasError() && file.length() == 0L) failed++ else failed = 0
                     if (file.length() > 0) {
                         Log.i(GuardService.TAG, "SOS video saved: ${file.name} (${file.length() / 1024} KB)")
-                        onPiece(file)
+                        piece(file)
                     } else {
                         Log.w(GuardService.TAG, "SOS video piece empty (error ${event.error})")
                         file.delete()

@@ -28,6 +28,9 @@ class GuardTileService : TileService() {
                 // Some Android versions refuse to start a foreground service from a tile; arm via the app.
                 openApp()
             }
+        } else if (GuardState.phase.value.isAlarm && !GuardState.unlockStopsAlarm.value) {
+            // The phone wasn't locked when this alarm began: the owner confirms in the app.
+            openApp(arm = false)
         } else {
             unlockAndRun {
                 GuardService.disarm(this)
@@ -47,9 +50,8 @@ class GuardTileService : TileService() {
     }
 
     @SuppressLint("StartActivityAndCollapseDeprecated") // The Intent overload only runs below API 34.
-    private fun openApp() {
-        val intent = Intent(this, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ARM, true)
+    private fun openApp(arm: Boolean = true) {
+        val intent = MainActivity.intent(this, arm = arm)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(

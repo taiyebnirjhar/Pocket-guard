@@ -15,10 +15,12 @@ A dark theme with a purple glow, set in Manrope. A floating tab bar switches bet
 - **Home**: a power button inside a ring of moving dots. The ring's colour and speed follow the
   guard (grey off, purple protected, amber warning, red siren). Also shows the status, time
   armed, unlock delay, last alarm and how many setup steps are left.
-- **Triggers**: every alarm and arming-reminder switch, the earbud picker and intruder photos.
-- **History**: past alarms with their intruder photos.
-- **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, language and
-  the how-to-test list.
+- **Triggers**: every alarm and arming-reminder switch, the earbud picker, intruder photos, SOS,
+  emergency contacts and the arming schedule.
+- **History**: past alarms with their intruder photos and SOS recordings.
+- **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, the detection
+  log, language, Online (live link and deleting your online data), the guide, the privacy policy
+  and the how-to-test list.
 
 CI takes a screenshot of every screen on the emulator and attaches them to each release.
 
@@ -48,8 +50,10 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    re-arms by itself.
 
 Unlocking only counts as the owner if the phone was credential-locked when the alarm began. If
-Smart Lock or a screen-lock delay kept it unlocked, the alarm screen says to tap DISARM in the
-app instead. The app refuses to arm without a PIN, pattern or password.
+Smart Lock or a screen-lock delay kept it unlocked, only the owner's credential in the app stops it:
+"I'm the owner" on the alarm screen opens the app, where the power button asks for the PIN first.
+The Quick Settings tile, the schedule's pause buttons and switching it to SOS don't stop it either.
+The app refuses to arm without a PIN, pattern or password.
 
 ## On a table
 
@@ -93,15 +97,15 @@ and at once:
 - video with sound from the back camera (in a pocket the sound is the evidence), saved in
   one-minute pieces so a grabbed phone still keeps everything up to then, for up to 15 minutes.
 
-Unlock to stop both. The recordings are in History, to play or share; they stay in the app's
-private storage, out of the gallery. Recording people without consent is against the law in
+Unlock to stop both. The recordings are in History, to play, save to the gallery or share; until
+you do, they stay in the app's private storage. Recording people without consent is against the law in
 some places.
 
 **Emergency contacts** (Triggers → Emergency contacts): up to 5 people, picked from your contacts
 or typed in, and the name the alert uses. You see the exact messages (the alert, the update
-and "false alarm") and approve them with the list; any change asks again, including a new app
-language or switching the live link, and Home says when alerts are off for that reason. A number
-needs at least 6 digits. When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
+and "false alarm") and approve them with the list; any change asks again, including a new
+wording or switching the live link, and Home says when alerts are off for that reason. A number
+needs at least 6 digits. The email follows the app's language; the SMS doesn't (below). When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
 screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
 SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The SMS is
 always in English letters, English or Banglish (*"Taiyeb er shahajjo dorkar!…"*, picked on the
@@ -111,10 +115,14 @@ instead of 2. The
 location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
 3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
 sends the SMS itself and resends one that didn't go (no signal), up to 5 tries; the Play build fills in the SMS app and you tap Send (Play allows sending
-SMS on its own only with an approved exception). Each tap (and "Share on WhatsApp") carries the whole alert with the latest location and link.
+SMS on its own only with an approved exception). Each tap (and "Share on WhatsApp") carries the whole alert with the latest location and link, and the unlock it needs doesn't end the SOS: stop it in the app when you're safe.
+If every text fails (no signal or SIM), the alarm screen says so and opens the SMS app instead. A
+restart during SOS carries on: an alert already sent isn't sent again, and one you cancelled stays
+cancelled. "False alarm" goes only to whoever the alert reached, and a retry still waiting never
+follows it.
 
 **Live location link and alert emails** (Settings → Online → Live location link, on by default):
-the SMS also carries a private link to a live map (`…/Pocket-guard/live/#t=<token>`), and
+the SMS also carries a private link to a live map (`https://pocket-guard.pages.dev/live/#t=<token>`), and
 contacts with an email address get the alert by email, then "false alarm" if you stop right away.
 The SOS video is recorded at 480p (about 12 MB a minute) and each one-minute piece is uploaded to
 R2 as it's saved, through a link the server signs for that piece; the live page lists the
@@ -122,7 +130,8 @@ recordings and plays one through a 10-minute link. Pieces still uploading when S
 for up to 30 minutes.
 The phone signs in anonymously (no email or password) when you approve the alert, so SOS
 doesn't wait for it. During SOS it opens an SOS record and uploads its
-location every 15 s while SOS runs; the page refreshes every 10 s and stops working a day after
+location (read about every 30 s) every 15 s while SOS runs; cancelling during the countdown
+uploads nothing more and just ends the record; the page refreshes every 10 s and stops working a day after
 SOS ends, and the server deletes everything after 90 days. Each step retries until it gets
 through, and ending the SOS (and the false-alarm email) keeps trying after it stops. Email
 addresses aren't stored on the server: only a one-way hash, to cap the alerts any address gets. "Delete my online data" removes the
@@ -150,7 +159,9 @@ Harassed with the guard armed: grabbing the phone from the pocket starts the the
 usual. Wake the screen and tap volume up 4 times, or tap **🆘 I need help** on the alarm screen
 (no unlock needed): the theft alarm becomes SOS, with the alerts, location and recording. The taps
 count while the alarm sounds, even though its beeps play like music. If a thief taps the button,
-the owner's contacts are told and the recording starts, which only helps her.
+the owner's contacts are told and the recording starts, which only helps her; and if the theft
+alarm began on an unlocked phone, the SOS keeps its rule, so it still ends only with the owner's
+credential. Taps don't count while the phone rings either (that's someone silencing it).
 
 ## Setup requirement: the phone must lock immediately
 
@@ -190,10 +201,15 @@ schedule. Add up to 5 times, each with days and a start and end (*every day 09:0
 start it arms and says until when; at the end it turns off, unless you had armed it yourself
 before the time began. Turning it off by hand inside a scheduled time pauses it for 15 minutes,
 then it arms again; Home and the notification offer **Arm now**, **+15 min** and **Skip today**
-(off until that time ends; on the lock screen those last two ask for your unlock first). It
-follows the phone's clock and time zone, survives restarts, and catches up when the app is
-opened. The GitHub build starts on the minute once "Alarms & reminders" is allowed; otherwise
-Android may start it a few minutes late.
+(off until that time ends, not the days chained after it; on the lock screen those last two ask
+for your unlock first, so on Android 11 and older they're on Home only). None of them shows during
+an alarm. Switching the schedule off turns off a guard it armed. It follows the phone's clock and
+time zone, survives restarts (a time that ended while the phone was off turns the guard off at
+start-up), and catches up when the app is opened. The GitHub build starts on the minute once
+"Alarms & reminders" is allowed. Otherwise, or in the Play build without "Run in the
+background", Android may start it late or refuse, and a notification asks you to tap to arm.
+Armed by the schedule while the app is closed, Android withholds the camera, microphone and
+location until you open the app once (a notification says so).
 
 Calls are ignored while the audio is at the earpiece, because the ear covers and uncovers the
 proximity sensor.
@@ -202,7 +218,7 @@ proximity sensor.
 
 - **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
 - **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90. Photos and
-  recordings stay in the app's private storage (intruder photos never leave the phone; SOS videos
+  recordings stay in the app's private storage unless you save or share them (intruder photos never leave the phone; SOS videos
   are also uploaded only for the live link). Tap one to open it full screen in an app you choose;
   **Save to phone** copies them to the gallery (Pictures and Movies, "Pocket Guard" albums), and
   **Share** sends them anywhere.
@@ -212,8 +228,8 @@ Both stay on the phone, for when it's recovered.
 ## Test mode
 
 Test mode plays a quiet siren. It is off by default and switches itself off after an hour, so a
-forgotten test mode can't weaken a real alarm. The in-app "How to test" list walks through every
-trigger.
+forgotten test mode can't weaken a real alarm. The in-app "How to test" list walks through the
+main triggers and SOS.
 
 ## Install
 
@@ -241,14 +257,16 @@ required step is missing brings it back, and arms the guard once it's done.
 | `MotionProcessor.kt`, `TableMonitor.kt` | Raw accelerometer to gravity direction, stillness, jolts, falls and walking; table placement and the table rules. Pure Kotlin, unit tested at 25-200 Hz with noise and sensor offsets. |
 | `GuardService.kt` | Foreground service: feeds sensors and system broadcasts to the engine, carries out its side effects, runs the lock check. Direct-boot aware. |
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
-| `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
+| `IncidentRecorder.kt`, `IntruderCamera.kt`, `SosVideo.kt`, `History.kt`, `MediaActions.kt` | Evidence: CameraX photos and SOS video, JSON history; open, save and share. |
+| `SosTaps.kt`, `SosAccessibilityService.kt`, `SosKeysSetup.kt`, `SosTileService.kt`, `GuardTileService.kt` | The SOS gesture (unit tested), its Accessibility setup, and the Quick Settings tiles. |
+| `Notifications.kt`, `Setup.kt`, `Disclosure.kt`, `DetectionLog.kt` | Notifications, the setup checks, permission disclosures and the on-phone detection log. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit arming reminders; boot and update re-arm. |
 | `ArmSchedule.kt`, `ArmScheduler.kt`, `ScheduleUi.kt` | The arming schedule: its time windows (unit-tested), arming, pausing and the next alarm, and its screens. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
 | `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
 | `Prefs.kt` | Settings, in device-protected storage so they can be read before the first unlock. |
-| `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
+| `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt`, `EmergencyContactsCard.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
 | `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record with its live location and video, alert emails. |
 | `supabase/` | The backend: database and its access rules (`migrations/`), the email, recordings (R2 signed links) and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
 | `site/` | Cloudflare Pages (pocket-guard.pages.dev): the landing page (`index.html`, plain HTML/CSS/JS, no build step), the privacy policy and the live location page (`site/live/`). |
@@ -261,8 +279,9 @@ required step is missing brings it back, and arms the guard once it's done.
    a light sensor that freezes with the screen off, late readings, flicker recovery, calls,
    no-delay mode and restarts.
 2. **Android lint** with `abortOnError`. The full report is printed on failure.
-3. **Emulator end-to-end test** (`e2e/run.sh`, API 34). It sets a PIN, writes the app's settings
-   with `run-as`, and fakes the cameras and the proximity, light and motion sensors. It then
+3. **Emulator end-to-end test** (`e2e/run.sh`, API 34), on the debug build (the same code, but
+   debuggable, so the test can write its settings with `run-as`; the release APK is not). It sets
+   a PIN, and fakes the cameras and the proximity, light and motion sensors. It then
    checks the app log, stored history, photo files, notifications and screen state for:
    - pickpocket: siren, intruder photos, history entry
    - table: protected when laid face-down, tilt warns, putting it back stops it, picking it up sirens
@@ -274,6 +293,9 @@ required step is missing brings it back, and arms the guard once it's done.
    - the lock check: a lock delay caught on screen timeout, kept after a power-button lock,
      cleared by Fix and passing once the lock is immediate
    - the alarm resuming after a reboot, before the first unlock
+   - SOS with real volume-key presses: 2 taps do nothing, 4 sound SOS, also over a theft warning;
+     SOS from the notification
+   - the arming schedule: a pause holds it off, an unpaused window arms it
    - SOS alerts against a local backend: the SMS with the live link, the email (to a stand-in for
      Brevo), the uploaded trail and the false alarm, then the live page rendered in Chrome
    - every screen opened and screenshotted, and monkey crash fuzzing
@@ -302,7 +324,8 @@ version are tested but not released.
 - No app can block power-off or a forced restart (power + volume). After a forced restart the
   guard re-arms and resumes the alarm; use the phone's own "password to power off" where it exists,
   and a 0 s grace period to give a thief no time.
-- The photos and history stay on the stolen phone; nobody is notified remotely yet.
+- A theft alarm notifies nobody remotely: its photos and history stay on the phone. Only SOS
+  alerts your contacts.
 - Some phones only report proximity while the screen is on. Use the in-app **Sensor check** with
   the screen off in a pocket to find out.
 - Some phones (MIUI/HyperOS and other battery savers) stop a background app's sensors when the

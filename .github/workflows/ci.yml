@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     outputs:
       signed: ${{ steps.key.outputs.signed }}
       version: ${{ steps.version.outputs.version }}
@@ -28,7 +29,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests
-        run: ./gradlew testFullDebugUnitTest --stacktrace
+        run: ./gradlew testFullDebugUnitTest testPlayReleaseUnitTest --stacktrace
 
       - name: Lint
         run: |
@@ -69,18 +70,26 @@ jobs:
           # The online part's project and public key; absent on forks, which then build offline.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: ./gradlew assembleFullDebug bundlePlayRelease --stacktrace
+        # The release APK is what people install; the debug one, the same code but debuggable (the
+        # test reads and writes its settings with run-as) and with test hooks, is what e2e drives.
+        run: ./gradlew assembleFullRelease assembleFullDebug bundlePlayRelease --stacktrace
 
-      - name: Rename APK and bundle
+      - name: Rename APKs and bundle
         run: |
-          mkdir -p dist play
-          cp app/build/outputs/apk/full/debug/app-full-debug.apk dist/PocketGuard-${{ github.run_number }}.apk
+          mkdir -p dist e2e-apk play
+          cp app/build/outputs/apk/full/release/app-full-release*.apk dist/PocketGuard-${{ github.run_number }}.apk
+          cp app/build/outputs/apk/full/debug/app-full-debug.apk e2e-apk/PocketGuard-${{ github.run_number }}-e2e.apk
           cp app/build/outputs/bundle/playRelease/app-play-release.aab play/PocketGuard-${{ github.run_number }}-play.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: PocketGuard-${{ github.run_number }}
           path: dist/*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PocketGuard-e2e-${{ github.run_number }}
+          path: e2e-apk/*.apk
 
       # For uploading to Google Play by hand; signed with the upload key on official builds.
       - uses: actions/upload-artifact@v4
@@ -159,7 +168,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: PocketGuard-${{ github.run_number }}
+          name: PocketGuard-e2e-${{ github.run_number }}
           path: dist
 
       # The app's online part talks to this local backend during the test, never the real one.
@@ -187,7 +196,7 @@ jobs:
           disk-size: 3G
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-front emulated -camera-back emulated
-          script: bash e2e/run.sh dist/PocketGuard-${{ github.run_number }}.apk
+          script: bash e2e/run.sh dist/PocketGuard-${{ github.run_number }}-e2e.apk
 
       - name: Upload e2e diagnostics
         if: always()
@@ -203,10 +212,12 @@ jobs:
         with:
           name: screens-${{ github.run_number }}
           path: e2e-output/screens
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   release:
     needs: [build, backend, e2e]
+    timeout-minutes: 15
+    concurrency: release
     # Only signed builds from main become releases.
     if: needs.build.outputs.signed == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -223,9 +234,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh api "repos/${{ github.repository }}/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+          # Only a 404 means "not released": any other error stops here rather than publishing over a release.
+          if gh api "repos/${{ github.repository }}/git/ref/tags/v$VERSION" >/dev/null 2>"$RUNNER_TEMP/tag.err"; then
             echo "v$VERSION is already released; bump VERSION to publish a new one."
             echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif ! grep -q "HTTP 404" "$RUNNER_TEMP/tag.err"; then
+            cat "$RUNNER_TEMP/tag.err"
+            exit 1
           fi
 
       - uses: actions/download-artifact@v4
@@ -268,8 +283,8 @@ jobs:
           body: |
             Download `PocketGuard-v${{ env.VERSION }}.apk` below on your Android phone and install it.
             `PocketGuard-v${{ env.VERSION }}-play.aab` is the Google Play build, for uploading in Play Console.
-            Passed unit tests, lint and the emulator end-to-end test; the PNGs are screenshots of
-            every screen taken during that test.
+            Passed unit tests, lint and the emulator end-to-end test (run on the debug build of the
+            same code); the PNGs are screenshots of every screen taken during that test.
 
   # The website's download button serves the latest release's APK: publish the site again with it.
   site:

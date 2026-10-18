@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name" translatable="false">Pocket Guard</string>
     <string name="action_allow">Allow</string>
-    <string name="action_open_settings">Open settings</string>
     <string name="action_turn_on">Turn on</string>
     <string name="action_review">Review</string>
     <string name="action_app_info">App info</string>
@@ -14,7 +13,7 @@
     <string name="channel_status">Guard status</string>
     <string name="channel_alarm">Theft alarm</string>
     <string name="channel_problems">Guard problems</string>
-    <string name="notify_restore">After the restart, Android keeps the camera, microphone and location off for Pocket Guard until you open it. Tap to open it once: intruder photos, SOS video and location come back.</string>
+    <string name="notify_restore">Pocket Guard is on, but it started without you opening it (a restart or your schedule), so Android keeps the camera, microphone and location off for it. Tap to open it once: intruder photos, SOS video and location come back.</string>
     <string name="phase_off">Guard is off</string>
     <string name="phase_off_hint">Tap the round button before you get into a crowd</string>
     <string name="phase_waiting">Armed</string>
@@ -88,7 +87,7 @@
     <string name="test_3">Take it out without unlocking: after 2 s it beeps (in your earbuds if connected).</string>
     <string name="test_4">Wait: the quiet siren starts, the torch flashes, photos are taken.</string>
     <string name="test_5">Unlock with your fingerprint or PIN: everything stops and it re-arms.</string>
-    <string name="test_6">Volume buttons during the siren shouldn\'t silence it.</string>
+    <string name="test_6">Volume down during the siren shouldn\'t silence it. (Volume up tapped 4 times turns it into SOS, which alerts your contacts.)</string>
     <string name="test_7">Charging: arm, lock, unplug. Beeps, then the siren.</string>
     <string name="test_8">Armed and locked: turn on airplane mode from the lock screen. The siren starts. Then check History for the photos.</string>
     <string name="onboarding_skip">Skip</string>
@@ -121,6 +120,7 @@
     <string name="main_need_lock">Set a screen lock (PIN, pattern or password) first</string>
     <string name="history_flicker">cancelled: the pocket shifted</string>
     <string name="alarm_open_app">The phone wasn\'t locked when this started, so unlocking won\'t stop it. Open Pocket Guard, tap the round button on Home and confirm it\'s you.</string>
+    <string name="home_confirm_to_stop">The phone wasn\'t locked when this started, so unlocking won\'t stop it. Tap the round button and confirm it\'s you.</string>
     <string name="setup_dnd">Siren can override Do Not Disturb</string>
     <string name="setup_smart_lock">Turn off Smart Lock / Extend Unlock: while it keeps the phone unlocked, unlocking can\'t prove it\'s you.</string>
     <string name="settings_grace_none">Time to unlock before the siren: none, siren at once</string>
@@ -167,9 +167,12 @@
     <string name="schedule_skip">Skip today</string>
     <string name="home_schedule_on">On by schedule until %1$s</string>
     <string name="home_schedule_paused">Paused · arms again at %1$s</string>
+    <string name="home_schedule_skipped">Skipped · off until %1$s</string>
+    <string name="home_schedule_not_armed">Scheduled now, but not armed. Tap Arm now.</string>
     <string name="home_schedule_next">Next by schedule: %1$s</string>
     <string name="notify_schedule_armed">Armed by your schedule until %1$s.</string>
     <string name="notify_schedule_paused">Pocket Guard is paused. It arms again at %1$s.</string>
+    <string name="notify_schedule_skipped">Pocket Guard is off until %1$s, when your scheduled time ends.</string>
     <string name="notify_schedule_off">Your scheduled time ended, so Pocket Guard turned off.</string>
     <string name="notify_schedule_tap">Your schedule couldn\'t arm Pocket Guard by itself. Tap to arm it.</string>
     <string name="triggers_evidence">Evidence</string>
@@ -186,7 +189,7 @@
     <string name="ready_title">Get it ready</string>
     <string name="ready_progress">Required: %1$d of %2$d done</string>
     <string name="ready_note">Android blocks these by default. Without the required ones the alarm may never sound. Each takes one tap; come back here after each screen.</string>
-    <string name="ready_do">Allow: %1$s</string>
+    <string name="ready_do">Next: %1$s</string>
     <string name="ready_done">Done</string>
     <string name="ready_later">Later</string>
     <string name="ready_optional">optional</string>
@@ -282,9 +285,10 @@
     <string name="contacts_need_name">Enter your name for the alert first.</string>
     <string name="contacts_sms_language">SMS language</string>
     <string name="contacts_sms_language_why">In English letters: Bangla letters make every SMS part hold less than half as much, so each alert would cost twice the SMS.</string>
-    <string name="sms_english">English</string>
-    <string name="sms_banglish">Banglish</string>
+    <string name="sms_english" translatable="false">English</string>
+    <string name="sms_banglish" translatable="false">Banglish</string>
     <string name="contacts_test">Send a test</string>
+    <string name="contacts_test_sent">Test sent</string>
     <string name="contacts_allow_location">Allow location</string>
     <string name="contacts_confirm_title">Approve SOS alerts</string>
     <string name="contacts_confirm">When you start SOS, Pocket Guard will send this SMS to %1$s, %3$d seconds later unless you cancel, and an update if you move:\n\n%2$s</string>
@@ -295,6 +299,7 @@
     <string name="alert_countdown">Alerting %1$s in %2$d s</string>
     <string name="alert_cancel">Cancel alerts</string>
     <string name="alert_sent">Alert sent to %1$s</string>
+    <string name="alert_sms_failed">The SMS couldn\'t be sent (no signal or SIM). Send it from your messages app:</string>
     <string name="alert_send_sms">Send SMS to your contacts</string>
     <string name="alert_whatsapp">Share on WhatsApp</string>
     <string name="alert_text_sos" translatable="false">%1$s needs help! SOS from Pocket Guard at %2$s. Location: %3$s (within %4$d m)</string>

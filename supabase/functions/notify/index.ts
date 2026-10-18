@@ -27,7 +27,17 @@ async function hashAddress(email: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** True when Brevo took the email; false on any refusal or network error (never throws). */
 async function sendOne(to: string, subject: string, text: string, html: string, tag: string): Promise<boolean> {
+  try {
+    return await post(to, subject, text, html, tag);
+  } catch (e) {
+    console.error(`brevo unreachable: ${e}`);
+    return false;
+  }
+}
+
+async function post(to: string, subject: string, text: string, html: string, tag: string): Promise<boolean> {
   const res = await fetch(`${BREVO_API_URL}/smtp/email`, {
     method: "POST",
     headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json", Accept: "application/json" },
@@ -93,12 +103,16 @@ Deno.serve(async (req) => {
   if (refused === "already sent") return json({ sent: 0, already: true });
   if (refused) return json({ error: refused }, 429);
 
-  const email = buildEmail(kind, lang, name, cleanTime(body.time), link);
+  // Whatever happens from here, a claim with nothing sent is undone, so the phone's retry can go
+  // through (rather than being told "already sent" for an email that never left).
   let sent = 0;
-  for (const to of emails) {
-    if (await sendOne(to, email.subject, email.text, email.html, kind)) sent++;
+  try {
+    const email = buildEmail(kind, lang, name, cleanTime(body.time), link);
+    for (const to of emails) {
+      if (await sendOne(to, email.subject, email.text, email.html, kind)) sent++;
+    }
+  } finally {
+    if (sent === 0) await rpc("release_email", claim);
   }
-  // Nothing went out: undo the claim so the phone's retry can go through.
-  if (sent === 0) await rpc("release_email", claim);
   return json({ sent }, sent > 0 ? 200 : 502);
 });

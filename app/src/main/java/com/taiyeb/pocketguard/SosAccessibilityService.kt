@@ -6,9 +6,9 @@ import android.view.accessibility.AccessibilityEvent
 
 /**
  * Sees the volume keys themselves, which no ordinary app can: volume up tapped [SosTaps.TAPS]
- * times quickly is the SOS call. It only watches:
- * every key still does what it always does. It is opt-in, after the disclosure; without it
- * there is no SOS hold.
+ * times quickly, with the screen on, is the SOS call. It only watches: every key still does
+ * what it always does. It is opt-in, after the disclosure; without it the volume-key SOS doesn't
+ * work (the notification, tile, app and alarm-screen buttons still do).
  */
 class SosAccessibilityService : AccessibilityService() {
 
@@ -18,7 +18,7 @@ class SosAccessibilityService : AccessibilityService() {
             private set
     }
 
-    private val taps = SosTaps { gesture -> GuardService.onSosHold(gesture) }
+    private val taps = SosTaps { gesture -> GuardService.onSosTaps(gesture) }
 
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")
@@ -36,15 +36,13 @@ class SosAccessibilityService : AccessibilityService() {
             android.util.Log.d(GuardService.TAG, "SOS key watcher: ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"}")
         }
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            // Music, a video or a call playing: taps are someone turning it up, not a call for help.
-            // Our own warning beeps count as "music", but during a theft alarm the taps must work:
-            // the owner grabbed her phone because someone is harassing her (SOS takes over).
+            // Music, a video, a call or a ringing phone: taps are someone turning it up (or silencing
+            // the ringer), not a call for help. Our own warning beeps count as "music", but during a
+            // theft alarm the taps must work: the owner grabbed her phone because someone is
+            // harassing her (SOS takes over).
             val audio = getSystemService(android.media.AudioManager::class.java)
             val ownAlarm = GuardState.phase.value.isAlarm
-            val busy = !ownAlarm && (
-                audio.isMusicActive || audio.mode == android.media.AudioManager.MODE_IN_CALL ||
-                    audio.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
-                )
+            val busy = (!ownAlarm && audio.isMusicActive) || audio.mode != android.media.AudioManager.MODE_NORMAL
             if (busy) taps.reset() else taps.press(up, event.eventTime)
         }
         return false

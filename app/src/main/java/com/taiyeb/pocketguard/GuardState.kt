@@ -44,7 +44,7 @@ enum class Trigger {
     /** Lifted, tilted or pushed off the table it lay face-down on. */
     TABLE_MOVED,
 
-    /** The owner called for help (both volume keys held, the notification, the tile or the app). */
+    /** The owner called for help (volume up tapped 4 times, the notification, the tile, the app or the alarm screen). */
     SOS,
 }
 
@@ -55,6 +55,8 @@ data class AlertUi(
     val sent: Boolean,
     /** The Play build can't send SMS itself: the owner taps to open the SMS app, prefilled. */
     val needsTap: Boolean,
+    /** The full build tried every number and no text went: the owner can send from the SMS app. */
+    val smsFailed: Boolean = false,
 )
 
 object GuardState {

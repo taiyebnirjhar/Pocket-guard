@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_allow">অনুমতি দিন</string>
-    <string name="action_open_settings">সেটিংস খুলুন</string>
     <string name="action_turn_on">চালু করুন</string>
     <string name="action_review">দেখুন</string>
     <string name="action_app_info">অ্যাপের তথ্য</string>
@@ -13,7 +12,7 @@
     <string name="channel_status">গার্ডের অবস্থা</string>
     <string name="channel_alarm">চুরির অ্যালার্ম</string>
     <string name="channel_problems">গার্ডের সমস্যা</string>
-    <string name="notify_restore">রিস্টার্টের পর Android Pocket Guard খোলা না পর্যন্ত ক্যামেরা, মাইক্রোফোন আর অবস্থান বন্ধ রাখে। একবার খুলতে চাপুন: অনুপ্রবেশকারীর ছবি, SOS ভিডিও আর অবস্থান ফিরে আসবে।</string>
+    <string name="notify_restore">Pocket Guard চালু, কিন্তু আপনি না খুলেই চালু হয়েছে (রিস্টার্ট বা সময়সূচি), তাই Android ক্যামেরা, মাইক্রোফোন আর অবস্থান বন্ধ রাখে। একবার খুলতে চাপুন: অনুপ্রবেশকারীর ছবি, SOS ভিডিও আর অবস্থান ফিরে আসবে।</string>
     <string name="phase_off">গার্ড বন্ধ</string>
     <string name="phase_off_hint">ভিড়ে ঢোকার আগে গোল বোতামে চাপুন</string>
     <string name="phase_waiting">চালু</string>
@@ -87,7 +86,7 @@
     <string name="test_3">আনলক না করে বের করুন: ২ সেকেন্ড পর বিপ শব্দ হবে (ইয়ারবাড থাকলে তাতে)।</string>
     <string name="test_4">অপেক্ষা করুন: মৃদু সাইরেন বাজবে, টর্চ জ্বলবে-নিভবে, ছবি তোলা হবে।</string>
     <string name="test_5">ফিঙ্গারপ্রিন্ট বা পিন দিয়ে আনলক করুন: সব থেমে যাবে, আবার চালু হবে।</string>
-    <string name="test_6">সাইরেনের সময় ভলিউম বাটনে আওয়াজ কমবে না।</string>
+    <string name="test_6">সাইরেনের সময় ভলিউম ডাউনে আওয়াজ কমবে না। (ভলিউম আপ দ্রুত ৪ বার চাপলে SOS হয়ে যাবে, যা আপনার যোগাযোগদের সতর্ক করে।)</string>
     <string name="test_7">চার্জে রেখে: চালু, লক, চার্জার খুলুন। বিপ, তারপর সাইরেন।</string>
     <string name="test_8">চালু ও লক অবস্থায়: লক স্ক্রিন থেকে এয়ারপ্লেন মোড চালু করুন। সাইরেন বাজবে। তারপর ইতিহাসে ছবি দেখুন।</string>
     <string name="onboarding_skip">বাদ দিন</string>
@@ -120,6 +119,7 @@
     <string name="main_need_lock">আগে একটি স্ক্রিন লক (পিন, প্যাটার্ন বা পাসওয়ার্ড) সেট করুন</string>
     <string name="history_flicker">বাতিল: পকেট নড়ে গিয়েছিল</string>
     <string name="alarm_open_app">এটি শুরুর সময় ফোন লক ছিল না, তাই আনলক করলে থামবে না। Pocket Guard খুলে হোমের গোল বোতামে চাপুন এবং নিশ্চিত করুন যে এটি আপনি।</string>
+    <string name="home_confirm_to_stop">এটি শুরুর সময় ফোন লক ছিল না, তাই আনলক করলে থামবে না। গোল বোতামে চাপুন এবং নিশ্চিত করুন যে এটি আপনি।</string>
     <string name="setup_dnd">সাইরেন বিরক্ত করবেন না মোড উপেক্ষা করতে পারবে</string>
     <string name="setup_smart_lock">Smart Lock / Extend Unlock বন্ধ রাখুন: এটি ফোন আনলক রাখলে আনলক দিয়ে প্রমাণ হয় না যে আপনিই মালিক।</string>
     <string name="settings_grace_none">সাইরেনের আগে আনলকের সময়: নেই, সাথে সাথে সাইরেন</string>
@@ -166,9 +166,12 @@
     <string name="schedule_skip">আজ বাদ দিন</string>
     <string name="home_schedule_on">সময়সূচিতে চালু, %1$s পর্যন্ত</string>
     <string name="home_schedule_paused">বিরতি · %1$s-এ আবার চালু হবে</string>
+    <string name="home_schedule_skipped">আজ বাদ · %1$s পর্যন্ত বন্ধ</string>
+    <string name="home_schedule_not_armed">এখন সময়সূচির সময়, কিন্তু চালু হয়নি। এখনই চালু চাপুন।</string>
     <string name="home_schedule_next">সময়সূচিতে পরের বার: %1$s</string>
     <string name="notify_schedule_armed">আপনার সময়সূচি অনুযায়ী %1$s পর্যন্ত চালু।</string>
     <string name="notify_schedule_paused">Pocket Guard বিরতিতে আছে। %1$s-এ আবার চালু হবে।</string>
+    <string name="notify_schedule_skipped">Pocket Guard %1$s পর্যন্ত বন্ধ, তখন আপনার নির্ধারিত সময় শেষ হবে।</string>
     <string name="notify_schedule_off">আপনার নির্ধারিত সময় শেষ, তাই Pocket Guard বন্ধ হয়েছে।</string>
     <string name="notify_schedule_tap">আপনার সময়সূচি Pocket Guard নিজে থেকে চালু করতে পারেনি। চালু করতে চাপুন।</string>
     <string name="triggers_evidence">প্রমাণ</string>
@@ -185,7 +188,7 @@
     <string name="ready_title">প্রস্তুত করুন</string>
     <string name="ready_progress">প্রয়োজনীয়: %2$d-এর মধ্যে %1$d সম্পন্ন</string>
     <string name="ready_note">Android এগুলো শুরুতে বন্ধ রাখে। প্রয়োজনীয়গুলো ছাড়া অ্যালার্ম হয়তো বাজবেই না। প্রতিটিতে একটি ট্যাপ লাগে; প্রতিটি স্ক্রিনের পর এখানে ফিরে আসুন।</string>
-    <string name="ready_do">অনুমতি দিন: %1$s</string>
+    <string name="ready_do">পরের ধাপ: %1$s</string>
     <string name="ready_done">সম্পন্ন</string>
     <string name="ready_later">পরে</string>
     <string name="ready_optional">ঐচ্ছিক</string>
@@ -281,9 +284,8 @@
     <string name="contacts_need_name">আগে সতর্কতার জন্য আপনার নাম লিখুন।</string>
     <string name="contacts_sms_language">SMS-এর ভাষা</string>
     <string name="contacts_sms_language_why">ইংরেজি অক্ষরে: বাংলা অক্ষর থাকলে প্রতিটি SMS অংশে অর্ধেকেরও কম লেখা ধরে, তাই প্রতিটি সতর্কতায় দ্বিগুণ SMS লাগত।</string>
-    <string name="sms_english">English</string>
-    <string name="sms_banglish">Banglish</string>
     <string name="contacts_test">পরীক্ষামূলক পাঠান</string>
+    <string name="contacts_test_sent">পরীক্ষা পাঠানো হয়েছে</string>
     <string name="contacts_allow_location">অবস্থানের অনুমতি দিন</string>
     <string name="contacts_confirm_title">SOS সতর্কতা অনুমোদন</string>
     <string name="contacts_confirm">আপনি SOS চালু করলে Pocket Guard এই SMS পাঠাবে %1$s-কে, %3$d সেকেন্ড পরে (বাতিল না করলে), আর সরে গেলে একটি আপডেট:\n\n%2$s</string>
@@ -294,6 +296,7 @@
     <string name="alert_countdown">%2$d সেকেন্ডে %1$s-কে সতর্ক করা হচ্ছে</string>
     <string name="alert_cancel">সতর্কতা বাতিল</string>
     <string name="alert_sent">%1$s-কে সতর্কতা পাঠানো হয়েছে</string>
+    <string name="alert_sms_failed">SMS পাঠানো যায়নি (নেটওয়ার্ক বা সিম নেই)। মেসেজ অ্যাপ থেকে পাঠান:</string>
     <string name="alert_send_sms">আপনার যোগাযোগদের SMS পাঠান</string>
     <string name="alert_whatsapp">হোয়াটসঅ্যাপে শেয়ার</string>
     <string name="contacts_email">ইমেইল (ঐচ্ছিক)</string>

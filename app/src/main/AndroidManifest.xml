@@ -52,6 +52,7 @@
 
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
@@ -66,6 +67,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The app's own notifications and tile arm through this; other apps can't reach it. -->
+        <activity-alias
+            android:name=".OwnerAction"
+            android:exported="false"
+            android:targetActivity=".MainActivity" />
 
         <activity
             android:name=".AlarmActivity"
@@ -96,9 +103,11 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- SOS: sees both volume keys held, screen on or off. Watches keys only, changes nothing. -->
+        <!-- SOS: sees volume up tapped 4 times, screen on (locked or not). Watches keys only,
+             changes nothing. Direct-boot aware, so it works before the first unlock after a restart. -->
         <service
             android:name=".SosAccessibilityService"
+            android:directBootAware="true"
             android:exported="true"
             android:label="@string/sos_accessibility_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

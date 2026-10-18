@@ -19,6 +19,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # One deploy at a time, never cancelled halfway; each one fetches the latest release when it
     # starts, so the last to run always has the newest APK.
     concurrency:

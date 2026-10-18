@@ -126,6 +126,16 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private val smsAction = context.packageName + ".SOS_SMS_SENT"
     private val smsJobs = HashMap<Int, SmsJob>()
     private var smsSeq = 0
+
+    /** Numbers an alert reached (the phone confirmed it went), and ones that never went. */
+    private val delivered = HashSet<String>()
+    private val undeliverable = HashSet<String>()
+
+    /** Retries waiting for their turn, cancelled together when SOS ends. */
+    private val retries = Any()
+
+    /** The false alarm sent as SOS ended: still retried after the end, unlike the alert itself. */
+    private var closingText: String? = null
     private var receiverOn = false
     private var released = false
 
@@ -136,13 +146,29 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             if (resultCode != Activity.RESULT_OK) job.failed = true
             if (--job.parts > 0) return
             smsJobs.remove(id)
-            if (!job.failed) return
-            if (job.tries < SMS_TRIES && !released) {
-                log("SOS alerts: an SMS didn't go (try ${job.tries}), trying again")
-                handler.postDelayed({ sendTracked(job.number, job.text, job.tries + 1) }, SMS_RETRY_MS)
-            } else {
-                log("SOS alerts: an SMS couldn't be sent")
+            if (!job.failed) {
+                delivered += job.number
+                undeliverable -= job.number
+                plan?.let { publish(it, SystemClock.elapsedRealtime()) }
+                return
             }
+            retry(job.number, job.text, job.tries)
+        }
+    }
+
+    /** A text that didn't go: again later, unless SOS has ended or it's been tried enough. */
+    private fun retry(number: String, text: String, tries: Int) {
+        if (tries < SMS_TRIES && !released && (plan != null || text == closingText)) {
+            log("SOS alerts: an SMS didn't go (try $tries), trying again")
+            handler.postAtTime(
+                { sendTracked(number, text, tries + 1) },
+                retries,
+                SystemClock.uptimeMillis() + SMS_RETRY_MS,
+            )
+        } else {
+            log("SOS alerts: an SMS couldn't be sent")
+            if (number !in delivered) undeliverable += number
+            plan?.let { publish(it, SystemClock.elapsedRealtime()) }
         }
     }
 
@@ -167,24 +193,58 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         }
     }
 
-    /** SOS started. Does nothing until the owner has approved the alert and its recipients. */
-    fun start() {
+    /**
+     * SOS started. Does nothing until the owner has approved the alert and its recipients.
+     * [resume]: the same SOS coming back after a restart, which carries on where it was (a
+     * cancelled alert stays cancelled; one already sent isn't sent again, only updated).
+     */
+    fun start(resume: Boolean = false) {
         if (plan != null) return
         if (!EmergencyContacts.approved(context)) {
             log("SOS alerts: off (no approved contacts)")
             return
         }
+        val stage = if (resume) Prefs.sosAlertStage(context) else Prefs.SOS_ALERT_NONE
+        if (stage == Prefs.SOS_ALERT_CANCELLED) {
+            log("SOS alerts: stay cancelled after the restart")
+            return
+        }
         contacts = EmergencyContacts.list(context)
         lastFix = null
+        delivered.clear()
+        undeliverable.clear()
+        handedOver = false
         val now = SystemClock.elapsedRealtime()
-        plan = AlertPlan(now)
-        log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
+        val current = AlertPlan(now)
+        plan = current
+        val existing = if (resume) Prefs.sosIncident(context) else null
+        if (stage == Prefs.SOS_ALERT_SENT) {
+            // Already out before the restart: no second alert, and not a "false alarm" if stopped now.
+            current.onSent(now - AlertPlan.FALSE_ALARM_MS - 1, null, null)
+            alertTime = Prefs.sosAlertTime(context)
+            log("SOS alerts: already sent before the restart, carrying on with updates")
+        } else {
+            Prefs.setSosAlertStage(context, Prefs.SOS_ALERT_COUNTING)
+            if (existing == null) Prefs.setSosIncident(context, null)
+            log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
+        }
         if (Backend.enabled(context)) {
             live = LiveShare(context, EmergencyContacts.ownerName(context), EmergencyContacts.emails(context), log)
-                .also { it.start(::onLiveLink) }
+                .also { it.start(::onLiveLink, existing) }
         }
         startLocation()
         handler.post(tick)
+    }
+
+    /**
+     * The owner tapped Send SMS or Share on WhatsApp: she's sending the alert herself, so the
+     * unlock that follows isn't the end of the SOS (see [GuardService]), and never a false alarm.
+     */
+    var handedOver = false
+        private set
+
+    fun handOver() {
+        handedOver = true
     }
 
     /** The live page is ready: an SMS still waiting gets it; one already sent is followed up. */
@@ -204,8 +264,9 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         current.cancel()
         if (current.cancelled) {
             log("SOS alerts: cancelled before sending")
+            Prefs.setSosAlertStage(context, Prefs.SOS_ALERT_CANCELLED)
             stopLocation()
-            live?.stop(falseAlarm = false)
+            live?.discard()
             live = null
             GuardState.alert.value = null
         }
@@ -213,15 +274,23 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
 
     /** SOS ended (unlocked or stopped). */
     fun stop() {
+        Prefs.setSosAlertStage(context, Prefs.SOS_ALERT_NONE)
+        Prefs.setSosIncident(context, null)
         val current = plan ?: return
         plan = null
         handler.removeCallbacks(tick)
+        // A retry still waiting must not reach anyone after the SOS (or its false alarm) is over.
+        handler.removeCallbacksAndMessages(retries)
         stopLocation()
         GuardState.alert.value = null
-        val falseAlarm = current.falseAlarmOnStop(SystemClock.elapsedRealtime())
+        val falseAlarm = current.falseAlarmOnStop(SystemClock.elapsedRealtime()) && !handedOver
         if (falseAlarm && canSendSms(context)) {
-            log("SOS alerts: stopped right after alerting, sending false alarm")
-            send(EmergencyContacts.falseAlarmText(context))
+            // Only to whoever the alert reached (or is reaching right now).
+            val reached = delivered + smsJobs.values.filter { !it.failed }.map { it.number }
+            log("SOS alerts: stopped right after alerting, sending false alarm to ${reached.size}")
+            val text = EmergencyContacts.falseAlarmText(context)
+            closingText = marked(text)
+            send(text, reached.toList())
         }
         live?.stop(falseAlarm)
         live = null
@@ -231,9 +300,10 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         lastText = null
     }
 
-    /** The Play build's tap: open the SMS app with the latest alert. */
+    /** The Play build's tap (or a send that failed): open the SMS app with the latest alert. */
     fun openSmsApp() {
-        val text = pendingText ?: return
+        val text = pendingText ?: lastText ?: return
+        handOver()
         runCatching { context.startActivity(smsIntent(numbers(), text)) }
     }
 
@@ -243,6 +313,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         val fix = lastFix
         alertTime = timeNow()
         current.onSent(now, fix?.latitude, fix?.longitude)
+        Prefs.setSosAlertStage(context, Prefs.SOS_ALERT_SENT, alertTime)
         linkOwed = live != null && live?.link == null
         refreshTexts()
         if (canSendSms(context)) send(wholeText()) else log("SOS alerts: ready to send (tap needed)")
@@ -260,6 +331,8 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         val text = marked(wholeText())
         lastText = text
         if (!canSendSms(context) && numbers().isNotEmpty()) pendingText = text
+        // The Play build's alert screen shows it; a resumed one needs the latest text too.
+        plan?.let { publish(it, SystemClock.elapsedRealtime()) }
     }
 
     private fun onFix(fix: Location) {
@@ -279,8 +352,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     private fun marked(text: String) = if (Prefs.testMode(context)) "[TEST] $text" else text
 
     /** Texts everyone with a number (the full build: sent here, and retried until it goes). */
-    private fun send(text: String) {
-        val numbers = numbers()
+    private fun send(text: String, numbers: List<String> = numbers()) {
         if (numbers.isEmpty() || !canSendSms(context)) return // Email-only contacts: the live share emails them.
         val marked = marked(text)
         val ok = numbers.count { sendTracked(it, marked, 1) }
@@ -295,7 +367,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
         val id = ++smsSeq
         val job = SmsJob(number, text, tries, parts = 0)
         smsJobs[id] = job
-        return runCatching {
+        val ok = runCatching {
             job.parts = sendSms(context, number, text) { part ->
                 val intent = Intent(smsAction).setPackage(context.packageName).putExtra("id", id)
                 PendingIntent.getBroadcast(
@@ -305,7 +377,13 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT,
                 )
             }
-        }.onFailure { smsJobs.remove(id) }.isSuccess
+        }.isSuccess
+        if (!ok) {
+            // Refused outright (no SIM, no service): tried again like a text that didn't go.
+            smsJobs.remove(id)
+            retry(number, text, tries)
+        }
+        return ok
     }
 
     /** The service is going away: stop waiting for texts' results. */
@@ -318,11 +396,14 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
     }
 
     private fun publish(current: AlertPlan, now: Long) {
+        val numbers = numbers()
         GuardState.alert.value = AlertUi(
             names = contacts.filter { EmergencyContacts.reachable(context, it) }.joinToString(", ") { it.name },
             secondsLeft = current.secondsLeft(now),
             sent = current.sentAt != null,
-            needsTap = current.sentAt != null && !canSendSms(context) && numbers().isNotEmpty(),
+            needsTap = current.sentAt != null && !canSendSms(context) && numbers.isNotEmpty(),
+            // Every text gave up (no signal, no SIM): say so, and offer the SMS app instead.
+            smsFailed = canSendSms(context) && numbers.isNotEmpty() && undeliverable.containsAll(numbers),
         )
     }
 

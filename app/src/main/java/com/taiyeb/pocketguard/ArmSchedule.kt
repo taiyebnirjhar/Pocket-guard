@@ -51,6 +51,13 @@ object ArmSchedule {
         }
     }
 
+    /**
+     * When the window [now] is in ends, not counting windows joined to it: "Skip today" in an
+     * every-day 00:00–00:00 schedule skips today, not the whole week the days chain into.
+     */
+    fun occurrenceEnd(windows: List<Window>, now: ZonedDateTime): ZonedDateTime? =
+        spans(windows, now).filter { !it.start.isAfter(now) && it.end.isAfter(now) }.maxOfOrNull { it.end }
+
     /** The first time after [now] a stretch begins (not counting the one [now] is in), or null. */
     fun nextStart(windows: List<Window>, now: ZonedDateTime): ZonedDateTime? {
         val coveredUntil = activeEnd(windows, now)

@@ -110,7 +110,7 @@ fun TriggersScreen(refreshKey: Int) {
 
         if (Prefs.SOS_AVAILABLE) {
             SectionLabel(stringResource(R.string.contacts_section))
-            GlassCard { EmergencyContactsCard() }
+            GlassCard { EmergencyContactsCard(refreshKey) }
         }
 
         SectionLabel(stringResource(R.string.triggers_auto))

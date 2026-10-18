@@ -73,6 +73,9 @@
       map = L.map("map", { zoomControl: true });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
+        // OpenStreetMap's tile servers want to know which site asks (the private token is in the
+        // address's #fragment, which is never sent).
+        referrerPolicy: "strict-origin-when-cross-origin",
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
       map.setView([23.8103, 90.4125], 11);

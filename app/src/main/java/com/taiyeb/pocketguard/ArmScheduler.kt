@@ -32,8 +32,18 @@ object ArmScheduler {
     const val ACTION_PAUSE_MORE = "com.taiyeb.pocketguard.SCHEDULE_PAUSE_MORE"
     const val ACTION_SKIP = "com.taiyeb.pocketguard.SCHEDULE_SKIP"
 
-    /** What Home shows: armed until, paused until, or the next start (epoch ms; null when not). */
-    data class Status(val armedUntil: Long?, val pausedUntil: Long?, val nextStart: Long?)
+    /**
+     * What Home shows (epoch ms; null when not): armed until, paused until (with [skipped] when
+     * that's the window's end, so it won't arm again), the next start, and [notArmed] when it's
+     * inside a window but the guard couldn't be armed (no screen lock, Android refused).
+     */
+    data class Status(
+        val armedUntil: Long?,
+        val pausedUntil: Long?,
+        val nextStart: Long?,
+        val skipped: Boolean = false,
+        val notArmed: Boolean = false,
+    )
 
     fun windows(context: Context) = ArmSchedule.fromJson(Prefs.scheduleJson(context))
 
@@ -48,27 +58,37 @@ object ArmScheduler {
         val windows = windows(context)
         val end = ArmSchedule.activeEnd(windows, now)?.ms()
         val paused = Prefs.schedulePausedUntil(context).takeIf { end != null && it > now.ms() }
+        val armed = Prefs.armed(context)
         return Status(
-            armedUntil = end?.takeIf { paused == null },
+            armedUntil = end?.takeIf { paused == null && armed },
             pausedUntil = paused?.let { minOf(it, end!!) },
             nextStart = ArmSchedule.nextStart(windows, now)?.ms(),
+            skipped = paused != null && paused >= end!!,
+            notArmed = end != null && paused == null && !armed,
         )
     }
 
     /**
      * Puts the guard where the schedule wants it and sets the next check. [mayArm] is false right
-     * after the owner armed it (the service is still starting, so "off" would be stale).
+     * after the owner armed it (the service is still starting, so "off" would be stale). [quiet]:
+     * the owner is editing the schedule in the app, so a guard it turns off needs no notification.
      */
-    fun apply(context: Context, mayArm: Boolean = true) {
+    fun apply(context: Context, mayArm: Boolean = true, quiet: Boolean = false) {
         try {
-            plan(context, mayArm)
+            plan(context, mayArm, quiet)
         } finally {
             GuardState.scheduleVersion.value++
         }
     }
 
-    private fun plan(context: Context, mayArm: Boolean) {
+    private fun plan(context: Context, mayArm: Boolean, quiet: Boolean) {
         if (!enabled(context)) {
+            // Switched off (or its last time removed): like a Focus schedule, what it turned on ends
+            // with it. A guard the owner armed stays on.
+            if (Prefs.scheduleArmed(context) && Prefs.armed(context) && !Prefs.alarmActive(context)) {
+                GuardService.disarm(context, byUser = false)
+                if (!quiet) Notifications.showInfo(context, R.string.notify_schedule_off)
+            }
             cancelAlarm(context)
             Prefs.setSchedulePausedUntil(context, 0)
             Prefs.setScheduleArmed(context, false)
@@ -91,7 +111,7 @@ object ArmScheduler {
                 if (mayArm && !Prefs.armed(context)) armBySchedule(context, end)
                 setAlarm(context, end)
             } else {
-                Notifications.showSchedulePaused(context, minOf(paused, end))
+                Notifications.showSchedulePaused(context, minOf(paused, end), skipped = paused >= end)
                 setAlarm(context, minOf(paused, end))
             }
             return
@@ -106,7 +126,7 @@ object ArmScheduler {
                 return
             }
             GuardService.disarm(context, byUser = false)
-            Notifications.showInfo(context, R.string.notify_schedule_off)
+            if (!quiet) Notifications.showInfo(context, R.string.notify_schedule_off)
         }
         Prefs.setScheduleArmed(context, false)
         val next = ArmSchedule.nextStart(windows, now)
@@ -130,6 +150,12 @@ object ArmScheduler {
     }
 
     // --- The owner's actions ------------------------------------------------------------------------
+
+    /**
+     * Pause and skip turn the guard off, so never during an alarm: an alarm that began on an
+     * unlocked phone ends only with the owner's credential, not with a tap on Home.
+     */
+    private fun alarmRunning(context: Context) = Prefs.alarmActive(context) || GuardState.phase.value.isAlarm
 
     /** Turned off by hand (Home, tile): inside a window that's a pause, not the end of the schedule. */
     fun onUserDisarmed(context: Context) {
@@ -155,15 +181,17 @@ object ArmScheduler {
 
     /** Another [PAUSE_MS], counted from the later of now and the current pause end. */
     fun pauseMore(context: Context) {
+        if (alarmRunning(context)) return
         val from = maxOf(System.currentTimeMillis(), Prefs.schedulePausedUntil(context))
         if (Prefs.armed(context)) GuardService.disarm(context, byUser = false)
         Prefs.setSchedulePausedUntil(context, from + PAUSE_MS)
         apply(context)
     }
 
-    /** Off for the rest of the current window. */
+    /** Off until the window it's in ends (not the windows chained after it: those still arm). */
     fun skipToday(context: Context) {
-        val end = ArmSchedule.activeEnd(windows(context), now()) ?: return apply(context)
+        if (alarmRunning(context)) return
+        val end = ArmSchedule.occurrenceEnd(windows(context), now()) ?: return apply(context)
         if (Prefs.armed(context)) GuardService.disarm(context, byUser = false)
         Prefs.setSchedulePausedUntil(context, end.ms())
         apply(context)
@@ -216,11 +244,15 @@ class ScheduleActionReceiver : BroadcastReceiver() {
 
 /**
  * The clock or time zone changed (an alarm set for 08:00 must follow a move to another zone), or
- * exact alarms were allowed. Exported to receive those system broadcasts, so it only ever plans
- * again from the saved schedule, whatever it's sent: harmless if another app calls it.
+ * exact alarms were allowed. Exported to receive those system broadcasts, so it acts only on
+ * them, and then only plans again from the saved schedule.
  */
 class ScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        ArmScheduler.apply(context)
+        when (intent.action) {
+            Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED,
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
+            -> ArmScheduler.apply(context)
+        }
     }
 }
