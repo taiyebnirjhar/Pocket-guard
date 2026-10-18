@@ -72,14 +72,16 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
         /**
          * [auto] is true when a trigger (earbuds, transit, restart) armed it rather than the user.
+         * [byUser] is false for a restart or the schedule, which keep the schedule's state as it is.
          * Returns false when the phone has no secure lock screen.
          */
-        fun arm(context: Context, auto: Boolean = false): Boolean {
+        fun arm(context: Context, auto: Boolean = false, byUser: Boolean = true): Boolean {
             if (!canArm(context)) return false
             val intent = Intent(context, GuardService::class.java)
                 .setAction(ACTION_ARM)
                 .putExtra(EXTRA_AUTO, auto)
             ContextCompat.startForegroundService(context, intent)
+            if (byUser) ArmScheduler.onUserArmed(context)
             return true
         }
 
@@ -88,7 +90,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.updateSos()
         }
 
-        /** An SOS key gesture ([source] names it, see [SosHold]). Main thread. */
+        /** An SOS key gesture ([source] names it, see [SosTaps]). Main thread. */
         fun onSosHold(source: String) {
             instance?.sosHold(source)
         }
@@ -125,7 +127,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.let { if (it.engine != null) it.goForeground() }
         }
 
-        fun disarm(context: Context) {
+        /** [byUser]: the owner turned it off (Home, tile), which inside a schedule window is a pause. */
+        fun disarm(context: Context, byUser: Boolean = true) {
             val service = instance
             if (service != null) {
                 service.disarm()
@@ -135,6 +138,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 GuardState.phase.value = Phase.OFF
                 GuardState.armedAt.value = null
             }
+            if (byUser) ArmScheduler.onUserDisarmed(context)
         }
 
     }

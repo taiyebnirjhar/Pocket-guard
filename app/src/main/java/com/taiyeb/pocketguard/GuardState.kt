@@ -60,6 +60,9 @@ data class AlertUi(
 object GuardState {
     val phase = MutableStateFlow(Phase.OFF)
 
+    /** Bumped whenever the schedule's state changes (armed until, paused, next start). */
+    val scheduleVersion = MutableStateFlow(0)
+
     /** [android.os.SystemClock.elapsedRealtime] when the guard was armed; null while off. */
     val armedAt = MutableStateFlow<Long?>(null)
 

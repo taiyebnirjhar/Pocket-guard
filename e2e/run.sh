@@ -100,6 +100,7 @@ write_prefs() {
 <map>
     <boolean name="onboarded" value="$onboarded" />
     <int name="grace_seconds" value="15" />
+    ${EXTRA_PREFS:-}
 </map>
 EOF
   sh am force-stop $PKG
@@ -288,6 +289,7 @@ face_down
 sleep 1
 reset_log
 covered
+sleep 1 # Let the reading reach the app first: covered at the lock means a pocket, not a table.
 screen_off
 expect_phase IN_POCKET 2 "laid face-down and locked: protected at once"
 expect_phase ON_TABLE 25 "lying still face-down: table protection"
@@ -339,7 +341,7 @@ still
 uncovered
 sleep 2 # The new pose settles before locking: lying still and locked, it guards the table.
 
-log "Scenario 7e: SOS, power pressed, then volume + and - held together for 3 s"
+log "Scenario 7e: SOS, power pressed, then volume up tapped 4 times"
 A11Y="$PKG/.SosAccessibilityService"
 # Real key events written to the input device that owns the volume keys (root, emulator only):
 # accessibility key filters never see keys injected with "adb shell input" (those count as
@@ -352,10 +354,9 @@ hw_key() {
   case "$1" in KEY_VOLUMEUP) code=115 ;; KEY_VOLUMEDOWN) code=114 ;; esac
   adb shell "sendevent $KEYDEV 1 $code $2; sendevent $KEYDEV 0 0 0" >/dev/null 2>&1
 }
-hold_both() {
-  hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 1
-  sleep "$(awk "BEGIN { print $1 / 1000 }")"
-  hw_key KEY_VOLUMEDOWN 0; hw_key KEY_VOLUMEUP 0
+tap_up() {
+  local i
+  for i in $(seq 1 "$1"); do hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEUP 0; sleep 0.2; done
 }
 expect_true '[ -n "$KEYDEV" ]' "found the input device with the volume keys ($KEYDEV)"
 reset_log
@@ -365,11 +366,11 @@ expect_log "SOS key watcher connected" 10 "the SOS key watcher (accessibility) c
 screen_off
 sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed: the lock screen shows.
 reset_log
-hold_both 800
-expect_no_phase SIREN 3 "a short squeeze of both keys is not SOS"
+tap_up 2
+expect_no_phase SIREN 3 "two volume taps (turning it up) are not SOS"
 reset_log
-hold_both 3500
-expect_log "phase=SIREN .*trigger=SOS" 6 "both keys held 3 s on the lock screen sounds the SOS alarm"
+tap_up 4
+expect_log "phase=SIREN .*trigger=SOS" 6 "volume up tapped 4 times on the lock screen sounds the SOS alarm"
 expect_log "SOS video recording" 10 "recording starts with the SOS alarm"
 sleep 3
 reset_log
@@ -380,8 +381,26 @@ for _ in $(seq 1 20); do grep -q '\.mp4' <<<"$(history)" && break; sleep 0.25; d
 expect_true 'grep -q "\.mp4" <<<"$(history)"' "history links the SOS recording"
 VIDEOS=$(adb shell run-as $PKG ls -l files/sos 2>/dev/null | grep -c mp4)
 expect_true '[ "${VIDEOS:-0}" -ge 1 ]' "recording files exist on disk ($VIDEOS)"
+
+log "Scenario 7e2: harassed while armed: she grabs the phone from her pocket, then 4 taps turn the theft alarm into SOS"
+reset_log
+pocket_and_lock
+expect_phase IN_POCKET 5 "pocketed and locked: protected"
+calm_down
+reset_log
+pull_out
+expect_phase WARNING 5 "pulling it out starts the theft warning (unchanged)"
+sh input keyevent KEYCODE_WAKEUP; sleep 1 # Power pressed to see the screen; the warning goes on.
+tap_up 4
+expect_log "phase=SIREN .*trigger=SOS" 6 "4 volume taps during the theft warning switch it to SOS"
+sleep 3
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+sleep 2
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
+
 
 log "Scenario 7g: SOS alerts an approved emergency contact by SMS and email, with the live location"
 # The emulator's own number receives the SMS; the stand-in for Brevo receives the email. The
@@ -421,7 +440,7 @@ expect_true 'grep -q "Taiyeb needs help" <<<"$(sent_sms)"' "the SMS names the ow
 expect_true 'grep -q "maps.google.com/?q=23.81" <<<"$(sent_sms)"' "the SMS carries the location"
 LIVE_TOKEN=""
 if [ "$LIVE" = true ]; then
-  expect_true 'grep -q "Live location: https://taiyebnirjhar.github.io/Pocket-guard/live/#t=" <<<"$(sent_sms)"' "the SMS carries the live location link"
+  expect_true 'grep -q "Live location: https://pocket-guard.pages.dev/live/#t=" <<<"$(sent_sms)"' "the SMS carries the live location link"
   LIVE_TOKEN=$(grep -oE '#t=[0-9a-f]{48}' <<<"$(sent_sms)" | tail -n 1 | cut -c4-)
   expect_true 'view_incident "$LIVE_TOKEN" | grep -q "\"status\": *\"active\""' "the live page sees the SOS as active"
   expect_log "Live location: email sent to 1" 8 "the contact with an address gets the alert by email"
@@ -523,6 +542,30 @@ expect_log "phase=SIREN .*trigger=RESTARTED" 30 "alarm resumes after the restart
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 10 "first unlock after the restart stops it"
+
+# --- 9b. Arming schedule -----------------------------------------------------------------------------
+
+log "Scenario 9b: an arming schedule arms the guard by itself; a pause holds it off"
+# One window covering every whole day (start = end), so it's "inside" in any time zone. Opening
+# the app catches up on the schedule, as after a missed alarm.
+ALL_DAY='<boolean name="schedule_on" value="true" /><string name="schedule">[{&quot;days&quot;:[1,2,3,4,5,6,7],&quot;start&quot;:&quot;00:00&quot;,&quot;end&quot;:&quot;00:00&quot;}]</string>'
+NOW_MS=$(( $(sh date +%s | tr -d '\r') * 1000 ))
+open_app_unlocked() {
+  sh input keyevent KEYCODE_WAKEUP; sleep 0.7
+  if keyguard_showing; then unlock; fi
+  sh am start -W -n $PKG/.MainActivity >/dev/null
+}
+EXTRA_PREFS="$ALL_DAY<long name=\"schedule_paused_until\" value=\"$((NOW_MS + 600000))\" />" write_prefs
+reset_log
+open_app_unlocked
+expect_no_phase WAITING_FOR_POCKET 6 "a paused schedule leaves the guard off"
+expect_true 'sh dumpsys notification --noredact | grep -q "arms again at"' "the pause says when it arms again"
+EXTRA_PREFS="$ALL_DAY<long name=\"schedule_paused_until\" value=\"$((NOW_MS - 1000))\" />" write_prefs
+reset_log
+open_app_unlocked
+expect_phase WAITING_FOR_POCKET 10 "inside its window the schedule arms the guard by itself"
+expect_true 'sh dumpsys notification --noredact | grep -q "Armed by your schedule"' "it says the schedule armed it"
+write_prefs # Schedule off again for the rest.
 
 # --- 8. UI ------------------------------------------------------------------------------------------
 

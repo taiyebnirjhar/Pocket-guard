@@ -54,7 +54,6 @@ fun TriggersScreen(refreshKey: Int) {
     }
     val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
     val setUpKeys = rememberSosKeysSetup(refreshKey)
-    val shortcutClash = remember(refreshKey) { SosSetup.systemShortcutSet(context) }
     val askRecord = rememberDisclosedPermission(
         R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
     ) {
@@ -89,7 +88,6 @@ fun TriggersScreen(refreshKey: Int) {
                 if (sosButtons) {
                     if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
                     if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { setUpKeys() }
-                    if (shortcutClash) PermissionWarning(stringResource(R.string.sos_shortcut_clash), stringResource(R.string.action_open_settings)) { SosSetup.openSettings(context) }
                     Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }
@@ -158,6 +156,9 @@ fun TriggersScreen(refreshKey: Int) {
                 }
             }
         }
+
+        SectionLabel(stringResource(R.string.triggers_schedule_section))
+        GlassCard { ScheduleCard(refreshKey) }
 
         SectionLabel(stringResource(R.string.triggers_evidence))
         GlassCard {

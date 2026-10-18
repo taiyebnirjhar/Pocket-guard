@@ -163,6 +163,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
                 SettingRow(R.drawable.ic_warning, stringResource(R.string.home_sos), stringResource(R.string.tile_sos_ready), tint = Red)
             }
         }
+        HomeScheduleCard(refreshKey)
         if (alertsOff) {
             Spacer(Modifier.height(12.dp))
             GlassCard(onClick = onOpenTriggers) {

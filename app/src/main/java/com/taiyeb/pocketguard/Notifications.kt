@@ -14,6 +14,7 @@ object Notifications {
     private const val INFO_ID = 3
     private const val LOCK_WARNING_ID = 4
     private const val RESTORE_ID = 6
+    private const val SCHEDULE_ID = 8
     private const val STATUS_CHANNEL = "guard_status"
 
     // Problems the owner must hear about (the guard stopped, the lock is slow, protection is
@@ -145,6 +146,61 @@ object Notifications {
             .setContentIntent(tap)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(id, notification)
+    }
+
+    private fun openApp(context: Context, code: Int) = PendingIntent.getActivity(
+        context, code, Intent(context, MainActivity::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun scheduleAction(context: Context, action: String, code: Int) = PendingIntent.getBroadcast(
+        context, code, Intent(context, ScheduleActionReceiver::class.java).setAction(action),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun time(context: Context, at: Long): String = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(at))
+
+    /** The schedule armed the guard. */
+    fun showScheduleArmed(context: Context, until: Long) {
+        createChannels(context)
+        val text = context.getString(R.string.notify_schedule_armed, time(context, until))
+        val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
+            .setSmallIcon(R.drawable.ic_shield)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setTimeoutAfter((until - System.currentTimeMillis()).coerceAtLeast(60_000L))
+            .setContentIntent(openApp(context, 20))
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(SCHEDULE_ID, notification)
+    }
+
+    /**
+     * Paused inside a window: when it arms again, with Arm now, +15 min and Skip today. The last
+     * two keep the guard off, so on Android 12+ they ask for the unlock first (not a thief's tap).
+     */
+    fun showSchedulePaused(context: Context, until: Long) {
+        createChannels(context)
+        val text = context.getString(R.string.notify_schedule_paused, time(context, until))
+        fun action(label: Int, action: String, code: Int, unlock: Boolean) =
+            NotificationCompat.Action.Builder(0, context.getString(label), scheduleAction(context, action, code))
+                .setAuthenticationRequired(unlock)
+                .build()
+        val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
+            .setSmallIcon(R.drawable.ic_shield)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(openApp(context, 21))
+            .addAction(action(R.string.schedule_arm_now, ArmScheduler.ACTION_ARM_NOW, 22, unlock = false))
+            .addAction(action(R.string.schedule_pause_more, ArmScheduler.ACTION_PAUSE_MORE, 23, unlock = true))
+            .addAction(action(R.string.schedule_skip, ArmScheduler.ACTION_SKIP, 24, unlock = true))
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(SCHEDULE_ID, notification)
+    }
+
+    fun cancelSchedule(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(SCHEDULE_ID)
     }
 
     /** Shows the alarm screen over the lock screen; a full-screen notification is the reliable path. */

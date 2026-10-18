@@ -84,8 +84,8 @@ siren. Table mode can be switched off under Triggers.
 ## SOS: a call for help
 
 For harassment in a crowd: while the guard is armed, **wake the screen (power, or a fingerprint
-unlock), then hold volume up for 5 s, or volume + and − together for 3 s** (by feel, in a pocket
-works). A buzz confirms it, and at once:
+unlock) and tap volume up 4 times quickly** (one button, by feel; in a pocket works). A buzz confirms it,
+and at once:
 
 - the SOS alarm: a shrill whistle and, in its pauses, a spoken "Help! Stop it!" (in Bangla when
   the app shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with
@@ -139,12 +139,18 @@ turn on **Pocket Guard SOS buttons** in Accessibility (the app explains what it 
 first, then opens the switch itself). Installed outside the Play Store, Android 13+ greys that
 switch out ("restricted setting"); the app then shows the three steps, each with a button to the
 right screen: try the switch once, App info → ⋮ → Allow restricted settings, then turn it on. It watches the volume keys and
-nothing else, and every key still works as usual. Why press power first: with the screen off,
+nothing else, and every key still works as usual. Why wake the screen first: with the screen off,
 Android shows the volume keys to no app at all, accessibility included; the lock screen is
-enough. Android's own Emergency SOS (power pressed 5 times) works with the screen off too. Holding + and − is also
-Android's accessibility shortcut: by default it does nothing, but if a shortcut is assigned the
-app says so, since both would start. A short squeeze, volume down alone, or taps don't count, and
-a volume change never lasts the 5 s that volume up needs.
+enough. One button on purpose: the power key is taken by the phone's own gestures (camera on two
+presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. Taps don't count while music, a video or a call is
+playing (that's someone turning the volume up), fewer than 4 or slower than 2 s don't count, and
+volume down starts the count over.
+
+Harassed with the guard armed: grabbing the phone from the pocket starts the theft warning as
+usual. Wake the screen and tap volume up 4 times, or tap **🆘 I need help** on the alarm screen
+(no unlock needed): the theft alarm becomes SOS, with the alerts, location and recording. The taps
+count while the alarm sounds, even though its beeps play like music. If a thief taps the button,
+the owner's contacts are told and the recording starts, which only helps her.
 
 ## Setup requirement: the phone must lock immediately
 
@@ -177,13 +183,28 @@ activity detection sees you board a bus, train or car, a notification asks wheth
 arms it. It never arms by itself on a guess, since that set off alarms nobody expected.
 Car stereos and speakers never count as earbuds, and you can pick the exact devices that count.
 
+**Schedule** (Triggers → Schedule, off by default): arm by itself at set times, like a Focus mode
+schedule. Add up to 5 times, each with days and a start and end (*every day 09:00–18:00*, or
+*Fri 22:00–02:00*, which runs past midnight; equal start and end means the whole day). At the
+start it arms and says until when; at the end it turns off, unless you had armed it yourself
+before the time began. Turning it off by hand inside a scheduled time pauses it for 15 minutes,
+then it arms again; Home and the notification offer **Arm now**, **+15 min** and **Skip today**
+(off until that time ends; on the lock screen those last two ask for your unlock first). It
+follows the phone's clock and time zone, survives restarts, and catches up when the app is
+opened. The GitHub build starts on the minute once "Alarms & reminders" is allowed; otherwise
+Android may start it a few minutes late.
+
 Calls are ignored while the audio is at the earpiece, because the ear covers and uncovers the
 proximity sensor.
 
 ## Evidence
 
 - **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
-- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90.
+- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90. Photos and
+  recordings stay in the app's private storage (intruder photos never leave the phone; SOS videos
+  are also uploaded only for the live link). Tap one to open it full screen in an app you choose;
+  **Save to phone** copies them to the gallery (Pictures and Movies, "Pocket Guard" albums), and
+  **Share** sends them anywhere.
 
 Both stay on the phone, for when it's recovered.
 
@@ -216,6 +237,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | `AlarmPlayer.kt` | Generated beeps and siren, volume lock, Do Not Disturb override, torch, vibration. |
 | `IncidentRecorder.kt`, `IntruderCamera.kt`, `History.kt` | Evidence: CameraX photos, JSON history. |
 | `BluetoothReceiver.kt`, `TransitRecognition.kt` | Earbud and transit arming reminders; boot and update re-arm. |
+| `ArmSchedule.kt`, `ArmScheduler.kt`, `ScheduleUi.kt` | The arming schedule: its time windows (unit-tested), arming, pausing and the next alarm, and its screens. |
 | `AlarmActivity.kt` | Alarm screen shown over the lock screen. |
 | `HomeScreen.kt`, `TriggersScreen.kt`, `HistoryScreen.kt`, `SettingsScreen.kt`, `OnboardingScreen.kt`, `SetupScreen.kt` | Compose UI: four tabs, the guide and the first-run setup. |
 | `Components.kt`, `Theme.kt` | Shared UI pieces (cards, rows, floating tab bar, particle ring) and the dark purple theme with Manrope. |
@@ -223,7 +245,7 @@ required step is missing brings it back, and arms the guard once it's done.
 | `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
 | `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record with its live location and video, alert emails. |
 | `supabase/` | The backend: database and its access rules (`migrations/`), the email, recordings (R2 signed links) and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
-| `site/` | GitHub Pages: the privacy policy and the live location page (`site/live/`). |
+| `site/` | Cloudflare Pages (pocket-guard.pages.dev): the privacy policy and the live location page (`site/live/`). |
 
 ## CI pipeline
 
@@ -317,7 +339,7 @@ There are two builds of the same code. **full** is what GitHub releases ship. **
 Google Play and leaves out what Play restricts for this kind of app: it doesn't declare the
 battery-optimisation permission (setup opens the battery list instead). CI builds the Play bundle
 with `./gradlew bundlePlayRelease` and attaches it to each release as `PocketGuard-vX.Y.Z-play.aab`.
-The privacy policy is `site/privacy.html`, published to GitHub Pages by `.github/workflows/pages.yml`.
+The privacy policy is `site/privacy.html`, published to Cloudflare Pages (https://pocket-guard.pages.dev/privacy.html) by `.github/workflows/pages.yml`.
 
 **Signing official builds.** CI signs with a key stored in two repository secrets:
 `SIGNING_KEYSTORE_BASE64` (the keystore, base64) and `SIGNING_PASSWORD`. A fork can make its own

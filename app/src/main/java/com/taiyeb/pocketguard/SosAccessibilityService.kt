@@ -3,12 +3,10 @@ package com.taiyeb.pocketguard
 import android.accessibilityservice.AccessibilityService
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import android.os.Handler
-import android.os.Looper
 
 /**
- * Sees the volume keys themselves, which no ordinary app can: both held together for
- * [SosHold.BOTH_MS], or volume up held for [SosHold.UP_MS], is the SOS call. It only watches:
+ * Sees the volume keys themselves, which no ordinary app can: volume up tapped [SosTaps.TAPS]
+ * times quickly is the SOS call. It only watches:
  * every key still does what it always does. It is opt-in, after the disclosure; without it
  * there is no SOS hold.
  */
@@ -20,11 +18,7 @@ class SosAccessibilityService : AccessibilityService() {
             private set
     }
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val hold = SosHold(
-        post = { task, delayMs -> handler.postDelayed(task, delayMs) },
-        cancel = handler::removeCallbacks,
-    ) { gesture -> GuardService.onSosHold(gesture) }
+    private val taps = SosTaps { gesture -> GuardService.onSosHold(gesture) }
 
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")
@@ -41,9 +35,17 @@ class SosAccessibilityService : AccessibilityService() {
         if (event.repeatCount == 0) {
             android.util.Log.d(GuardService.TAG, "SOS key watcher: ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"}")
         }
-        when (event.action) {
-            KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) hold.press(up, true)
-            KeyEvent.ACTION_UP -> hold.press(up, false)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            // Music, a video or a call playing: taps are someone turning it up, not a call for help.
+            // Our own warning beeps count as "music", but during a theft alarm the taps must work:
+            // the owner grabbed her phone because someone is harassing her (SOS takes over).
+            val audio = getSystemService(android.media.AudioManager::class.java)
+            val ownAlarm = GuardState.phase.value.isAlarm
+            val busy = !ownAlarm && (
+                audio.isMusicActive || audio.mode == android.media.AudioManager.MODE_IN_CALL ||
+                    audio.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+                )
+            if (busy) taps.reset() else taps.press(up, event.eventTime)
         }
         return false
     }
@@ -54,13 +56,13 @@ class SosAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         connected = false
-        hold.reset()
+        taps.reset()
         GuardService.refreshSos()
         return super.onUnbind(intent)
     }
 }
 
-/** What the SOS setup card shows: is the key watcher on, and does the system shortcut clash. */
+/** What the SOS setup card shows: is the key watcher on, and where to turn it on. */
 object SosSetup {
     fun keysEnabled(context: android.content.Context): Boolean {
         val enabled = android.provider.Settings.Secure.getString(
@@ -68,14 +70,6 @@ object SosSetup {
         ) ?: return false
         val ours = android.content.ComponentName(context, SosAccessibilityService::class.java)
         return enabled.split(':').any { android.content.ComponentName.unflattenFromString(it) == ours }
-    }
-
-    /** A target is assigned to Android's volume-keys accessibility shortcut (hold + and −). */
-    fun systemShortcutSet(context: android.content.Context): Boolean {
-        val target = runCatching {
-            android.provider.Settings.Secure.getString(context.contentResolver, "accessibility_shortcut_target_service")
-        }.getOrNull()
-        return !target.isNullOrBlank()
     }
 
     /** Our own switch in Accessibility where the phone can open it directly, else the whole list. */
