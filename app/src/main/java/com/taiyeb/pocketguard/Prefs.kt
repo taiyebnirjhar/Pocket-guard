@@ -63,6 +63,37 @@ object Prefs {
     fun setAlarmSos(context: Context, value: Boolean) = put(context, "alarm_sos", value)
 
     /**
+     * Whether an unlock ends the running alarm (false: it began on an unlocked phone, so only the
+     * owner's credential in the app does). Kept so a restart can't turn a thief's swipe into a stop.
+     */
+    /**
+     * Where the running SOS's alerts are (see [SosAlerts]), so a restart carries on instead of
+     * alerting everyone again: [SOS_ALERT_NONE], counting down, cancelled or sent (at [sosAlertTime]).
+     */
+    const val SOS_ALERT_NONE = 0
+    const val SOS_ALERT_COUNTING = 1
+    const val SOS_ALERT_CANCELLED = 2
+    const val SOS_ALERT_SENT = 3
+    fun sosAlertStage(context: Context) = prefs(context).getInt("sos_alert_stage", SOS_ALERT_NONE)
+    fun sosAlertTime(context: Context) = prefs(context).getString("sos_alert_time", "").orEmpty()
+    fun setSosAlertStage(context: Context, stage: Int, time: String = "") =
+        prefs(context).edit().putInt("sos_alert_stage", stage).putString("sos_alert_time", time).apply()
+
+    /** The live incident the running SOS opened, if any. */
+    fun sosIncident(context: Context): Backend.Incident? {
+        val p = prefs(context)
+        val id = p.getString("sos_incident_id", null) ?: return null
+        val token = p.getString("sos_incident_token", null) ?: return null
+        return Backend.Incident(id, token)
+    }
+    fun setSosIncident(context: Context, incident: Backend.Incident?) =
+        prefs(context).edit().putString("sos_incident_id", incident?.id)
+            .putString("sos_incident_token", incident?.viewerToken).apply()
+
+    fun alarmUnlockStops(context: Context) = get(context, "alarm_unlock_stops", true)
+    fun setAlarmUnlockStops(context: Context, value: Boolean) = put(context, "alarm_unlock_stops", value)
+
+    /**
      * The alarm volume from before the siren raised it, kept until it's restored: a siren cut off
      * by a restart must not leave the maximum as the volume to go back to.
      */
@@ -119,10 +150,10 @@ object Prefs {
 
     fun intruderPhotos(context: Context) = get(context, "intruder_photos", true)
 
-    /** SOS (both volume keys held, with recording). A switch for holding it back from a release. */
+    /** SOS (volume up tapped 4 times, with recording). A switch for holding it back from a release. */
     const val SOS_AVAILABLE = true
 
-    /** SOS: both volume keys held 3 s sounds a call for help and records, while armed and locked. */
+    /** SOS: volume up tapped 4 times within 2 s (screen on) sounds a call for help and records, while armed. */
     fun sosButtons(context: Context) = SOS_AVAILABLE && get(context, "sos_buttons", true)
     fun setSosButtons(context: Context, value: Boolean) = put(context, "sos_buttons", value)
 

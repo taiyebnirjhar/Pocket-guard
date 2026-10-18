@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -67,11 +69,12 @@ class AlarmActivity : ComponentActivity() {
             if (phase == Phase.SIREN) PocketGuardTheme {
                 AlarmScreen(onOwner = {
                     val keyguard = getSystemService(KeyguardManager::class.java)
-                    // An SOS started while unlocked has no lock screen to dismiss: the owner is here.
-                    if (!keyguard.isKeyguardLocked && GuardState.alarmTrigger.value == Trigger.SOS) {
-                        GuardService.ownerStopSos()
-                    } else {
-                        keyguard.requestDismissKeyguard(this@AlarmActivity, null)
+                    when {
+                        // Began on an unlocked phone: only the credential in the app stops it.
+                        !GuardState.unlockStopsAlarm.value -> runCatching { startActivity(MainActivity.intent(this@AlarmActivity)) }
+                        // An SOS started while unlocked has no lock screen to dismiss: the owner is here.
+                        !keyguard.isKeyguardLocked && GuardState.alarmTrigger.value == Trigger.SOS -> GuardService.ownerStopSos()
+                        else -> keyguard.requestDismissKeyguard(this@AlarmActivity, null)
                     }
                 })
             }
@@ -85,6 +88,14 @@ private fun AlertStatus(alert: AlertUi) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Spacer(Modifier.height(16.dp))
     when {
+        alert.smsFailed -> {
+            Text(stringResource(R.string.alert_sms_failed), color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+            OutlinedButton(
+                onClick = { GuardService.sendAlertsByHand() },
+                shape = CircleShape,
+                border = BorderStroke(1.dp, Color.White),
+            ) { Text(stringResource(R.string.alert_send_sms), color = Color.White, fontWeight = FontWeight.Bold) }
+        }
         !alert.sent -> {
             Text(
                 stringResource(R.string.alert_countdown, alert.names, alert.secondsLeft),
@@ -104,6 +115,8 @@ private fun AlertStatus(alert: AlertUi) {
     if (alert.sent) {
         androidx.compose.material3.TextButton(onClick = {
             val text = GuardService.alertText() ?: return@TextButton
+            // She's sharing it herself: the unlock WhatsApp asks for doesn't end the SOS.
+            GuardService.handOverAlerts()
             val whatsApp = SosAlerts.whatsAppIntent(text)
             runCatching { context.startActivity(whatsApp) }.onFailure {
                 // No WhatsApp: any app that can send text.
@@ -128,7 +141,8 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         label = "background",
     )
     Column(
-        modifier = Modifier.fillMaxSize().background(background).padding(32.dp),
+        // Scrolls: in Bangla, with large text or on a small phone, the owner button must stay reachable.
+        modifier = Modifier.fillMaxSize().background(background).verticalScroll(rememberScrollState()).padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

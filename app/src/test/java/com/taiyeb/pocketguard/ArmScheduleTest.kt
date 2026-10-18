@@ -85,6 +85,26 @@ class ArmScheduleTest {
     }
 
     @Test
+    fun skipTodayEndsWithTodaysWindowNotTheWholeChain() {
+        // Every day 00:00–00:00 chains into one week-long stretch; skipping must only cover today.
+        val everyDay = ArmSchedule.Window(
+            setOf(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY), LocalTime.of(0, 0), LocalTime.of(0, 0),
+        )
+        assertEquals(at(20, 0), ArmSchedule.occurrenceEnd(listOf(everyDay), at(19, 13)))
+        // The stretch itself still runs on (past the next days).
+        assert(ArmSchedule.activeEnd(listOf(everyDay), at(19, 13))!!.isAfter(at(21, 0)))
+    }
+
+    @Test
+    fun skipTodayInsideTouchingWindowsEndsTheCurrentOne() {
+        val morning = ArmSchedule.Window(setOf(MONDAY), LocalTime.of(8, 0), LocalTime.of(12, 0))
+        val afternoon = ArmSchedule.Window(setOf(MONDAY), LocalTime.of(12, 0), LocalTime.of(17, 0))
+        assertEquals(at(19, 12), ArmSchedule.occurrenceEnd(listOf(morning, afternoon), at(19, 9)))
+        assertEquals(at(19, 17), ArmSchedule.activeEnd(listOf(morning, afternoon), at(19, 9)))
+        assertNull(ArmSchedule.occurrenceEnd(listOf(morning, afternoon), at(19, 18)))
+    }
+
+    @Test
     fun aStartInsideTheSpringForwardGapMovesPastIt() {
         // Berlin, 2027-03-28: clocks go from 02:00 to 03:00, so a 02:30 start happens at 03:30.
         val berlin = ZoneId.of("Europe/Berlin")

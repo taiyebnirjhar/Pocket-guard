@@ -66,13 +66,13 @@ object MediaActions {
     @RequiresApi(29)
     private fun saveQ(context: Context, file: File): Boolean {
         val video = isVideo(file)
+        val folder = (if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES) + "/" + ALBUM + "/"
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
             put(MediaStore.MediaColumns.MIME_TYPE, mime(file))
-            put(
-                MediaStore.MediaColumns.RELATIVE_PATH,
-                (if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES) + "/" + ALBUM,
-            )
+            put(MediaStore.MediaColumns.RELATIVE_PATH, folder)
+            // Sorted in the gallery by when it was taken, not when it was saved.
+            put(MediaStore.MediaColumns.DATE_TAKEN, file.lastModified())
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val collection = if (video) {
@@ -81,6 +81,15 @@ object MediaActions {
             MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         }
         val resolver = context.contentResolver
+        // Saved before (this app's own copy, still there): counts as saved, not copied again.
+        val already = resolver.query(
+            collection,
+            arrayOf(MediaStore.MediaColumns._ID),
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
+            arrayOf(file.name, folder),
+            null,
+        )?.use { it.count > 0 } ?: false
+        if (already) return true
         val target = resolver.insert(collection, values) ?: return false
         return try {
             resolver.openOutputStream(target)?.use { out -> file.inputStream().use { it.copyTo(out) } } ?: error("no stream")

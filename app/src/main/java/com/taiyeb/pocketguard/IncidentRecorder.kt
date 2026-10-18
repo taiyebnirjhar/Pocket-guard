@@ -50,6 +50,8 @@ class IncidentRecorder(
             // A call for help: record what happens instead of photographing the owner.
             if (storageUnlocked) {
                 sosRecording = true
+                // On top of a theft siren whose photos are still being taken: the video needs the camera.
+                camera.cancel()
                 // Shared live: smaller pieces, so they upload quickly over mobile data.
                 val live = LiveShare.current
                 video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null) { file ->

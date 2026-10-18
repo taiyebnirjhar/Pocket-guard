@@ -30,6 +30,12 @@ object History {
     /** SOS recordings kept on the phone at most; the oldest SOS's go first. */
     private const val MAX_VIDEO_BYTES = 1024L * 1024 * 1024
 
+    /** An entry still open this long was left behind by a restart (no alarm runs half a day). */
+    private const val STALE_OPEN_MS = 12 * 60 * 60_000L
+
+    /** Unlisted files younger than this may still be on their way into the list. */
+    private const val RECENT_FILE_MS = 5 * 60_000L
+
     /** Warnings that never escalated are kept a week, real alarms 90 days. */
     private fun expired(incident: Incident, now: Long) =
         now - incident.startedAt > (if (incident.escalated) 90 else 7) * DAY_MS
@@ -62,6 +68,10 @@ object History {
         }
     }
 
+    // save, prune and clear each read, change and write the whole list: one at a time (prune runs on
+    // a background thread at app start while an alarm may be saving on the main thread).
+
+    @Synchronized
     fun save(context: Context, incident: Incident) {
         try {
             val now = System.currentTimeMillis()
@@ -87,12 +97,21 @@ object History {
      * Drops expired entries and their files, and the oldest recordings past [MAX_VIDEO_BYTES]
      * (run at app start, so a phone that never alarms again still cleans up).
      */
+    @Synchronized
     fun prune(context: Context) {
         try {
             val now = System.currentTimeMillis()
             val all = read(context) ?: return
             val kept = all.filter { !expired(it, now) }.sortedByDescending { it.startedAt }.take(MAX)
             var changed = kept.size != all.size
+            // Left open by a restart mid-alarm (the alarm came back as a new entry): close it, so
+            // it can expire like the others.
+            for (incident in kept) {
+                if (incident.endedAt == null && now - incident.startedAt > STALE_OPEN_MS) {
+                    incident.endedAt = incident.startedAt
+                    changed = true
+                }
+            }
             var bytes = kept.sumOf { i -> i.videos.sumOf { File(videosDir(context), it).length() } }
             for (incident in kept.asReversed()) {
                 if (bytes <= MAX_VIDEO_BYTES) break
@@ -112,18 +131,26 @@ object History {
         }
     }
 
-    /** Photos and recordings of no listed entry; [keep]: entries still adding files. */
+    /**
+     * Photos and recordings of no listed entry; [keep]: entries still adding files. Files written in
+     * the last few minutes stay too: the last SOS piece is listed only once it finishes saving,
+     * after its entry has ended.
+     */
     private fun deleteUnlisted(context: Context, kept: List<Incident>, keep: Set<Long>) {
+        val recent = System.currentTimeMillis() - RECENT_FILE_MS
         val keptPhotos = kept.flatMap { it.photos }.toSet()
         photosDir(context).listFiles()
             ?.filter { f -> f.name !in keptPhotos && keep.none { f.name.startsWith("i${it}_") || f.name.startsWith("i$it.") } }
+            ?.filter { it.lastModified() < recent }
             ?.forEach { it.delete() }
         val keptVideos = kept.flatMap { it.videos }.toSet()
         videosDir(context).listFiles()
             ?.filter { f -> f.name !in keptVideos && keep.none { f.name.startsWith("s${it}_") } }
+            ?.filter { it.lastModified() < recent }
             ?.forEach { it.delete() }
     }
 
+    @Synchronized
     fun clear(context: Context) {
         try {
             File(context.filesDir, FILE).delete()

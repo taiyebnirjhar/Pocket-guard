@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 
 object Notifications {
@@ -15,6 +16,7 @@ object Notifications {
     private const val LOCK_WARNING_ID = 4
     private const val RESTORE_ID = 6
     private const val SCHEDULE_ID = 8
+    private const val ARM_PROMPT_ID = 9
     private const val STATUS_CHANNEL = "guard_status"
 
     // Problems the owner must hear about (the guard stopped, the lock is slow, protection is
@@ -71,12 +73,11 @@ object Notifications {
      * guess is what set off alarms nobody expected. One tap arms it.
      */
     fun showArmPrompt(context: Context, text: Int) {
-        val intent = Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ARM, true)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val intent = MainActivity.intent(context, arm = true)
+        // Its own id: an "Pocket Guard turned off" note posted next must not replace the way back.
         notifyInfo(context, text, PendingIntent.getActivity(
             context, 5, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        ), channel = STATUS_CHANNEL)
+        ), ARM_PROMPT_ID, channel = STATUS_CHANNEL)
     }
 
     /**
@@ -96,9 +97,7 @@ object Notifications {
 
     /** Android stopped the guard (e.g. background restart refused): one tap arms it again. */
     fun showRearm(context: Context) {
-        val intent = Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ARM, true)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val intent = MainActivity.intent(context, arm = true)
         notifyInfo(context, R.string.notify_rearm, PendingIntent.getActivity(
             context, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         ))
@@ -107,9 +106,7 @@ object Notifications {
     /** The phone didn't lock when the screen went off: a pocketed phone would be open to a thief. */
     fun showLockWarning(context: Context) {
         // Through the app, so the test starts over along with opening the lock settings.
-        val fix = Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_FIX_LOCK, true)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val fix = MainActivity.intent(context, fixLock = true)
         notifyInfo(
             context,
             R.string.notify_lock_not_instant,
@@ -177,25 +174,31 @@ object Notifications {
 
     /**
      * Paused inside a window: when it arms again, with Arm now, +15 min and Skip today. The last
-     * two keep the guard off, so on Android 12+ they ask for the unlock first (not a thief's tap).
+     * two keep the guard off, so they ask for the unlock first (not a thief's tap); Android 11 and
+     * older can't, so there they're only on Home. [skipped]: off for the rest of the window.
      */
-    fun showSchedulePaused(context: Context, until: Long) {
+    fun showSchedulePaused(context: Context, until: Long, skipped: Boolean) {
         createChannels(context)
-        val text = context.getString(R.string.notify_schedule_paused, time(context, until))
+        val text = context.getString(
+            if (skipped) R.string.notify_schedule_skipped else R.string.notify_schedule_paused,
+            time(context, until),
+        )
         fun action(label: Int, action: String, code: Int, unlock: Boolean) =
             NotificationCompat.Action.Builder(0, context.getString(label), scheduleAction(context, action, code))
                 .setAuthenticationRequired(unlock)
                 .build()
-        val notification = NotificationCompat.Builder(context, STATUS_CHANNEL)
+        val builder = NotificationCompat.Builder(context, STATUS_CHANNEL)
             .setSmallIcon(R.drawable.ic_shield)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(text)
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp(context, 21))
             .addAction(action(R.string.schedule_arm_now, ArmScheduler.ACTION_ARM_NOW, 22, unlock = false))
-            .addAction(action(R.string.schedule_pause_more, ArmScheduler.ACTION_PAUSE_MORE, 23, unlock = true))
-            .addAction(action(R.string.schedule_skip, ArmScheduler.ACTION_SKIP, 24, unlock = true))
-            .build()
+        if (Build.VERSION.SDK_INT >= 31 && !skipped) {
+            builder.addAction(action(R.string.schedule_pause_more, ArmScheduler.ACTION_PAUSE_MORE, 23, unlock = true))
+            builder.addAction(action(R.string.schedule_skip, ArmScheduler.ACTION_SKIP, 24, unlock = true))
+        }
+        val notification = builder.build()
         context.getSystemService(NotificationManager::class.java).notify(SCHEDULE_ID, notification)
     }
 

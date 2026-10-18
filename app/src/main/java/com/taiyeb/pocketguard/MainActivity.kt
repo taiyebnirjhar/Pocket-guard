@@ -1,5 +1,6 @@
 package com.taiyeb.pocketguard
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -33,6 +34,23 @@ class MainActivity : ComponentActivity() {
 
         /** Tab to open, by name (home, triggers, history, settings). */
         const val EXTRA_TAB = "tab"
+
+        /**
+         * The app's own way in for actions ([EXTRA_ARM], [EXTRA_FIX_LOCK]): a non-exported alias,
+         * so no other app can arm the guard or reset the lock test through the exported launcher.
+         */
+        private val ownerAction = MainActivity::class.java.name.substringBeforeLast('.') + ".OwnerAction"
+
+        fun intent(context: Context, arm: Boolean = false, fixLock: Boolean = false): Intent =
+            Intent().setClassName(context, ownerAction)
+                .putExtra(EXTRA_ARM, arm)
+                .putExtra(EXTRA_FIX_LOCK, fixLock)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        /** Actions only from the alias, and not again when the task is reopened from Recents. */
+        private fun actions(intent: Intent?): Intent? = intent?.takeIf {
+            it.component?.className == ownerAction && (it.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+        }
     }
 
     private enum class Screen { ONBOARDING, SETUP, MAIN }
@@ -47,7 +65,7 @@ class MainActivity : ComponentActivity() {
         val app = applicationContext
         Thread { History.prune(app) }.start()
         // Only on first creation: a rotation re-delivers the same intent and would re-arm after a disarm.
-        if (savedInstanceState == null && intent?.getBooleanExtra(EXTRA_ARM, false) == true) {
+        if (savedInstanceState == null && actions(intent)?.getBooleanExtra(EXTRA_ARM, false) == true) {
             if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
         }
         if (savedInstanceState == null) handleFixLock(intent)
@@ -148,15 +166,16 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         handleFixLock(intent)
         // An arming reminder tapped while the app was already open.
-        if (intent.getBooleanExtra(EXTRA_ARM, false)) {
+        if (actions(intent)?.getBooleanExtra(EXTRA_ARM, false) == true) {
             intent.removeExtra(EXTRA_ARM)
             if (!GuardService.arm(this)) Toast.makeText(this, R.string.main_need_lock, Toast.LENGTH_LONG).show()
         }
     }
 
     private fun handleFixLock(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_FIX_LOCK, false) != true) return
-        intent.removeExtra(EXTRA_FIX_LOCK)
+        val action = actions(intent) ?: return
+        if (!action.getBooleanExtra(EXTRA_FIX_LOCK, false)) return
+        action.removeExtra(EXTRA_FIX_LOCK)
         SetupActions.secureLock(this)
     }
 

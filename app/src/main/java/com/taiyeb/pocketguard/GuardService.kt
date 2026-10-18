@@ -91,8 +91,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         }
 
         /** An SOS key gesture ([source] names it, see [SosTaps]). Main thread. */
-        fun onSosHold(source: String) {
-            instance?.sosHold(source)
+        fun onSosTaps(source: String) {
+            instance?.sosTaps(source)
         }
 
         /** Started by the SOS action on the status notification. */
@@ -106,9 +106,14 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.alerts?.cancel()
         }
 
-        /** Play build: the owner taps to send the prepared alert from the SMS app. */
+        /** Play build (or texts that failed): the owner taps to send the alert from the SMS app. */
         fun sendAlertsByHand() {
             instance?.alerts?.openSmsApp()
+        }
+
+        /** The owner is sharing the alert herself (WhatsApp): her unlock for it doesn't end the SOS. */
+        fun handOverAlerts() {
+            instance?.alerts?.handOver()
         }
 
         /** The latest alert text (for "Share on WhatsApp"), or null. */
@@ -297,7 +302,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         audioManager = getSystemService(AudioManager::class.java)
         alarm = AlarmPlayer(this, ::log)
         recorder = IncidentRecorder(this, this) {
-            if (engine?.phase == Phase.SIREN) alarm.startTorch()
+            // Not during SOS: its video holds the camera, and the torch would fight it.
+            if (engine?.phase == Phase.SIREN && GuardState.alarmTrigger.value != Trigger.SOS) alarm.startTorch()
         }
         Notifications.createChannels(this)
         proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY, true)
@@ -310,6 +316,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        // Android restarting a killed service: if the guard was turned off meanwhile (the schedule's
+        // end, a disarm while the process was dead), it stays off.
+        if (intent == null && engine == null && !Prefs.armed(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_SOS) {
             // Only reachable from the notification of a running guard.
             if (engine == null) {
@@ -336,10 +348,17 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         val wasArmed = engine != null
         val restarted = intent == null
         val auto = if (restarted) Prefs.autoArmed(this) else intent?.getBooleanExtra(EXTRA_AUTO, false) == true
+        val earlier = Prefs.autoArmUntil(this)
+        val now = System.currentTimeMillis()
+        // An auto-armed session that ran out while the phone was off or the app dead: it ends now
+        // (a forgotten guard mustn't start a fresh 4 hours at night), unless an alarm is running.
+        if (!wasArmed && auto && Prefs.autoArmed(this) && earlier in 1..now && !Prefs.alarmActive(this)) {
+            Notifications.showInfo(this, R.string.notify_auto_off)
+            disarm()
+            return START_NOT_STICKY
+        }
         startMonitoring()
         if (!wasArmed && auto) {
-            val now = System.currentTimeMillis()
-            val earlier = Prefs.autoArmUntil(this)
             val until = if (Prefs.autoArmed(this) && earlier > now) earlier else now + AUTO_DISARM_MS
             Prefs.setAutoArmed(this, true)
             Prefs.setAutoArmUntil(this, until)
@@ -451,7 +470,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         // The phone restarted or the app was killed mid-alarm: carry on screaming. A call for help
         // comes back as one, with its alerts, location and recording.
         if (Prefs.alarmActive(this)) {
+            resuming = true
             if (Prefs.alarmSos(this)) newEngine.onSos() else newEngine.resumeAlarm()
+            resuming = false
         }
     }
 
@@ -503,6 +524,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Log.i(TAG, "Unlock ignored: alarm began while the phone wasn't PIN-locked")
             return
         }
+        // She unlocked to send the alert herself (Send SMS, WhatsApp): the SOS carries on, its live
+        // link with it, until she stops it in the app.
+        if (GuardState.alarmTrigger.value == Trigger.SOS && alertsMade && alerts.handedOver) {
+            Log.i(TAG, "Unlocked to send the alert by hand: SOS carries on")
+            return
+        }
         engine.onOwnerUnlocked()
     }
 
@@ -552,8 +579,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     private var sosWanted = false
 
-    /** Both volume keys held: the SOS alarm, if the SOS buttons are on. */
-    private fun sosHold(source: String) {
+    /** Volume up tapped 4 times: the SOS alarm, if the volume-key SOS is on. */
+    private fun sosTaps(source: String) {
         if (!Prefs.sosButtons(this)) return
         sos(source)
     }
@@ -561,6 +588,8 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     /** The owner called for help: a buzz, then the SOS alarm from any armed state. */
     private fun sos(source: String): Boolean {
         val current = engine ?: return false
+        // Already calling for help: more taps change nothing (a buzz would stop the SOS vibration).
+        if (current.phase == Phase.SIREN && GuardState.alarmTrigger.value == Trigger.SOS) return true
         log("SOS: $source")
         alarm.tick()
         current.onSos()
@@ -569,10 +598,15 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     private fun ownerStopSos() {
         val current = engine ?: return
-        if (current.phase.isAlarm && GuardState.alarmTrigger.value == Trigger.SOS && !keyguardManager.isKeyguardLocked) {
+        if (current.phase.isAlarm && GuardState.alarmTrigger.value == Trigger.SOS && GuardState.unlockStopsAlarm.value &&
+            !keyguardManager.isKeyguardLocked
+        ) {
             current.onOwnerUnlocked()
         }
     }
+
+    /** The alarm is coming back after a restart (its unlock rule is the saved one). */
+    private var resuming = false
 
     /** The phone has been locked at some point since the alarm began (so an unlock is an unlock). */
     private var lockedSinceAlarm = true
@@ -743,7 +777,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         if (to.isAlarm && !from.isAlarm) {
             // SOS is the owner's own call, so their unlock always ends it; a theft alarm trusts an
             // unlock only if the phone was PIN-locked when it began.
-            GuardState.unlockStopsAlarm.value = trigger == Trigger.SOS || keyguardManager.isDeviceLocked
+            GuardState.unlockStopsAlarm.value = keyguardManager.isDeviceLocked ||
+                if (resuming) Prefs.alarmUnlockStops(this) else trigger == Trigger.SOS
+            Prefs.setAlarmUnlockStops(this, GuardState.unlockStopsAlarm.value)
             lockedSinceAlarm = keyguardManager.isKeyguardLocked
             Log.i(TAG, "alarm started, unlock stops it: ${GuardState.unlockStopsAlarm.value}")
             Prefs.setAlarmActive(this, true) // A restart during the warning comes back screaming too.
@@ -767,10 +803,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             Phase.SIREN -> if (trigger == Trigger.SOS) {
                 Prefs.setAlarmActive(this, true)
                 Prefs.setAlarmSos(this, true)
-                // Also when it came on top of a theft siren: the owner's call, so their unlock ends it.
-                GuardState.unlockStopsAlarm.value = true
+                // On top of a theft alarm, the theft alarm's rule stays: if it began on an unlocked
+                // phone, whoever holds it could have pressed SOS, so only the credential stops it.
                 alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
-                alerts.start()
+                alerts.start(resume = resuming)
                 Notifications.showAlarm(this)
                 recorder.escalate(trigger)
             } else {
@@ -789,12 +825,14 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Prefs.setAlarmActive(this, false)
                 Prefs.setAlarmSos(this, false)
                 alarm.stop()
+                tts?.stop() // The call for help stops mid-word too.
                 Notifications.cancelAlarm(this)
                 // Back to IN_POCKET: the pocket fabric flickered. Back to ON_TABLE: put back down.
                 val flicker = to == Phase.IN_POCKET || to == Phase.ON_TABLE
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
                 if (trigger == Trigger.SOS) alerts.stop()
                 GuardState.unlockStopsAlarm.value = true
+                Prefs.setAlarmUnlockStops(this, true)
             }
         }
         if (to != Phase.OFF) {

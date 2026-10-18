@@ -74,11 +74,27 @@ class LiveShare(
     /** The live page link, once the incident is open. */
     val link: String? get() = incident?.let { Backend.liveLink(context, it.viewerToken) }
 
-    /** Opens the incident; [onLink] runs on the main thread when the link is ready. */
-    fun start(onLink: (String) -> Unit) {
+    /**
+     * Opens the incident; [onLink] runs on the main thread when the link is ready. [existing]: the
+     * incident this SOS opened before a restart, carried on (its link already went out).
+     */
+    fun start(onLink: (String) -> Unit, existing: Backend.Incident? = null) {
         current = this
-        worker.execute { open(1, onLink) }
+        if (existing != null) {
+            incident = existing
+            log("Live location: sharing again after a restart")
+            main.post { if (!stopped) onLink(Backend.liveLink(context, existing.viewerToken)) }
+            startVideoChain()
+        } else {
+            worker.execute { open(1, onLink) }
+        }
         worker.scheduleWithFixedDelay(::upload, UPLOAD_EVERY_MS, UPLOAD_EVERY_MS, TimeUnit.MILLISECONDS)
+    }
+
+    /** Cancelled during the countdown: nothing more leaves the phone, the incident just ends. */
+    fun discard() {
+        synchronized(queue) { queue.clear() }
+        stop(falseAlarm = false)
     }
 
     private fun open(attempt: Int, onLink: (String) -> Unit) {
@@ -90,6 +106,7 @@ class LiveShare(
             return
         }
         incident = opened
+        Prefs.setSosIncident(context, opened)
         log("Live location: sharing")
         val live = Backend.liveLink(context, opened.viewerToken)
         main.post { if (!stopped) onLink(live) }
@@ -179,7 +196,8 @@ class LiveShare(
         // Refused for good (a limit, a closed incident): keeping the batch would block every later fix.
         val refused = code in 400..499 && code != 401 && code != 408 && code != 429
         if (ok || refused) {
-            synchronized(queue) { queue.subList(0, batch.size.coerceAtMost(queue.size)).clear() }
+            // The ones sent, not the first few: the queue may have been trimmed meanwhile.
+            synchronized(queue) { queue.removeAll(batch.toSet()) }
         }
         log(if (ok) "Live location: ${batch.size} points uploaded" else "Live location: upload failed ($code)")
     }

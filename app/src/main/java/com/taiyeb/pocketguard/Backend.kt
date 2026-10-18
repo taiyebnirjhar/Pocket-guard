@@ -30,10 +30,15 @@ object Backend {
     private fun prefs(context: Context) =
         context.createDeviceProtectedStorageContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** The end-to-end test points a debug build at a local backend through these settings. */
-    private fun url(context: Context) =
-        (prefs(context).getString("url_override", null) ?: BuildConfig.SUPABASE_URL).trimEnd('/')
-    private fun key(context: Context) = prefs(context).getString("key_override", null) ?: BuildConfig.SUPABASE_KEY
+    /**
+     * The end-to-end test points the debug build at a local backend through these settings. Never
+     * in the release build: whoever got at its files could otherwise send its alerts elsewhere.
+     */
+    private fun override(context: Context, key: String) =
+        if (BuildConfig.DEBUG) prefs(context).getString(key, null) else null
+
+    private fun url(context: Context) = (override(context, "url_override") ?: BuildConfig.SUPABASE_URL).trimEnd('/')
+    private fun key(context: Context) = override(context, "key_override") ?: BuildConfig.SUPABASE_KEY
 
     fun configured(context: Context) = url(context).isNotEmpty() && key(context).isNotEmpty()
 
@@ -41,7 +46,7 @@ object Backend {
     fun enabled(context: Context) = configured(context) && Prefs.liveLocation(context)
 
     fun liveLink(context: Context, viewerToken: String): String {
-        val page = prefs(context).getString("page_override", null) ?: BuildConfig.LIVE_PAGE_URL
+        val page = override(context, "page_override") ?: BuildConfig.LIVE_PAGE_URL
         return "$page#t=$viewerToken"
     }
 
@@ -200,7 +205,11 @@ object Backend {
 
     enum class EmailKind(val wire: String) { SOS("sos"), FALSE_ALARM("false_alarm"), TEST("test") }
 
-    /** Sends the alert email: true when it went out, had gone out, or was refused for good (a limit). */
+    /**
+     * Sends the alert email: true when it went out, had gone out, or was refused for good (a
+     * limit). A real SOS refused for a daily limit keeps trying (with the caller's backoff): the
+     * shared limit may free up, and this email matters most.
+     */
     fun sendEmail(context: Context, kind: EmailKind, emails: List<String>, incidentId: String?, name: String, time: String): Boolean {
         if (emails.isEmpty()) return true
         val token = token(context) ?: return false
@@ -212,7 +221,7 @@ object Backend {
             .put("lang", if (context.resources.configuration.locales[0].language == "bn") "bn" else "en")
         if (incidentId != null) body.put("incident_id", incidentId)
         val r = call(context, "POST", "/functions/v1/notify", body, token)
-        return r.ok || r.code in 400..499 && r.code != 401 && r.code != 408
+        return r.ok || r.code in 400..499 && r.code != 401 && r.code != 408 && !(r.code == 429 && kind == EmailKind.SOS)
     }
 
     /** Deletes the account and everything stored with it; false when the server couldn't be reached. */

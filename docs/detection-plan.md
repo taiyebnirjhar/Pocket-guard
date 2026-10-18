@@ -56,6 +56,12 @@ the remote-volume media session gets none on Android 13+, accessibility filters 
 that would reach the screen, and reading volume steps over silent audio was dropped (it plays
 hidden audio and resets the volume, and could not time a hold). The SOS alarm records video with sound in one-minute pieces until the unlock.
 
+**Changed in v2.2.0**: SOS is volume up tapped 4 times within 2 s with the screen on (locked or
+unlocked), still through the accessibility key filter. Volume down starts the count over; taps
+don't count while music, a video, a call or a ringing phone uses the audio, except during the
+guard's own alarm, where they turn a theft alarm into SOS. The two-key hold was hard in a hurry,
+and power presses clash with the phone's own camera and Emergency SOS gestures.
+
 **Not yet** (later steps): the gyroscope, the edge-based owner check and display-state
 DisplayListener ranks, the call-state pause and charger watch, the hand (H) rules in shadow mode,
 traces and the detection lab, the watchdog and heartbeat, resampling and rate tiers, and the
