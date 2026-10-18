@@ -63,7 +63,8 @@ class AlarmActivity : ComponentActivity() {
             LaunchedEffect(phase) {
                 if (phase != Phase.SIREN) finish()
             }
-            PocketGuardTheme {
+            // Over: nothing more to show while it closes.
+            if (phase == Phase.SIREN) PocketGuardTheme {
                 AlarmScreen(onOwner = {
                     val keyguard = getSystemService(KeyguardManager::class.java)
                     // An SOS started while unlocked has no lock screen to dismiss: the owner is here.
@@ -131,7 +132,12 @@ private fun AlarmScreen(onOwner: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val sos = GuardState.alarmTrigger.collectAsState().value == Trigger.SOS
+        // Once SOS, SOS until the screen closes: the trigger clears as the alarm stops, a moment
+        // before this screen goes, and the theft screen (with its "I need help" button) would flash.
+        val trigger by GuardState.alarmTrigger.collectAsState()
+        val sosSeen = remember { booleanArrayOf(false) }
+        if (trigger == Trigger.SOS) sosSeen[0] = true
+        val sos = sosSeen[0]
         Text(if (sos) "🆘" else "🚨", fontSize = 96.sp)
         Spacer(Modifier.height(16.dp))
         Text(
