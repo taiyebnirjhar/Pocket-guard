@@ -164,7 +164,8 @@ the owner. So the phone's own settings must lock it at once:
 
 Android hides those settings from apps, so Pocket Guard tests them. Every time the screen turns
 off while armed, it checks 1.5 s later that the phone is locked. If not, it shows a warning
-notification and marks the checklist row red. The power button locks at once even with a lock
+notification, and "Lock immediately" appears in the "Get it ready" list, which leaves it out
+until a test catches a delay (most phones with a screen lock already lock at once). The power button locks at once even with a lock
 delay, so a later pass doesn't clear the failure: tapping **Fix** (or the notification) starts the
 test over. To test, let the screen turn off by itself once.
 

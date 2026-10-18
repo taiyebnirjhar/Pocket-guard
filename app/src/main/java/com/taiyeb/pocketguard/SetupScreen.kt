@@ -57,13 +57,11 @@ private fun granted(context: Context, permission: String) =
 /** Every step that applies to this phone, in the order the guide asks for them. */
 fun setupSteps(context: Context, status: SetupStatus = SetupStatus.read(context)): List<SetupStep> = buildList {
     add(SetupStep("lock", R.drawable.ic_lock, R.string.ready_lock, R.string.ready_lock_why, true, status.secureLock))
-    add(
-        SetupStep(
-            "lock_delay", R.drawable.ic_timer, R.string.ready_lock_delay, R.string.ready_lock_delay_why, true,
-            status.lockCheck == Prefs.LockCheck.PASSED ||
-                (status.lockCheck == Prefs.LockCheck.UNTESTED && Prefs.lockDelayOpened(context)),
-        ),
-    )
+    // Most phones with a screen lock already lock at once. The guard tests it every time the screen
+    // goes off while armed, so this is only asked for once a test has caught a delay.
+    if (status.lockCheck == Prefs.LockCheck.FAILED) {
+        add(SetupStep("lock_delay", R.drawable.ic_timer, R.string.ready_lock_delay, R.string.ready_lock_delay_why, true, false))
+    }
     add(SetupStep("notifications", R.drawable.ic_bell, R.string.ready_notifications, R.string.ready_notifications_why, true, status.notifications))
     add(SetupStep("battery", R.drawable.ic_battery, R.string.ready_battery, R.string.ready_battery_why, true, status.battery))
     if (Build.VERSION.SDK_INT >= 34) {
@@ -129,10 +127,7 @@ fun SetupScreen(refreshKey: Int, onDone: () -> Unit, onSkip: () -> Unit, onOpenC
     val act: (SetupStep) -> Unit = { step ->
         when (step.id) {
             "lock" -> SetupActions.secureLock(context)
-            "lock_delay" -> {
-                Prefs.setLockDelayOpened(context)
-                SetupActions.secureLock(context)
-            }
+            "lock_delay" -> SetupActions.secureLock(context)
             "notifications" -> if (Build.VERSION.SDK_INT >= 33) {
                 notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
