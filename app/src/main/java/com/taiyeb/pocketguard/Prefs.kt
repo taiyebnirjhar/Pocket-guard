@@ -137,11 +137,9 @@ object Prefs {
 
     fun onboarded(context: Context) = get(context, "onboarded", false)
 
-    /** Steps the app can't check by itself, marked done once the user opened their settings. */
+    /** A step the app can't check by itself, marked done once the user opened its settings. */
     fun autostartOpened(context: Context) = get(context, "autostart_opened", false)
     fun setAutostartOpened(context: Context) = put(context, "autostart_opened", true)
-    fun lockDelayOpened(context: Context) = get(context, "lock_delay_opened", false)
-    fun setLockDelayOpened(context: Context) = put(context, "lock_delay_opened", true)
     fun setOnboarded(context: Context, value: Boolean) = put(context, "onboarded", value)
 
     /** Bluetooth addresses that count for earbud triggers. Empty means any earbuds, headphones or watch. */
