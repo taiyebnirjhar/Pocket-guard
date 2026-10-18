@@ -1,0 +1,7 @@
+# Cloudflare Pages response headers. CI puts the newest release's APK and its latest.json in
+# download/ at deploy time (see .github/workflows/pages.yml); the URLs stay the same across
+# versions, so browsers must check for a new one.
+/download/*
+  Cache-Control: no-cache
+/download/PocketGuard.apk
+  Content-Disposition: attachment; filename="PocketGuard.apk"

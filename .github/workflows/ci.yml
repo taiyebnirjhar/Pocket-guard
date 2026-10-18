@@ -223,6 +223,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      published: ${{ steps.tag.outputs.exists != 'true' }}
     env:
       VERSION: ${{ needs.build.outputs.version }}
     steps:
@@ -283,3 +285,12 @@ jobs:
             `PocketGuard-v${{ env.VERSION }}-play.aab` is the Google Play build, for uploading in Play Console.
             Passed unit tests, lint and the emulator end-to-end test (run on the debug build of the
             same code); the PNGs are screenshots of every screen taken during that test.
+
+  # The website's download button serves the latest release's APK: publish the site again with it.
+  site:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/pages.yml
+    secrets: inherit

@@ -1,28 +1,53 @@
 name: Pages
 
-# Publishes site/ to Cloudflare Pages (https://pocket-guard.pages.dev): the privacy policy Google
-# Play links to, and the live location page the SOS alerts link to. Cloudflare rather than GitHub
-# Pages because the repository is private. Needs the CLOUDFLARE_API_TOKEN secret (Cloudflare
-# Pages: Edit) and CLOUDFLARE_ACCOUNT_ID.
+# Publishes site/ to Cloudflare Pages (https://pocket-guard.pages.dev): the landing page with its
+# download button, the privacy policy Google Play links to, and the live location page the SOS
+# alerts link to. Cloudflare rather than GitHub Pages because the repository is private. Needs the
+# CLOUDFLARE_API_TOKEN secret (Cloudflare Pages: Edit) and CLOUDFLARE_ACCOUNT_ID.
+# Every deploy carries the latest release's APK, so the download button never loses it; CI's
+# release job calls this workflow once a new release is out.
 on:
   push:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # One deploy at a time, never cancelled halfway; each one fetches the latest release when it
+    # starts, so the last to run always has the newest APK.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      # The repository is private, so release links don't work for the public: the site serves
+      # the APK itself, at a URL that stays the same across versions.
+      - name: Add the latest release's APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/release.json"
+          tag=$(jq -r .tag_name "$RUNNER_TEMP/release.json")
+          asset=$(jq -r '.assets[] | select(.name | test("^PocketGuard-v.*\\.apk$")) | .id' "$RUNNER_TEMP/release.json")
+          [ -n "$asset" ] || { echo "::error::$tag has no APK."; exit 1; }
+          mkdir -p site/download
+          gh api -H "Accept: application/octet-stream" "repos/$GITHUB_REPOSITORY/releases/assets/$asset" > site/download/PocketGuard.apk
+          size=$(stat -c %s site/download/PocketGuard.apk)
+          # Cloudflare Pages takes files up to 25 MiB.
+          if [ "$size" -ge 26214400 ]; then
+            echo "::error::The $tag APK is $size bytes, over Cloudflare Pages' 25 MiB limit."
+            exit 1
+          fi
+          jq -n --arg version "${tag#v}" --argjson size "$size" --arg date "$(jq -r .published_at "$RUNNER_TEMP/release.json")" \
+            '{version: $version, size: $size, date: $date}' > site/download/latest.json
+          cat site/download/latest.json
       # The live page reads the trail with the project's public (publishable) key.
       - name: Point the live page at the backend
         env:
