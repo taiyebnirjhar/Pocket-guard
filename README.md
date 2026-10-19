@@ -13,13 +13,13 @@ English and Bangla. Android 8.0+ (minSdk 26).
 A dark theme with a purple glow, set in Manrope. A floating tab bar switches between four tabs:
 
 - **Home**: a power button inside a ring of moving dots. The ring's colour and speed follow the
-  guard (grey off, purple protected, amber warning, red siren). Also shows the status, time
-  armed, unlock delay, last alarm and how many setup steps are left.
+  guard (grey off, lavender armed, purple protected, amber warning, red siren). Also shows the status, time
+  armed, unlock delay, last alarm, how many setup steps are left, and an SOS card while armed.
 - **Triggers**: every alarm and arming-reminder switch, the earbud picker, intruder photos, SOS,
   emergency contacts and the arming schedule.
 - **History**: past alarms with their intruder photos and SOS recordings.
 - **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, the detection
-  log, language, Online (live link and deleting your online data), the guide, the privacy policy
+  log, language (Android 13+), Online (live link and deleting your online data; only with the backend built in), the guide, the privacy policy
   and the how-to-test list.
 
 CI takes a screenshot of every screen on the emulator and attaches them to each release.
@@ -27,11 +27,11 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 ## How it works
 
 1. **Armed**: waiting for you to lock it. Locking is the signal: press power and it is protected
-   straight away, wherever the phone is.
+   straight away once it is in a pocket or lying still.
 2. **Protected**: in a pocket (proximity covered for 0.5 s, screen off or locked), a short buzz
    confirms it; put in the pocket first and locked after, it is protected the moment the screen
    goes black. Lying still with the screen black (face-up on a table, on a seat), two short buzzes
-   mean table protection is on at once.
+   mean table protection is on at once (unless table mode is off under Triggers).
 3. **Taken out while locked**: the proximity sensor uncovered for 0.8 s is enough. Being armed
    is your choice, so once armed it asks for no further proof: a careful thief gives none (no
    jolt, no light, no turn). Fabric flickering over the sensor re-covers it within a second, and
@@ -43,8 +43,8 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
    a yank or bright light beeps at once. Unlock within the grace period (default 5 s, 0-15 s) and
    nothing else happens. With 0 there's no warning: the uncover is confirmed after 0.25 s and the
    siren starts at once, and still stops by itself if covered again within 1 s.
-5. **Siren**: alarm stream at full volume (through silent mode, and through "Total silence" Do Not
-   Disturb when allowed), volume buttons locked, torch strobe, "THIS PHONE IS STOLEN" over the lock
+5. **Siren**: alarm stream at full volume (through silent mode, and on Android 14 and older through "Total silence" Do Not
+   Disturb when allowed), volume set back to full if turned down, torch strobe, "THIS PHONE IS STOLEN" over the lock
    screen, intruder photos.
 6. **Unlock** with PIN, pattern, password, fingerprint or face: everything stops and the guard
    re-arms by itself.
@@ -96,7 +96,8 @@ and at once:
   the app shows Bangla and the phone has a Bangla voice), at full volume through silent mode, with
   "I NEED HELP" and "● Recording" on the screen;
 - video with sound from the back camera (in a pocket the sound is the evidence), saved in
-  one-minute pieces so a grabbed phone still keeps everything up to then, for up to 15 minutes.
+  one-minute pieces so a grabbed phone still keeps everything up to then, for up to 15 minutes (it
+  stops early with under 300 MB free, and records nothing before the first unlock after a restart).
 
 Unlock to stop both. The recordings are in History, to play, save to the gallery or share; until
 you do, they stay in the app's private storage. Recording people without consent is against the law in
@@ -114,7 +115,7 @@ contacts card), whatever language the app shows: one Bangla letter makes an SMS 
 holds 70 characters a part instead of 160, so the alert with its two links would take 4 SMS
 instead of 2. The
 location is read only while SOS runs; an update follows when you move 200 m (at most every 5 min,
-3 times), and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
+3 times), or as soon as a location is known if the alert had none, and stopping SOS within 15 s of the alert sends "false alarm, I'm safe". Locations older than two minutes are never sent. The GitHub build
 sends the SMS itself and resends one that didn't go (no signal), up to 5 tries; the Play build fills in the SMS app and you tap Send (Play allows sending
 SMS on its own only with an approved exception). Each tap (and "Share on WhatsApp") carries the whole alert with the latest location and link, and the unlock it needs doesn't end the SOS: stop it in the app when you're safe.
 If every text fails (no signal or SIM), the alarm screen says so and opens the SMS app instead. A
@@ -125,7 +126,8 @@ follows it.
 **Live location link and alert emails** (Settings → Online → Live location link, on by default):
 the SMS also carries a private link to a live map (`https://pocket-guard.pages.dev/live/#t=<token>`), and
 contacts with an email address get the alert by email, then "false alarm" if you stop right away.
-The SOS video is recorded at 480p (about 12 MB a minute) and each one-minute piece is uploaded to
+With the live link on, the SOS video is recorded at 480p (about 12 MB a minute; 720p, about 30 MB,
+without it) and each one-minute piece is uploaded to
 R2 as it's saved, through a link the server signs for that piece; the live page lists the
 recordings and plays one through a 10-minute link. Pieces still uploading when SOS ends carry on
 for up to 30 minutes.
@@ -188,7 +190,8 @@ test over. To test, let the screen turn off by itself once.
 | Taken out of pocket or bag while locked | Warning, then siren | Always on | Proximity sensor |
 | Airplane mode turned on while locked | Siren at once | On | |
 | Charger unplugged while locked (wired, still unplugged after 2 s) | Warning, then siren | On | |
-| Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in pocket: buzz only) | Off | Nearby devices permission |
+| Moved or picked up on a table while locked | Warning, then siren | On | Motion sensor |
+| Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in a pocket or on a table: buzz only) | Off | Nearby devices permission |
 | Phone restarted or app killed during an alarm | Alarm resumes, before the first unlock too | Always on | |
 
 **Arming reminders** (both off by default): when chosen earbuds or a watch connect, or when Google
@@ -217,8 +220,9 @@ proximity sensor.
 
 ## Evidence
 
-- **Intruder photos**: 2 silent front-camera photos per siren, then the torch strobe starts.
-- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90. Photos and
+- **Intruder photos**: 2 silent front-camera photos per siren (not before the first unlock after a restart), then the torch strobe starts.
+- **Theft history**: trigger, outcome and photos. Warning-only entries are kept 7 days, alarms 90, at most 50 entries; SOS recordings past 1 GB in all
+  are deleted, oldest first. Photos and
   recordings stay in the app's private storage unless you save or share them (intruder photos never leave the phone; SOS videos
   are also uploaded only for the live link). Tap one to open it full screen in an app you choose;
   **Save to phone** copies them to the gallery (Pictures and Movies, "Pocket Guard" albums), and
@@ -228,26 +232,31 @@ Both stay on the phone, for when it's recovered.
 
 ## Test mode
 
-Test mode plays a quiet siren. It is off by default and switches itself off after an hour, so a
+Test mode plays the siren and the SOS alarm quietly; SOS texts during it are marked [TEST] and the
+email is a test one. It is off by default and switches itself off after an hour, so a
 forgotten test mode can't weaken a real alarm. The in-app "How to test" list walks through the
 main triggers and SOS.
 
 ## Install
 
-Download it from **https://pocket-guard.pages.dev** on the phone, or the latest
-`PocketGuard-vX.Y.Z.apk` from [Releases](../../releases), along with screenshots of every screen.
+Download it from **https://pocket-guard.pages.dev** on the phone (people with access to this private
+repository can also take `PocketGuard-vX.Y.Z.apk` from [Releases](../../releases), along with
+screenshots of every screen).
 The website's download button (`/download/PocketGuard.apk`, with `/download/latest.json` for the
-version) serves the latest release's APK: `.github/workflows/pages.yml` fetches it on every deploy,
-and CI's `site` job runs that workflow right after a new release. The APK is never committed.
+version) serves the latest release's APK: `.github/workflows/pages.yml` fetches it on every deploy (a push
+to `main` that changes `site/`, a manual run, or CI's `site` job right after a new release) and
+always deploys the site as it is on `main`; it fails if the APK is 25 MiB or more. The APK is never
+committed.
 To show the Google Play badge on the site once the listing is live, follow the `GOOGLE PLAY`
 comment in `site/index.html`.
-Open the release on the phone, download the APK and allow installs from your browser. Official
+Open the downloaded APK on the phone and allow installs from your browser. Official
 builds share one signing key, so a new build installs over the old one and keeps your settings.
 
 On first launch, after the short guide, **Get it ready** walks through what Android blocks by
 default, one tap each: a screen lock that locks immediately, notifications, running in the
-background, the alarm over the lock screen, autostart on brands that need it (Xiaomi, Realme,
-Oppo, Vivo…), and optionally the camera and Do Not Disturb. Tapping the power button while a
+background, the alarm over the lock screen (Android 14+), autostart on brands that need it (Xiaomi,
+Realme, Oppo, Vivo…), and optionally the camera, the SOS buttons and recording, emergency contacts
+and (Android 14 and older) Do Not Disturb. Tapping the power button while a
 required step is missing brings it back, and arms the guard once it's done.
 
 ## Architecture
@@ -270,23 +279,25 @@ required step is missing brings it back, and arms the guard once it's done.
 | `SosAlerts.kt`, `AlertPlan.kt`, `EmergencyContacts.kt`, `EmergencyContactsCard.kt` | SOS alerts: countdown, SMS, follow-ups, false alarm; the approved contacts and wording. |
 | `Backend.kt`, `LiveShare.kt` | The online part: anonymous sign-in, the SOS record with its live location and video, alert emails. |
 | `supabase/` | The backend: database and its access rules (`migrations/`), the email, recordings (R2 signed links) and account-deletion functions (`functions/`), tests (`tests/`). Deployed by `.github/workflows/backend.yml`. |
-| `site/` | Cloudflare Pages (pocket-guard.pages.dev): the landing page (`index.html`, plain HTML/CSS/JS, no build step), the privacy policy and the live location page (`site/live/`). |
+| `site/` | Cloudflare Pages (pocket-guard.pages.dev), deployed by `.github/workflows/pages.yml`: the landing page (`index.html`, plain HTML/CSS/JS, no build step), the privacy policy, the live location page (`site/live/`) and `download/` (the latest release's APK and `latest.json`, added at deploy, never committed). |
 
 ## CI pipeline
 
-`.github/workflows/ci.yml`, on every push and pull request:
+`.github/workflows/ci.yml`, on every push to `main` and every pull request (not for Markdown-only changes):
 
-1. **Unit tests**: `GuardEngine` tests covering the ladder, every trigger, walking, dark pockets,
-   a light sensor that freezes with the screen off, late readings, flicker recovery, calls,
-   no-delay mode and restarts.
-2. **Android lint** with `abortOnError`. The full report is printed on failure.
+1. **Unit tests** (both builds): `GuardEngine` and table-rule tests covering the ladder, every
+   trigger, walking, dark pockets, a light sensor that freezes with the screen off, late readings,
+   flicker recovery, calls, no-delay mode and restarts, plus the motion processor, the SOS taps,
+   the schedule and the alert plan.
+2. **Android lint** on both builds with `abortOnError`. The full report is printed on failure.
 3. **Emulator end-to-end test** (`e2e/run.sh`, API 34), on the debug build (the same code, but
    debuggable, so the test can write its settings with `run-as`; the release APK is not). It sets
    a PIN, and fakes the cameras and the proximity, light and motion sensors. It then
    checks the app log, stored history, photo files, notifications and screen state for:
    - pickpocket: siren, intruder photos, history entry
    - table: protected when laid face-down, tilt warns, putting it back stops it, picking it up sirens
-   - a gentle pull turned to look, and a pocket swap, with no jolt or light
+   - face-up on a table: protected at once, picked up warns
+   - a gentle pull turned to look, with no jolt or light
    - pull-out with a frozen light sensor
    - the owner's own pull-out and unlock within grace
    - sensor flicker and walking ignored
@@ -298,16 +309,21 @@ required step is missing brings it back, and arms the guard once it's done.
      SOS from the notification
    - the arming schedule: a pause holds it off, an unpaused window arms it
    - SOS alerts against a local backend: the SMS with the live link, the email (to a stand-in for
-     Brevo), the uploaded trail and the false alarm, then the live page rendered in Chrome
+     Brevo), the uploaded trail and video, and the false alarm, then the live page rendered in Chrome
    - every screen opened and screenshotted, and monkey crash fuzzing
 
    Screenshots, the app log and keyguard state are uploaded for each failure.
 4. **Backend tests** (`supabase/tests/`, against a local Supabase): who can read and write what,
-   the live page's view, the email function's limits and wording, and account deletion.
+   the live page's view, the email function's limits and wording, recordings (signed uploads,
+   limits, playback), account deletion, the daily cleanup jobs and the deployment check, after
+   `deno fmt`/`deno lint`.
 5. **Release**: only for `main`, only after all of the above pass, only when the build was
-   signed with the official key, and only for a new version.
+   signed with the official key, and only for a new version. It publishes the release APK
+   (`assembleFullRelease`) and the Play bundle, not the debug build the emulator test ran.
+6. **Site**: once a new release is out, runs `.github/workflows/pages.yml` so the website's
+   download button serves its APK.
 
-`.github/workflows/backend.yml` deploys `supabase/` to the real project when it changes on `main`,
+`.github/workflows/backend.yml` deploys `supabase/` to the real project after each CI run on `main` that passes (or by hand),
 then checks the deployment with a throwaway account (including an upload to R2 and its removal).
 `.github/workflows/daily.yml` keeps the free Supabase project awake and posts a usage report. `.github/workflows/check-backend.yml` checks
 that every backend secret still works (run it from the Actions tab after replacing a key).
@@ -353,7 +369,8 @@ The full detection design, its threat model and what is planned next are in
 
 ## Build it yourself
 
-You need JDK 17 and the Android SDK (Android Studio works).
+You need JDK 17 and the Android SDK (Android Studio works). The repository is private: you need
+access to clone it.
 
 ```sh
 git clone https://github.com/taiyebnirjhar/pocket-guard.git
@@ -367,7 +384,8 @@ official release (uninstall that first).
 
 There are two builds of the same code. **full** is what GitHub releases ship. **play** is for
 Google Play and leaves out what Play restricts for this kind of app: it doesn't declare the
-battery-optimisation permission (setup opens the battery list instead). CI builds the Play bundle
+battery-optimisation, SMS-sending or exact-alarm permissions (setup opens the battery list, SOS
+fills in the SMS app, and the schedule may start a few minutes late). CI builds the Play bundle
 with `./gradlew bundlePlayRelease` and attaches it to each release as `PocketGuard-vX.Y.Z-play.aab`.
 The privacy policy is `site/privacy.html`, published to Cloudflare Pages (https://pocket-guard.pages.dev/privacy.html) by `.github/workflows/pages.yml`.
 
