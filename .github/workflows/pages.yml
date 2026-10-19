@@ -26,7 +26,12 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
+      # Always the site as it is on main now. Called from CI after a release, the run's own commit
+      # can be older than main (a website change merged while the release was being tested), and
+      # deploying it would put the old page back.
       - uses: actions/checkout@v4
+        with:
+          ref: main
       # The repository is private, so release links don't work for the public: the site serves
       # the APK itself, at a URL that stays the same across versions.
       - name: Add the latest release's APK
