@@ -74,6 +74,7 @@ could be someone taking it warns:
 | Pushed off the edge (falling, without the kick of a bump) | Warning |
 | Sensor uncovered together with any lift-like motion | Warning |
 | Knocked, bumped, a cup put down, its own vibration | Nothing |
+| Another app's notification or a call buzzing it | Nothing: a vibration motor shakes the phone fast around where it lies, a hand moves it away. The slide and lift sums smooth that shaking out, and while it buzzes (and 0.3 s after) the table rules wait. Picked up mid-buzz, the hand shows straight after (held, tilted, at a new angle) |
 | Laid on a car seat, then driving | Stays guarded and quiet: an idling engine or the drive pauses the slow pick-up rules until it has been parked (still) for 30 s; picking it up afterwards warns like any table pick-up |
 | Picked up to answer a call, even in silent mode | Your pick-up: back to armed, silently |
 

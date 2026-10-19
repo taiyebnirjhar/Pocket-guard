@@ -84,6 +84,22 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
         /** After the app's own buzz, motion is ignored this long. */
         const val OWN_VIBRATION_MS = 500L
 
+        /**
+         * Another app's notification or a call buzzing the phone: the reading jumps sample to sample
+         * (root mean square of the changes over [BUZZ_WINDOW_MS] at least [BUZZ_JITTER], well above
+         * a hand's tremor) while its mean over [BUZZ_MEAN_MS] stays where the phone lay (within
+         * [BUZZ_DRIFT], or half the jitter: a motor shakes it around that spot, a hand or a fall
+         * moves it away). Held for [BUZZ_SAMPLES] samples in a row, so a sudden grab, whose mean
+         * moves away within a few, never counts. While it buzzes, and [BUZZ_HOLD_MS] after, the
+         * table rules wait, as for the app's own buzzes; a hand that took it shows afterwards.
+         */
+        const val BUZZ_WINDOW_MS = 120L
+        const val BUZZ_MEAN_MS = 200L
+        const val BUZZ_JITTER = 0.6f
+        const val BUZZ_DRIFT = 0.35f
+        const val BUZZ_SAMPLES = 4
+        const val BUZZ_HOLD_MS = 300L
+
         /** A buzz before the placement settled gives it this long after the buzz to be still. */
         const val OWN_BUZZ_SETTLE_MS = 1500L
     }
@@ -292,6 +308,9 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
         inVehicle = false
         poseCheckedFor = m.restSince
         ignoreUntil = t + OWN_VIBRATION_MS
+        smoothStarted = false
+        buzzSamples = 0
+        buzzUntil = -1L
     }
 
     /** The app is about to vibrate the phone itself; don't mistake that for a hand. */
@@ -299,6 +318,27 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
         ignoreUntil = max(ignoreUntil, t + durationMs + OWN_VIBRATION_MS)
         // A stillness window (up to 1.2 s at 25 Hz) has to pass again after the buzz.
         if (latched && !settled) settleDeadline = max(settleDeadline, t + durationMs + OWN_BUZZ_SETTLE_MS)
+    }
+
+    private var smoothStarted = false
+
+    // Sample-to-sample changes, and the reading's mean over the same short window, for telling a
+    // vibration motor (shakes around where it lay) from a hand or a fall (moves the mean at once).
+    private val jitter = MovingMean(BUZZ_WINDOW_MS)
+    private val recent = MovingMean(BUZZ_MEAN_MS)
+    private var buzzSamples = 0
+    private var buzzUntil = -1L
+    private var prevX = 0f
+    private var prevY = 0f
+    private var prevZ = 0f
+
+    /** Shaken by a vibration motor right now, not moved: see [BUZZ_JITTER]. */
+    private fun buzzing(): Boolean {
+        val jitterRms = sqrt(jitter.x)
+        val dx = recent.x - baseX
+        val dy = recent.y - baseY
+        val dz = recent.z - baseZ
+        return jitterRms >= BUZZ_JITTER && sqrt(dx * dx + dy * dy + dz * dz) <= max(BUZZ_DRIFT, 0.5f * jitterRms)
     }
 
     /** Tilt of the phone now away from where it lay. */
@@ -309,13 +349,32 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
 
     /** Call for every sample while on the table. Returns what the movement amounts to. */
     fun onSample(t: Long, events: Int): Signal {
+        if (!smoothStarted) {
+            smoothStarted = true
+            jitter.reset(t, 0f, 0f, 0f)
+            recent.reset(t, m.ax, m.ay, m.az)
+        } else {
+            recent.add(t, m.ax, m.ay, m.az)
+            val jx = m.ax - prevX
+            val jy = m.ay - prevY
+            val jz = m.az - prevZ
+            jitter.add(t, jx * jx + jy * jy + jz * jz, 0f, 0f)
+        }
+        prevX = m.ax; prevY = m.ay; prevZ = m.az
+        buzzSamples = if (buzzing()) buzzSamples + 1 else 0
+        if (buzzSamples >= BUZZ_SAMPLES) buzzUntil = t + BUZZ_HOLD_MS
         if (t < ignoreUntil) {
             burstActive = false
             tiltSince = -1L
             return Signal.NONE
         }
-        // Falling off the edge, without the upward kick of a hop.
+        // Falling off the edge, without the upward kick of a hop (a buzz never hides it).
         if (events and MotionProcessor.Event.FALL != 0) return Signal.FALL
+        if (t < buzzUntil) {
+            burstActive = false
+            tiltSince = -1L
+            return Signal.NONE
+        }
 
         val tilt = tiltDeg()
         if (m.fastAngleTo(baseX, baseY, baseZ) >= UNCOVER_MOTION_DEG) lastLiftLikeAt = t
@@ -455,6 +514,8 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
         // The burst ends when it is still again (or at the cap): a slide if it travelled far.
         if (m.atRest && m.restSince > burstStart) {
             burstActive = false
+            // The smoothing lags: let it catch up with the phone lying still before measuring.
+            burst.settle(m.restX, m.restY, m.restZ)
             val d = burst.correctedHorizontalCm()
             // Slid or rocked and settled level: follow it. Tilted a few degrees: keep measuring
             // from where it was placed, so small tilts can't add up unseen.
@@ -532,12 +593,60 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
     }
 
     /**
-     * Double integration over a short burst. Vertical uses acceleration along the resting gravity
-     * direction (a sideways push can't fake it, and a tilt only lowers it); horizontal uses the
-     * part across it. Errors grow with time squared, so bursts are kept to a few seconds and
-     * corrected for the phone being still at both ends.
+     * Mean of the samples in the last [windowMs]. Two in a row make a smooth low-pass that a hand's
+     * push or lift (a second or so) goes through almost whole, while a vibration motor's shaking
+     * (150-250 Hz, folded by the sensor's sampling to 5 Hz or more) averages out: a notification
+     * buzzing the phone on a table then adds up to millimetres, not a slide or a lift.
+     */
+    class MovingMean(private val windowMs: Long) {
+        private val times = ArrayDeque<Long>()
+        private val xs = ArrayDeque<Float>()
+        private val ys = ArrayDeque<Float>()
+        private val zs = ArrayDeque<Float>()
+        private var sx = 0f
+        private var sy = 0f
+        private var sz = 0f
+        var x = 0f
+            private set
+        var y = 0f
+            private set
+        var z = 0f
+            private set
+
+        fun reset(t: Long, x0: Float, y0: Float, z0: Float) {
+            times.clear(); xs.clear(); ys.clear(); zs.clear()
+            sx = 0f; sy = 0f; sz = 0f
+            add(t, x0, y0, z0)
+        }
+
+        fun add(t: Long, vx: Float, vy: Float, vz: Float) {
+            times.addLast(t); xs.addLast(vx); ys.addLast(vy); zs.addLast(vz)
+            sx += vx; sy += vy; sz += vz
+            while (times.size > 1 && t - times.first() > windowMs) {
+                times.removeFirst()
+                sx -= xs.removeFirst(); sy -= ys.removeFirst(); sz -= zs.removeFirst()
+            }
+            val n = times.size.toFloat()
+            x = sx / n; y = sy / n; z = sz / n
+        }
+    }
+
+    /**
+     * Double integration over a short burst, of the acceleration smoothed by [MovingMean]s.
+     * Vertical uses acceleration along the resting gravity direction (a sideways push can't fake
+     * it, and a tilt only lowers it); horizontal uses the part across it. Errors grow with time
+     * squared, so bursts are kept to a few seconds and corrected for the phone being still at both
+     * ends.
      */
     class Integrator {
+        companion object {
+            /** 200 ms then 100 ms: zero response at 5, 10, 15, 20 Hz... and little in between. */
+            const val SMOOTH_MS = 200L
+            const val SMOOTH2_MS = 100L
+        }
+
+        private val smooth = MovingMean(SMOOTH_MS)
+        private val smooth2 = MovingMean(SMOOTH2_MS)
         private var bx = 0f
         private var by = 0f
         private var bz = 0f
@@ -566,6 +675,9 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
             restAlong = n
             last = m.lastSampleAt
             startT = last
+            // Starts from rest, so the first samples of the burst are averaged with it.
+            smooth.reset(last, bx, by, bz)
+            smooth2.reset(last, bx, by, bz)
             vUp = 0f; up = 0f
             vx = 0f; vy = 0f; vz = 0f
             px = 0f; py = 0f; pz = 0f
@@ -575,9 +687,15 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
             val dt = ((m.lastSampleAt - last).coerceIn(0L, 100L)) / 1000f
             last = m.lastSampleAt
             if (dt <= 0f) return
-            val ex = m.ax - bx
-            val ey = m.ay - by
-            val ez = m.az - bz
+            smooth.add(last, m.ax, m.ay, m.az)
+            smooth2.add(last, smooth.x, smooth.y, smooth.z)
+            integrate(dt)
+        }
+
+        private fun integrate(dt: Float) {
+            val ex = smooth2.x - bx
+            val ey = smooth2.y - by
+            val ez = smooth2.z - bz
             val along = ex * ux + ey * uy + ez * uz
             // The rest reading points up (it is the push of the table), so "along" > 0 is upward.
             vUp += along * dt
@@ -587,6 +705,20 @@ class TableMonitor(private val m: MotionProcessor, private val log: (String) -> 
             val hz = ez - along * uz
             vx += hx * dt; vy += hy * dt; vz += hz * dt
             px += vx * dt; py += vy * dt; pz += vz * dt
+        }
+
+        /** The phone is still again: run the smoothing on to the rest reading, so none of the burst is left in it. */
+        fun settle(restX: Float, restY: Float, restZ: Float) {
+            var t = last
+            val end = last + SMOOTH_MS + SMOOTH2_MS
+            while (t < end) {
+                t += 10L
+                val dt = 0.01f
+                smooth.add(t, restX, restY, restZ)
+                smooth2.add(t, smooth.x, smooth.y, smooth.z)
+                integrate(dt)
+            }
+            last = t
         }
 
         /** Removes the drift a non-zero end speed shows (the phone is still at both ends). */
