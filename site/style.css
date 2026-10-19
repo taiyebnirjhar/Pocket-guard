@@ -160,6 +160,21 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .step p { color: var(--muted); }
 @media (min-width: 900px) { .steps { grid-template-columns: repeat(3, 1fr); gap: 18px; } .step { padding: 32px 28px; } }
 
+/* Promo video */
+.film { display: grid; gap: 24px; justify-items: center; margin-top: 56px; }
+.film-frame { margin: 0; width: 100%; max-width: 300px; border-radius: 30px; padding: 6px; background: linear-gradient(160deg, #3a3a40, #1b1b1e 40%, #2a2a2e); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 120px -20px rgba(122, 90, 223, 0.45); }
+.film video { display: block; width: 100%; height: auto; aspect-ratio: 9 / 16; border-radius: 24px; background: #19191b; }
+.film-copy { max-width: 40ch; text-align: center; }
+.film-copy h3 { font-size: 24px; margin-bottom: 10px; }
+.film-copy p { color: var(--muted); }
+.film-copy .fine { margin-top: 12px; }
+@media (min-width: 900px) {
+  .film { grid-template-columns: auto 1fr; gap: 64px; align-items: center; justify-items: start; margin-top: 72px; }
+  .film-frame { max-width: 320px; }
+  .film-copy { text-align: left; }
+  .film-copy h3 { font-size: 30px; }
+}
+
 /* Stories */
 .story { position: relative; isolation: isolate; }
 .story-sos::before {
