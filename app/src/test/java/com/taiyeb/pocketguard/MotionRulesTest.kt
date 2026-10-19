@@ -597,6 +597,88 @@ class MotionRulesTest {
         bias = floatArrayOf(0f, 0f, 0f)
     }
 
+    /**
+     * Another app's notification buzzing the phone: a motor near [hz] (each buzz a few percent off)
+     * shaking it by [amp] m/s², in [pattern] (on, off, on... ms). Each sample is the shake averaged
+     * over its sampling period, as a sensor's filter does; what's left folds to a lower frequency.
+     */
+    private fun buzz(rest: FloatArray, hz: Double, amp: Float, pattern: List<Long>) {
+        var on = true
+        for (ms in pattern) {
+            if (on) {
+                var phase = random.nextDouble() * 2 * PI
+                val f = hz * (1 + 0.03 * (2 * random.nextDouble() - 1))
+                stream(ms) { _ ->
+                    val step = 2 * PI * f * stepMs / 1000.0
+                    val w = (amp * (cos(phase) - cos(phase + step)) / step).toFloat()
+                    phase += step
+                    // Mostly across the phone's face (the motor's axis), a little vertically.
+                    floatArrayOf(rest[0] + w, rest[1] + 0.6f * w, rest[2] + 0.3f * w)
+                }
+            } else {
+                still(rest, ms)
+            }
+            on = !on
+        }
+    }
+
+    @Test
+    fun notificationVibrationOnTheTableIsIgnored() {
+        val failures = mutableListOf<String>()
+        for (seed in 1..4) {
+            for (hz in listOf(163.0, 178.0, 207.0, 233.0)) {
+                // A motor on a hard table shakes it by a few m/s².
+                for (amp in listOf(1f, 3f, 8f)) {
+                    setUp()
+                    stepMs = listOf(10L, 20L, 40L)[(seed + hz.toInt()) % 3] // 100, 50 or 25 Hz.
+                    random = Random(seed * 1000L + hz.toLong())
+                    host.screenOff = true
+                    val rest = if (seed % 2 == 0) faceUp else faceDown
+                    if (rest === faceDown) placeOnTable() else still(faceUp, 1500)
+                    still(rest, 3000)
+                    buzz(rest, hz, amp, listOf(250, 150, 250)) // A notification's double buzz.
+                    still(rest, 3000)
+                    buzz(rest, hz, amp, listOf(1000, 500, 1000, 500, 1000)) // A ringing call.
+                    still(rest, 3000)
+                    if (host.transitions.any { it.second.isAlarm }) {
+                        failures += "seed $seed ${hz}Hz ${amp} at ${1000 / stepMs} Hz: ${engine.evidence}"
+                    }
+                }
+            }
+        }
+        stepMs = 20L
+        assertTrue(failures.joinToString("; "), failures.isEmpty())
+    }
+
+    @Test
+    fun slidRightAfterANotificationBuzzStillWarns() {
+        placeOnTable()
+        still(faceDown, 3000)
+        buzz(faceDown, 178.0, 8f, listOf(250, 150, 250))
+        still(faceDown, 1500)
+        stream(1200) { t -> floatArrayOf(minJerkAccel(20f, 1200, t), 0f, -G) }
+        still(faceDown, 2500)
+        warnedWith(Evidence.TABLE_SLIDE)
+    }
+
+    @Test
+    fun pickedUpDuringANotificationBuzzStillWarns() {
+        host.screenOff = true
+        still(faceUp, 4500)
+        assertEquals(Phase.ON_TABLE, engine.phase)
+        var phase = 0.0
+        // Picked up mid-buzz: whatever the buzz hides, the phone is then in a hand.
+        stream(500) { t ->
+            phase += 2 * PI * 178.0 * stepMs / 1000.0
+            val w = 4f * sin(phase).toFloat()
+            floatArrayOf(w, 0.6f * w, G + minJerkAccel(8f, 500, t) + 0.3f * w)
+        }
+        noise = 0.12f // In the hand, turned to look.
+        stream(4000) { t -> faceDownTilted(180f - 25f * (t / 4000f).coerceAtMost(0.5f) * 2) }
+        noise = 0.01f
+        assertTrue(engine.phase.isAlarm)
+    }
+
     @Test
     fun vibrationAloneNeverDropsTableMode() {
         placeOnTable()
