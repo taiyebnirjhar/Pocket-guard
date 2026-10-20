@@ -2,10 +2,11 @@ package com.taiyeb.pocketguard
 
 import androidx.annotation.StringRes
 
+/** [sosOnly]: the theft guard is off, so armed means only that SOS is ready. */
 @StringRes
-fun Phase.titleRes() = when (this) {
+fun Phase.titleRes(sosOnly: Boolean = false) = when (this) {
     Phase.OFF -> R.string.phase_off
-    Phase.WAITING_FOR_POCKET -> R.string.phase_waiting
+    Phase.WAITING_FOR_POCKET -> if (sosOnly) R.string.phase_sos_only else R.string.phase_waiting
     Phase.IN_POCKET -> R.string.phase_in_pocket
     Phase.ON_TABLE -> R.string.phase_on_table
     Phase.WARNING -> R.string.phase_warning
@@ -24,9 +25,9 @@ fun Phase.shortRes() = when (this) {
 }
 
 @StringRes
-fun Phase.hintRes() = when (this) {
+fun Phase.hintRes(sosOnly: Boolean = false) = when (this) {
     Phase.OFF -> R.string.phase_off_hint
-    Phase.WAITING_FOR_POCKET -> R.string.phase_waiting_hint
+    Phase.WAITING_FOR_POCKET -> if (sosOnly) R.string.phase_sos_only_hint else R.string.phase_waiting_hint
     Phase.IN_POCKET -> R.string.phase_in_pocket_hint
     Phase.ON_TABLE -> R.string.phase_on_table_hint
     Phase.WARNING -> R.string.phase_warning_hint

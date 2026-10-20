@@ -3,6 +3,7 @@ package com.taiyeb.pocketguard
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +39,8 @@ fun TriggersScreen(refreshKey: Int) {
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
     var tableGuard by remember { mutableStateOf(Prefs.tableGuard(context)) }
     var sosButtons by remember { mutableStateOf(Prefs.sosButtons(context)) }
+    var theft by remember { mutableStateOf(Prefs.theftGuard(context)) }
+    val keepOne = { Toast.makeText(context, R.string.triggers_keep_one, Toast.LENGTH_LONG).show() }
     var camera by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -71,15 +74,30 @@ fun TriggersScreen(refreshKey: Int) {
     TabPage(stringResource(R.string.triggers_title), stringResource(R.string.triggers_sub)) {
         SectionLabel(stringResource(R.string.triggers_alarms))
         GlassCard {
-            SettingRow(R.drawable.ic_pocket, stringResource(R.string.triggers_pocket), stringResource(R.string.triggers_pocket_sub)) {
-                TagPill(stringResource(R.string.tag_always_on), Lavender)
+            ToggleRow(R.drawable.ic_shield, stringResource(R.string.triggers_theft), stringResource(R.string.triggers_theft_sub), theft) {
+                if (!it && !sosButtons) {
+                    keepOne()
+                    return@ToggleRow
+                }
+                theft = it
+                Prefs.setTheftGuard(context, it)
+                GuardService.refreshTheft()
             }
-            ToggleRow(R.drawable.ic_shield, stringResource(R.string.triggers_table), stringResource(R.string.triggers_table_sub), tableGuard) {
-                tableGuard = it
-                Prefs.setTableGuard(context, it)
+            if (theft) {
+                SettingRow(R.drawable.ic_pocket, stringResource(R.string.triggers_pocket), stringResource(R.string.triggers_pocket_sub)) {
+                    TagPill(stringResource(R.string.tag_always_on), Lavender)
+                }
+                ToggleRow(R.drawable.ic_shield, stringResource(R.string.triggers_table), stringResource(R.string.triggers_table_sub), tableGuard) {
+                    tableGuard = it
+                    Prefs.setTableGuard(context, it)
+                }
             }
             if (Prefs.SOS_AVAILABLE) {
                 ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
+                    if (!it && !theft) {
+                        keepOne()
+                        return@ToggleRow
+                    }
                     sosButtons = it
                     Prefs.setSosButtons(context, it)
                     GuardService.refreshSos()
@@ -92,18 +110,20 @@ fun TriggersScreen(refreshKey: Int) {
                     Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
                 }
             }
-            ToggleRow(R.drawable.ic_flight, stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
-                airplane = it
-                Prefs.setAirplaneAlarm(context, it)
-            }
-            ToggleRow(R.drawable.ic_plug, stringResource(R.string.triggers_charger), stringResource(R.string.triggers_charger_sub), charger) {
-                charger = it
-                Prefs.setChargerAlarm(context, it)
-            }
-            ToggleRow(R.drawable.ic_headset, stringResource(R.string.triggers_earbuds), stringResource(R.string.triggers_earbuds_sub), earbuds) {
-                earbuds = it
-                Prefs.setEarbudsAlarm(context, it)
-                if (it) askBluetooth()
+            if (theft) {
+                ToggleRow(R.drawable.ic_flight, stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
+                    airplane = it
+                    Prefs.setAirplaneAlarm(context, it)
+                }
+                ToggleRow(R.drawable.ic_plug, stringResource(R.string.triggers_charger), stringResource(R.string.triggers_charger_sub), charger) {
+                    charger = it
+                    Prefs.setChargerAlarm(context, it)
+                }
+                ToggleRow(R.drawable.ic_headset, stringResource(R.string.triggers_earbuds), stringResource(R.string.triggers_earbuds_sub), earbuds) {
+                    earbuds = it
+                    Prefs.setEarbudsAlarm(context, it)
+                    if (it) askBluetooth()
+                }
             }
         }
 

@@ -66,6 +66,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     // Re-read on resume: test mode switches itself off after an hour.
     val testMode = remember(refreshKey, phase) { Prefs.testMode(context) }
     val grace = remember(refreshKey) { Prefs.graceSeconds(context) }
+    val sosOnly = remember(refreshKey) { !Prefs.theftGuard(context) }
     // Contacts set up but the message or people changed since approval (or the language, or the
     // live link setting): SOS alerts are off until the owner approves again.
     val alertsOff = remember(refreshKey) { EmergencyContacts.needsReapproval(context) }
@@ -119,7 +120,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         }
 
         Text(
-            stringResource(phase.titleRes()),
+            stringResource(phase.titleRes(sosOnly)),
             color = TextPrimary,
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -127,7 +128,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            stringResource(phase.hintRes()),
+            stringResource(phase.hintRes(sosOnly)),
             color = Muted,
             fontSize = 15.sp,
             textAlign = TextAlign.Center,

@@ -50,12 +50,12 @@ object Notifications {
         )
         val builder = NotificationCompat.Builder(context, STATUS_CHANNEL)
             .setSmallIcon(R.drawable.ic_shield)
-            .setContentTitle(context.getString(phase.titleRes()))
+            .setContentTitle(context.getString(phase.titleRes(!Prefs.theftGuard(context))))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        builder.setContentText(context.getString(phase.hintRes()))
+        builder.setContentText(context.getString(phase.hintRes(!Prefs.theftGuard(context))))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         // One tap from the lock screen, no unlock needed: the Play-safe way to call for help.
         if (phase != Phase.OFF && !phase.isAlarm) {

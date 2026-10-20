@@ -26,6 +26,8 @@ class GuardEngine(
         val chargerAlarm: Boolean,
         val earbudsAlarm: Boolean,
         val tableGuard: Boolean = true,
+        /** Off: SOS only. Nothing protects the pocket or table, and no theft trigger warns. */
+        val theftGuard: Boolean = true,
     )
 
     enum class Timer { CONFIRM_POCKET, CHECK_REMOVAL, SIREN, DECIDE, TABLE_CHECK, TABLE_WATCH }
@@ -78,7 +80,27 @@ class GuardEngine(
 
 
         /** Covered and dark again this soon after a pocket warning: it was fabric, not a hand. */
-        const val FLICKER_RECOVERY_MS = 1000L
+        const val FLICKER_RECOVERY_MS = 2500L
+
+        /**
+         * Just protected: an uncover this soon is the phone still sliding in (or the owner taking
+         * it straight back out), not a theft; it goes back to waiting for the pocket instead.
+         */
+        const val POCKET_SETTLE_MS = 2000L
+
+        /**
+         * Covered at the angle it was last used at, unlocked: a finger or palm over the sensor of a
+         * phone still in the hand. It is protected once it turns this far from that angle and
+         * stays there, or walking starts, or after [HAND_GIVE_UP_MS] covered.
+         */
+        const val HAND_SAME_DEG = 25f
+        const val HAND_MOVED_DEG = 35f
+        const val HAND_MOVED_HOLD_MS = 1500L
+        const val HAND_GIVE_UP_MS = 60_000L
+        const val HAND_RECHECK_MS = 500L
+
+        /** Sitting down or standing up: one smooth turn of at least this, which can bare the sensor. */
+        const val POSTURE_SHIFT_DEG = 45f
 
         /** During a call at the ear, try confirming the pocket again this often. */
         const val CALL_RETRY_MS = 2000L
@@ -173,6 +195,8 @@ class GuardEngine(
         lastMotionAt = null
         resetEpisode()
         table.clearLatch()
+        hasUse = false
+        heldAt = null
         go(Phase.WAITING_FOR_POCKET)
     }
 
@@ -193,6 +217,8 @@ class GuardEngine(
         )
         uncoveredAt = if (isNear) null else now
         if (isNear) coveredAt = now
+        heldAt = null
+        movedSince = -1L
         // Many phones stop reporting light while the screen is off, so a reading only counts if it
         // arrives after this change; older values say nothing about where the phone is now.
         if (isNear) coveredLux = null else uncoveredLux = null
@@ -214,6 +240,10 @@ class GuardEngine(
             Phase.WAITING_FOR_POCKET -> if (isNear) host.schedule(Timer.CONFIRM_POCKET, POCKET_CONFIRM_MS)
             Phase.IN_POCKET -> if (isNear) {
                 if (wasNear == false) onRecovered(now)
+            } else if (now - protectedAt < POCKET_SETTLE_MS) {
+                host.log("uncovered right after going in: still settling, not a theft")
+                resetEpisode()
+                go(Phase.WAITING_FOR_POCKET)
             } else {
                 startEpisode(now)
                 host.schedule(Timer.CHECK_REMOVAL, removalConfirmMs)
@@ -224,27 +254,39 @@ class GuardEngine(
         }
     }
 
-    /** Re-covered within a second of a pocket warning: the pocket shifted, the phone never left. */
+    /** Re-covered soon after a pocket warning: the pocket shifted, the phone never left. */
     private fun recoverFromFlicker() {
         val startedAt = warningAt ?: return
         if (phase == Phase.SIREN && !fast) return // That siren followed a whole grace period.
         if (trigger != Trigger.POCKET_REMOVAL || host.now() - startedAt > FLICKER_RECOVERY_MS) return
-        // Bright light means it really was out; covered again now is a thief's hand or pocket.
-        if (confirmedByLight) return
-        // So does a pocket swap: only warnings confirmed by the uncover alone, or a jolt, recover.
-        if (evidence != Evidence.UNCOVERED && evidence != Evidence.JOLT && evidence != Evidence.PROXIMITY_ONLY) return
-        // A jolt is fabric flicker only if the phone barely turned: a hand pulling it out and
-        // cupping the sensor or pocketing it swings it about on the way, even if it ends up at
-        // the same angle.
-        if (evidence == Evidence.JOLT && hasMotionData &&
-            (turnedDeg > FLICKER_MAX_PATH_DEG || motion.gravityAngleTo(preX, preY, preZ) > FLICKER_MAX_TURN_DEG)
+        // A pocket swap is judged by the out-and-in rules, not here.
+        if (evidence != Evidence.UNCOVERED && evidence != Evidence.JOLT &&
+            evidence != Evidence.PROXIMITY_ONLY && evidence != Evidence.LIGHT
         ) {
             return
         }
+        val net = if (hasMotionData) motion.gravityAngleTo(preX, preY, preZ) else 0f
+        // Sitting down or standing up turns it one way in one go, and can let light in at the
+        // pocket's mouth for a moment. A hand takes it out, turns it about and puts it away, so its
+        // path is much longer than where it ends up; and nobody looked at the screen.
+        val postureShift = hasMotionData && net >= POSTURE_SHIFT_DEG && pathDeg <= 1.5f * net &&
+            host.now() - displayCueAt > DISPLAY_CUE_MS
+        if (!postureShift) {
+            // Bright light means it really was out; covered again now is a thief's hand or pocket.
+            if (confirmedByLight) return
+            // Fabric flicker barely turns the phone: a hand pulling it out and cupping the sensor or
+            // pocketing it swings it about on the way, even if it ends up at the same angle.
+            if (hasMotionData && evidence != Evidence.PROXIMITY_ONLY &&
+                (turnedDeg > FLICKER_MAX_PATH_DEG || net > FLICKER_MAX_TURN_DEG)
+            ) {
+                return
+            }
+        }
+        host.log(if (postureShift) "covered again after one smooth turn: sat down or stood up" else "covered again: the pocket shifted")
         cancelAll()
         go(Phase.IN_POCKET)
-        // Turned far while it was out: maybe the thief's own pocket, so decide as for any re-cover.
-        if (hasMotionData && (peakHeld || motion.gravityAngleTo(preX, preY, preZ) >= OUT_AND_IN_FINAL_DEG)) {
+        // Held at a big angle while out: maybe the thief's own pocket, so decide as for any re-cover.
+        if (!postureShift && hasMotionData && peakHeld) {
             deciding = true
             decideCue = cueInEpisode
             host.schedule(Timer.DECIDE, OUT_AND_IN_DECIDE_MS)
@@ -281,6 +323,7 @@ class GuardEngine(
             // with a sensor that reads far): protected now. Not at a tilt, as on a lap or upright
             // in a loose pocket.
             Phase.WAITING_FOR_POCKET -> if (near != true && motion.atRest && lyingFlat() && host.config().tableGuard &&
+                host.config().theftGuard &&
                 host.screenOff() && host.isLocked() && !host.inCall()
             ) {
                 host.log("locked, screen off and lying still: table protection on")
@@ -367,6 +410,23 @@ class GuardEngine(
         siren(Trigger.SOS)
     }
 
+    /**
+     * The theft guard was turned off while armed (SOS only from now on): stop protecting, and end
+     * a theft warning or siren. An SOS carries on.
+     */
+    fun onTheftGuardOff() {
+        if (phase == Phase.OFF || phase == Phase.WAITING_FOR_POCKET) return
+        if (phase.isAlarm && (trigger == Trigger.SOS || trigger == Trigger.RESTARTED)) return
+        cancelAll()
+        resetEpisode()
+        go(Phase.WAITING_FOR_POCKET)
+    }
+
+    /** The theft guard was turned back on: a phone already covered is protected again. */
+    fun onTheftGuardOn() {
+        if (phase == Phase.WAITING_FOR_POCKET) protectAgainWhenCovered()
+    }
+
     /** Restores an alarm that was running when the phone restarted or the app was killed. */
     fun resumeAlarm() {
         if (phase == Phase.OFF) return
@@ -374,7 +434,7 @@ class GuardEngine(
     }
 
     fun onAirplaneModeOn() {
-        if (phase != Phase.OFF && host.config().airplaneAlarm && host.isLocked()) siren(Trigger.AIRPLANE_MODE)
+        if (phase != Phase.OFF && host.config().theftGuard && host.config().airplaneAlarm && host.isLocked()) siren(Trigger.AIRPLANE_MODE)
     }
 
     /** Someone unplugged the phone while it was locked, e.g. charging at a café or station. */
@@ -400,7 +460,7 @@ class GuardEngine(
     }
 
     private fun confirmPocket() {
-        if (phase != Phase.WAITING_FOR_POCKET || near != true) return
+        if (phase != Phase.WAITING_FOR_POCKET || near != true || !host.config().theftGuard) return
         // In a call, or unlocked with the screen on: a pull-out now would count as the owner, so
         // "protected" would be a lie. Confirm once the call ends or the screen goes off.
         if (host.inCall() || !host.isLocked()) {
@@ -411,10 +471,35 @@ class GuardEngine(
             return
         }
         waitingWhy = null
+        val now = host.now()
+        if (stillInHand(now)) {
+            if (heldAt == null) {
+                heldAt = now
+                host.log("covered at the angle it was just used at: still in the hand? Protecting once it goes in")
+            }
+            host.schedule(Timer.CONFIRM_POCKET, HAND_RECHECK_MS)
+            return
+        }
+        if (heldAt != null) host.log("it moved: in the pocket now")
+        heldAt = null
         resetEpisode()
         go(Phase.IN_POCKET)
+        protectedAt = now
         host.confirmBuzz()
         table.ownVibration(host.now(), 100)
+    }
+
+    /**
+     * Covered, locked, but still at the angle it was in use at a moment ago (see [HAND_SAME_DEG]):
+     * a finger over the sensor of a phone in the hand. A pocket or bag turns it on the way in.
+     */
+    private fun stillInHand(now: Long): Boolean {
+        if (!hasMotionData || !hasUse || now - motion.lastSampleAt > 1000L) return false
+        // Walking, lying table-still (no hand is), or screen-down (nobody looks at it that way).
+        if (motion.walking(now) || motion.atRest || motion.gravityAngleTo(0f, 0f, -1f) < 90f) return false
+        val held = heldAt ?: return motion.gravityAngleTo(useX, useY, useZ) < HAND_SAME_DEG
+        if (now - held >= HAND_GIVE_UP_MS) return false
+        return movedSince < 0 || now - movedSince < HAND_MOVED_HOLD_MS
     }
 
     private fun checkRemoval() {
@@ -525,6 +610,17 @@ class GuardEngine(
         rotationRing[i] = motion.gx; rotationRing[i + 1] = motion.gy; rotationRing[i + 2] = motion.gz
         postureRing[i] = motion.sx; postureRing[i + 1] = motion.sy; postureRing[i + 2] = motion.sz
         postureFrames++
+        if (near == false && !host.isLocked()) {
+            hasUse = true
+            useX = motion.sx; useY = motion.sy; useZ = motion.sz
+        }
+        if (heldAt != null) {
+            if (motion.gravityAngleTo(useX, useY, useZ) >= HAND_MOVED_DEG) {
+                if (movedSince < 0) movedSince = t
+            } else {
+                movedSince = -1L
+            }
+        }
         // The path the phone turned through, from the uncover until the out-and-in decision.
         if (episodeActive || deciding || (phase.isAlarm && trigger == Trigger.POCKET_REMOVAL)) {
             pathDeg += MotionProcessor.angle(lastX, lastY, lastZ, motion.fx, motion.fy, motion.fz)
@@ -601,6 +697,21 @@ class GuardEngine(
     private var tableCheckStage = 0
 
     private var waitingWhy: String? = null
+
+    // The slow gravity while it was last in use (unlocked and uncovered): the hand's angle.
+    private var hasUse = false
+    private var useX = 0f
+    private var useY = 0f
+    private var useZ = 0f
+
+    /** Since when protecting waits on a covered phone that may still be in the hand. */
+    private var heldAt: Long? = null
+
+    /** Since when it has been turned well away from the hand's angle (-1: it hasn't). */
+    private var movedSince = -1L
+
+    /** When it last went into the pocket, for [POCKET_SETTLE_MS]. */
+    private var protectedAt = Long.MIN_VALUE / 2
 
     private fun enterTable(t: Long) {
         cancelAll()
@@ -726,6 +837,7 @@ class GuardEngine(
 
     private fun warn(cause: Trigger, why: Evidence? = null) {
         if (phase != Phase.WAITING_FOR_POCKET && !phase.isProtected) return
+        if (!host.config().theftGuard) return
         warningAt = host.now()
         evidence = why
         resetEpisode()

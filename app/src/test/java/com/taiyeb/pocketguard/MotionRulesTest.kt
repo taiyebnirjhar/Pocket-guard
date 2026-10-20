@@ -1008,4 +1008,113 @@ class MotionRulesTest {
         still(upright, 2000)
         warnedWith(Evidence.JOLT)
     }
+
+    // --- Field log, 20 Oct: held in the hand, and sitting down ------------------------------------
+
+    /** Held to look at: screen up, tilted toward the face, 146° from face-down (as in the log). */
+    private val inHand = floatArrayOf(0f, G * sin(146f * PI.toFloat() / 180f), -G * cos(146f * PI.toFloat() / 180f))
+
+    private fun usedThenLocked() {
+        host.locked = false
+        noise = 0.15f // A hand is never as still as a table.
+        still(inHand, 3000)
+        host.locked = true
+        host.screenOff = true
+        engine.onScreenOff()
+    }
+
+    @Test
+    fun lockedInTheHandWithAFingerOverTheSensorIsNotProtected() {
+        usedThenLocked()
+        engine.onProximity(true)
+        still(inHand, 25_000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        engine.onProximity(false)
+        still(inHand, 5000)
+        neverWarned()
+    }
+
+    @Test
+    fun heldWithTheSensorCoveredThenPocketedIsProtected() {
+        usedThenLocked()
+        engine.onProximity(true)
+        still(inHand, 5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        // Slid into a pocket without ever uncovering it.
+        stream(700) { t -> val k = t / 700f; floatArrayOf(0f, inHand[1] + (G - inHand[1]) * k, inHand[2] * (1 - k)) }
+        still(upright, 3000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun lockedAndPocketedRightAwayIsProtectedAsBefore() {
+        usedThenLocked()
+        stream(400) { t -> val k = t / 700f; floatArrayOf(0f, inHand[1] + (G - inHand[1]) * k, inHand[2] * (1 - k)) }
+        engine.onProximity(true) // Covered at the pocket's mouth, still turning.
+        stream(300) { t -> val k = (400 + t) / 700f; floatArrayOf(0f, inHand[1] + (G - inHand[1]) * k, inHand[2] * (1 - k)) }
+        still(upright, 1500)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun heldCoveredWhileWalkingIsTakenForAPocket() {
+        usedThenLocked()
+        engine.onProximity(true)
+        stream(6000) { t -> if (t % 550 < 60) floatArrayOf(inHand[0], inHand[1] + 3f, inHand[2]) else inHand }
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun aPhoneNeverUnlockedIsProtectedAtOnce() {
+        // Armed by the tile from the lock screen: there is no in-use angle to compare with.
+        host.screenOff = true
+        noise = 0.15f
+        still(inHand, 2000)
+        engine.onProximity(true)
+        still(inHand, 1000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    /** Standing to sitting: the phone in the front pocket turns from upright to flat in one go. */
+    private fun sitDown(ms: Long, t: Long) = uprightTurned(-90f * (t.coerceAtMost(ms).toFloat() / ms))
+
+    @Test
+    fun sittingDownBaresTheSensorForAMomentAndStaysQuiet() {
+        pocketUpright()
+        engine.onProximity(false)
+        stream(1000) { t -> sitDown(1000, t) }
+        assertEquals(Phase.WARNING, engine.phase)
+        engine.onProximity(true)
+        still(faceDown, 10_000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        assertFalse(host.transitions.any { it.second == Phase.SIREN })
+    }
+
+    @Test
+    fun sittingDownWithLightAtThePocketsMouthStaysQuiet() {
+        engine.onLight(300f)
+        still(upright, 1000)
+        engine.onProximity(true)
+        engine.onLight(0f)
+        still(upright, 3000)
+        engine.onProximity(false)
+        engine.onLight(150f)
+        stream(1000) { t -> sitDown(1000, t) }
+        warnedWith(Evidence.LIGHT)
+        still(faceDown, 500)
+        engine.onProximity(true)
+        still(faceDown, 10_000)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun takenOutLookedAtAndCoveredStillWarns() {
+        pocketUpright()
+        engine.onProximity(false)
+        engine.onDisplayOn() // Woken as it came out: someone is looking at it.
+        stream(1000) { t -> sitDown(1000, t) }
+        engine.onProximity(true)
+        still(faceDown, 4000)
+        assertEquals(Phase.SIREN, engine.phase)
+    }
 }
