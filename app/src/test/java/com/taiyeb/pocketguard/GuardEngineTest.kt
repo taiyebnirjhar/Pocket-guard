@@ -92,10 +92,11 @@ class GuardEngineTest {
         engine.onLight(300f)
     }
 
+    /** Covered and dark, then left long enough to have settled in. */
     private fun pocket() {
         engine.onProximity(true)
         engine.onLight(0f)
-        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + GuardEngine.POCKET_SETTLE_MS + 10)
     }
 
     /** A hand pulling the phone out: movement, then light and an uncovered sensor. */
@@ -547,7 +548,7 @@ class GuardEngineTest {
     fun frozenLightSensorFallsBackToMotion() {
         // Arrives before pocketing (setUp reads 300 lux with the sensor uncovered), then nothing.
         engine.onProximity(true)
-        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + GuardEngine.POCKET_SETTLE_MS + 10)
         assertEquals(Phase.IN_POCKET, engine.phase)
         engine.onMotion(4f)
         engine.onProximity(false)
@@ -568,7 +569,7 @@ class GuardEngineTest {
     fun sensorRepeatingStaleBrightValueWhileCoveredFallsBackToMotion() {
         engine.onProximity(true)
         engine.onLight(400f) // stale repeat of the room reading
-        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + GuardEngine.POCKET_SETTLE_MS + 10)
         engine.onMotion(4f)
         engine.onProximity(false)
         engine.onLight(400f)
@@ -579,7 +580,7 @@ class GuardEngineTest {
     @Test
     fun frozenLightAndNoMotionStillWarns() {
         engine.onProximity(true)
-        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + GuardEngine.POCKET_SETTLE_MS + 10)
         engine.onProximity(false)
         host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
         assertEquals(Phase.WARNING, engine.phase)
@@ -627,5 +628,102 @@ class GuardEngineTest {
         engine.disarm()
         engine.onSos()
         assertEquals(Phase.OFF, engine.phase)
+    }
+
+    // --- Field log, 20 Oct: false alarms ----------------------------------------------------------
+
+    @Test
+    fun uncoveredRightAfterGoingInIsStillSettling() {
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        // Still sliding in, the fabric slips off the sensor for a moment.
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        host.advance(5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        assertFalse(host.transitions.any { it.second.isAlarm })
+        engine.onProximity(true)
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+    }
+
+    @Test
+    fun coveredAgainTwoSecondsIntoTheWarningRecovers() {
+        pocket()
+        engine.onProximity(false) // The pocket gaped as its owner sat down.
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+        host.advance(2000)
+        engine.onProximity(true)
+        assertEquals(Phase.IN_POCKET, engine.phase)
+        host.advance(10_000)
+        assertFalse(host.transitions.any { it.second == Phase.SIREN })
+    }
+
+    // --- SOS only ---------------------------------------------------------------------------------
+
+    private fun sosOnly() {
+        host.config = host.config.copy(theftGuard = false)
+    }
+
+    @Test
+    fun withTheTheftAlarmOffNothingIsProtectedOrWarns() {
+        sosOnly()
+        engine.onProximity(true)
+        engine.onLight(0f)
+        host.advance(10_000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        engine.onProximity(false)
+        engine.onChargerUnplugged()
+        engine.onAirplaneModeOn()
+        engine.onEarbudsDisconnected()
+        host.advance(10_000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        assertEquals(0, host.confirmBuzzes)
+        assertFalse(host.transitions.any { it.second.isAlarm })
+    }
+
+    @Test
+    fun withTheTheftAlarmOffSosStillWorks() {
+        sosOnly()
+        engine.onSos()
+        assertEquals(Phase.SIREN, engine.phase)
+        assertEquals(Trigger.SOS, host.transitions.last().third)
+    }
+
+    @Test
+    fun turningTheTheftAlarmOffStopsProtectingAndEndsATheftWarning() {
+        pocket()
+        engine.onMotion(8f)
+        engine.onProximity(false)
+        engine.onLight(300f)
+        host.advance(GuardEngine.REMOVAL_CONFIRM_MS + 10)
+        assertEquals(Phase.WARNING, engine.phase)
+        sosOnly()
+        engine.onTheftGuardOff()
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.advance(10_000)
+        assertFalse(host.transitions.any { it.second == Phase.SIREN })
+    }
+
+    @Test
+    fun turningTheTheftAlarmOffDoesNotStopAnSos() {
+        engine.onSos()
+        sosOnly()
+        engine.onTheftGuardOff()
+        assertEquals(Phase.SIREN, engine.phase)
+    }
+
+    @Test
+    fun turningTheTheftAlarmBackOnProtectsACoveredPhone() {
+        sosOnly()
+        engine.onProximity(true)
+        host.advance(5000)
+        assertEquals(Phase.WAITING_FOR_POCKET, engine.phase)
+        host.config = host.config.copy(theftGuard = true)
+        engine.onTheftGuardOn()
+        host.advance(GuardEngine.POCKET_CONFIRM_MS + 10)
+        assertEquals(Phase.IN_POCKET, engine.phase)
     }
 }

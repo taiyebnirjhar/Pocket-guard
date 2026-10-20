@@ -157,6 +157,13 @@ object Prefs {
     fun sosButtons(context: Context) = SOS_AVAILABLE && get(context, "sos_buttons", true)
     fun setSosButtons(context: Context, value: Boolean) = put(context, "sos_buttons", value)
 
+    /**
+     * The theft guard: pocket, table and the other theft alarms. Off, arming gives SOS only.
+     * At least one of this and [sosButtons] stays on (the Triggers screen keeps it so).
+     */
+    fun theftGuard(context: Context) = get(context, "theft_guard", true)
+    fun setTheftGuard(context: Context, value: Boolean) = put(context, "theft_guard", value)
+
     /** Guard a phone lying face-down on a table, not only one in a pocket. */
     fun tableGuard(context: Context) = get(context, "table_guard", true)
     fun setTableGuard(context: Context, value: Boolean) = put(context, "table_guard", value)

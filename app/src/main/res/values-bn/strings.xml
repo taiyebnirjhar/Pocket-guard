@@ -176,7 +176,12 @@
     <string name="notify_schedule_tap">আপনার সময়সূচি Pocket Guard নিজে থেকে চালু করতে পারেনি। চালু করতে চাপুন।</string>
     <string name="triggers_evidence">প্রমাণ</string>
     <string name="triggers_pocket">পকেট বা ব্যাগ থেকে বের করা</string>
-    <string name="triggers_pocket_sub">প্রক্সিমিটি, আলো ও নড়াচড়ার সেন্সর দিয়ে বোঝে। চালু থাকলে সবসময় কাজ করে।</string>
+    <string name="triggers_pocket_sub">প্রক্সিমিটি, আলো ও নড়াচড়ার সেন্সর দিয়ে বোঝে। চুরির অ্যালার্ম চালু থাকলে সবসময় কাজ করে।</string>
+    <string name="triggers_theft">চুরির অ্যালার্ম</string>
+    <string name="triggers_theft_sub">পকেট, ব্যাগ ও টেবিল সুরক্ষা, আর এর নিচের অ্যালার্মগুলো। বন্ধ থাকলে চালু করলে শুধু SOS কাজ করবে।</string>
+    <string name="triggers_keep_one">চুরির অ্যালার্ম বা SOS, অন্তত একটি চালু রাখুন: দুটোই বন্ধ থাকলে চালু করার কিছু থাকে না।</string>
+    <string name="phase_sos_only">SOS প্রস্তুত</string>
+    <string name="phase_sos_only_hint">চুরির অ্যালার্ম বন্ধ। সাহায্য চাইতে স্ক্রিন জাগিয়ে ভলিউম আপ ৪ বার চাপুন।</string>
     <string name="tag_always_on">সবসময়</string>
     <string name="settings_alarm">অ্যালার্ম</string>
     <string name="settings_delay">আনলকের সময়</string>

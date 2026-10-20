@@ -177,7 +177,12 @@
     <string name="notify_schedule_tap">Your schedule couldn\'t arm Pocket Guard by itself. Tap to arm it.</string>
     <string name="triggers_evidence">Evidence</string>
     <string name="triggers_pocket">Taken out of pocket or bag</string>
-    <string name="triggers_pocket_sub">Proximity, light and motion sensors decide. Always on while armed.</string>
+    <string name="triggers_pocket_sub">Proximity, light and motion sensors decide. Always on while the theft alarm is.</string>
+    <string name="triggers_theft">Theft alarm</string>
+    <string name="triggers_theft_sub">Pocket, bag and table protection, and the alarms under it. Off, arming gives SOS only.</string>
+    <string name="triggers_keep_one">Keep the theft alarm or SOS on: with both off there is nothing to arm.</string>
+    <string name="phase_sos_only">SOS ready</string>
+    <string name="phase_sos_only_hint">Theft alarm off. To call for help, tap volume up 4 times with the screen on.</string>
     <string name="tag_always_on">Always on</string>
     <string name="settings_alarm">Alarm</string>
     <string name="settings_delay">Unlock delay</string>

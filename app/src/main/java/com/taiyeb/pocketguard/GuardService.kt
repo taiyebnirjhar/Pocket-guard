@@ -90,6 +90,11 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.updateSos()
         }
 
+        /** The theft guard was turned on or off: apply it to a running guard. */
+        fun refreshTheft() {
+            instance?.updateTheft()
+        }
+
         /** An SOS key gesture ([source] names it, see [SosTaps]). Main thread. */
         fun onSosTaps(source: String) {
             instance?.sosTaps(source)
@@ -456,6 +461,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             "armed: proximity " + (proximitySensor?.let { if (it.isWakeUpSensor) "yes (works screen-off)" else "yes (may sleep screen-off)" } ?: "MISSING") +
                 ", light " + (if (lightSensor != null) "yes" else "no") +
                 ", accelerometer " + (if (motionSensor != null) "yes" else "MISSING") +
+                (if (Prefs.theftGuard(this)) "" else ", THEFT GUARD OFF (SOS only)") +
                 ", table guard " + (if (Prefs.tableGuard(this)) "on" else "off") +
                 ", delay ${Prefs.graceSeconds(this)} s" +
                 (if (Prefs.testMode(this)) ", TEST MODE (siren at 30% volume)" else ""),
@@ -578,6 +584,17 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
     }
 
     private var sosWanted = false
+
+    private fun updateTheft() {
+        val current = engine ?: return
+        cachedConfig = null
+        val on = Prefs.theftGuard(this)
+        log(if (on) "theft guard on" else "theft guard off: SOS only")
+        if (on) current.onTheftGuardOn() else current.onTheftGuardOff()
+        // The status notification says what is guarded.
+        getSystemService(NotificationManager::class.java)
+            .notify(Notifications.STATUS_ID, Notifications.status(this, current.phase))
+    }
 
     /** Volume up tapped 4 times: the SOS alarm, if the volume-key SOS is on. */
     private fun sosTaps(source: String) {
@@ -723,6 +740,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             chargerAlarm = Prefs.chargerAlarm(this),
             earbudsAlarm = Prefs.earbudsAlarm(this),
             tableGuard = Prefs.tableGuard(this),
+            theftGuard = Prefs.theftGuard(this),
         ).also { cachedConfig = it }
     }
 

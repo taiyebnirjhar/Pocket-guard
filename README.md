@@ -187,12 +187,24 @@ test over. To test, let the screen turn off by itself once.
 
 | Trigger | What happens | Default | Needs |
 |---|---|---|---|
-| Taken out of pocket or bag while locked | Warning, then siren | Always on | Proximity sensor |
+| Taken out of pocket or bag while locked | Warning, then siren | Always on with the theft alarm | Proximity sensor |
 | Airplane mode turned on while locked | Siren at once | On | |
 | Charger unplugged while locked (wired, still unplugged after 2 s) | Warning, then siren | On | |
 | Moved or picked up on a table while locked | Warning, then siren | On | Motion sensor |
 | Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in a pocket or on a table: buzz only) | Off | Nearby devices permission |
 | Phone restarted or app killed during an alarm | Alarm resumes, before the first unlock too | Always on | |
+
+**Theft alarm and SOS are separate switches** (Triggers, both on by default). With the theft alarm
+off, arming gives SOS only: nothing guards the pocket or table, none of the triggers above warns, and
+Home and the notification say *SOS ready*. With SOS off, the volume keys do nothing. One of the two
+always stays on.
+
+**Not a theft:** locked in your hand with a finger over the sensor (still at the angle you were just
+using it at) isn't taken for a pocket; protection starts once it turns into a pocket, you walk, or
+after a minute. An uncover in the first 2 s after it goes in is the phone still sliding in. Covered
+again within 2.5 s of a pocket warning ends it when the phone barely turned (the fabric shifted) or
+turned once smoothly, as when you sit down or stand up, even if light got in; not if someone looked at
+the screen while it was out.
 
 **Arming reminders** (both off by default): when chosen earbuds or a watch connect, or when Google
 activity detection sees you board a bus, train or car, a notification asks whether to arm; one tap
