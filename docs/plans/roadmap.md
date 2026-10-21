@@ -5,6 +5,12 @@ and the merge to `main` publishes the release (APK on GitHub; AAB for Play from 
 
 Owner: **C** = Claude writes it · **T** = Taiyeb does it (accounts, consoles, phone tests).
 
+**Status (2026-10-21):** WP1–WP5 are done (v1.5.0–v1.9.0). Work after WP5 (v2.0.0–v2.4.0:
+reviews, the schedule, the 4-tap SOS, the website, false-alarm fixes) is in
+[../history/releases.md](../history/releases.md). WP6 (Play Store) is still open; its live task
+list is in [open-items.md](open-items.md). The tables below are the original plan and are kept
+for the record.
+
 ## WP1 · SOS: hold + and − with recording (v1.5.0)
 
 Superseded in v2.2.0: SOS is now volume up tapped 4 times quickly (see the detection plan).
@@ -51,7 +57,7 @@ Superseded in v2.2.0: SOS is now volume up tapped 4 times quickly (see the detec
 
 | ID | Task | Owner | Done when |
 |---|---|---|---|
-| 4.0 | Create Supabase, Cloudflare and Brevo accounts; add the keys to GitHub Secrets | T | Secrets in place (guide in docs/setup-backend.md) |
+| 4.0 | Create Supabase, Cloudflare and Brevo accounts; add the keys to GitHub Secrets | T | Secrets in place (guide in [docs/setup/backend.md](../setup/backend.md)) |
 | 4.1 | Database schema and row-level security (profiles, contacts, incidents, locations, media) | C | Migrations deploy from CI |
 | 4.2 | Edge functions: start incident, notify (Brevo), viewer token | C | Deployed from CI |
 | 4.3 | Anonymous sign-in per install (no email or password); alerts still work offline | C | e2e against a local backend |

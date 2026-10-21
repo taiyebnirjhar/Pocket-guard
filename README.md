@@ -377,7 +377,7 @@ version are tested but not released.
   the double buzz: if you feel it in your lap, keep table mode in mind when you stand up.
 
 The full detection design, its threat model and what is planned next are in
-[docs/detection-plan.md](docs/detection-plan.md).
+[docs/plans/detection-plan.md](docs/plans/detection-plan.md).
 
 ## Build it yourself
 
