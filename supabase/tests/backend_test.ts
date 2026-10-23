@@ -404,13 +404,19 @@ Deno.test("the live page knows when the phone last reached the server, on the se
 
   await new Promise((r) => setTimeout(r, 1100));
   // So is every location, even one taken earlier and sent late.
-  const up = await call("/rest/v1/locations", t, [{
-    incident_id: inc.id,
-    lat: 1,
-    lng: 2,
-    accuracy: 5,
-    recorded_at: new Date(Date.now() - 600_000).toISOString(),
-  }], "POST", { Prefer: "return=minimal" });
+  const up = await call(
+    "/rest/v1/locations",
+    t,
+    [{
+      incident_id: inc.id,
+      lat: 1,
+      lng: 2,
+      accuracy: 5,
+      recorded_at: new Date(Date.now() - 600_000).toISOString(),
+    }],
+    "POST",
+    { Prefer: "return=minimal" },
+  );
   assertEquals(up.status, 201, await up.text());
   const located = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
   assert(new Date(located.last_seen_at).getTime() > afterPing, `location didn't count: ${located.last_seen_at}`);
@@ -429,7 +435,9 @@ Deno.test("phones can send detection logs but nobody can read them back, and the
   assertDenied(anon.status, await anon.text());
 
   // Someone else's user id can't be set.
-  const other = await call("/rest/v1/diag_logs", t, { ...row, user_id: crypto.randomUUID() }, "POST", { Prefer: "return=minimal" });
+  const other = await call("/rest/v1/diag_logs", t, { ...row, user_id: crypto.randomUUID() }, "POST", {
+    Prefer: "return=minimal",
+  });
   assert(other.status >= 400, `user_id accepted: ${other.status}`);
   await other.body?.cancel();
 
