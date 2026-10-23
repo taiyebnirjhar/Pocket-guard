@@ -65,7 +65,8 @@ class AlarmActivity : ComponentActivity() {
             val phase by GuardState.phase.collectAsState()
             // Switched to a silent SOS (volume down tapped 4 times): nothing may show any more.
             val silent by GuardState.sosSilent.collectAsState()
-            val shown = phase == Phase.SIREN && !(silent && GuardState.alarmTrigger.value == Trigger.SOS)
+            val trigger by GuardState.alarmTrigger.collectAsState()
+            val shown = phase == Phase.SIREN && !(silent && trigger == Trigger.SOS)
             LaunchedEffect(shown) {
                 if (!shown) finish()
             }
