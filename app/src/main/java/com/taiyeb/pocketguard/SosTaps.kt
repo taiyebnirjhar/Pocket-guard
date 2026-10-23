@@ -18,8 +18,11 @@ class SosTaps(private val onTaps: (gesture: String, silent: Boolean) -> Unit) {
     /** Which key the taps in [times] are on. */
     private var countingUp = true
 
-    /** A key went down (not a repeat from holding it) at [now] (ms, any steady clock). */
-    fun press(up: Boolean, now: Long) {
+    /**
+     * A key went down (not a repeat from holding it) at [now] (ms, any steady clock). Returns how
+     * many taps of this key are now in the window (0 once they made the gesture).
+     */
+    fun press(up: Boolean, now: Long): Int {
         if (up != countingUp) {
             times.clear()
             countingUp = up
@@ -29,7 +32,9 @@ class SosTaps(private val onTaps: (gesture: String, silent: Boolean) -> Unit) {
         if (times.size >= TAPS) {
             times.clear()
             onTaps("volume ${if (up) "up" else "down"} tapped $TAPS times", !up)
+            return 0
         }
+        return times.size
     }
 
     fun reset() = times.clear()

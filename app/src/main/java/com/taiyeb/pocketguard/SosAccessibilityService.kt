@@ -23,6 +23,7 @@ class SosAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")
         connected = true
+        if (GuardState.phase.value != Phase.OFF) DetectionLog.add("SOS key watcher on")
         GuardService.refreshSos()
     }
 
@@ -42,8 +43,19 @@ class SosAccessibilityService : AccessibilityService() {
             // harassing her (SOS takes over).
             val audio = getSystemService(android.media.AudioManager::class.java)
             val ownAlarm = GuardState.phase.value.isAlarm
-            val busy = (!ownAlarm && audio.isMusicActive) || audio.mode != android.media.AudioManager.MODE_NORMAL
-            if (busy) taps.reset() else taps.press(up, event.eventTime)
+            val music = !ownAlarm && audio.isMusicActive
+            val mode = audio.mode
+            val key = if (up) "up" else "down"
+            // Each press goes in the detection log (armed only), so a phone where SOS doesn't fire
+            // shows whether the keys arrive at all, and why they didn't count.
+            val armed = GuardState.phase.value != Phase.OFF
+            if (music || mode != android.media.AudioManager.MODE_NORMAL) {
+                taps.reset()
+                if (armed) DetectionLog.add("SOS keys: volume $key ignored (" + (if (music) "music or video playing" else "call or ringing, audio mode $mode") + ")")
+            } else {
+                val n = taps.press(up, event.eventTime)
+                if (armed && n > 0) DetectionLog.add("SOS keys: volume $key ($n of ${SosTaps.TAPS})")
+            }
         }
         return false
     }
@@ -54,6 +66,8 @@ class SosAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         connected = false
+        // The phone (or the user) turned Accessibility off: the volume-key SOS stops working.
+        if (GuardState.phase.value != Phase.OFF) DetectionLog.add("SOS key watcher OFF: volume-key SOS won't work")
         taps.reset()
         GuardService.refreshSos()
         return super.onUnbind(intent)
