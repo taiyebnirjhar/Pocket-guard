@@ -181,8 +181,13 @@ object Prefs {
     fun videoUpload(context: Context) = get(context, "video_upload", true)
     fun setVideoUpload(context: Context, value: Boolean) = put(context, "video_upload", value)
 
-    /** With the live link on: email the SOS alert to contacts who have an address. */
-    fun emailAlerts(context: Context) = get(context, "email_alerts", true)
+    /**
+     * With the live link on: email the SOS alert to contacts who have an address. Off by default,
+     * since the SMS carries the live link and the email service's free plan is small; on for
+     * anyone who approved contacts before this switch existed, so their approval still holds.
+     */
+    fun emailAlerts(context: Context) =
+        if (prefs(context).contains("email_alerts")) get(context, "email_alerts", false) else EmergencyContacts.everApproved(context)
     fun setEmailAlerts(context: Context, value: Boolean) = put(context, "email_alerts", value)
 
     fun onboarded(context: Context) = get(context, "onboarded", false)

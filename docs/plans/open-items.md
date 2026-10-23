@@ -58,7 +58,6 @@ Already confirmed by the owner: pocket sirens fire (field log 2026-10-17); SOS f
 | Schedule on Android 14+: service started by an alarm lacks camera, mic and location until the app opens | C | A notification tells the user. Check whether more can be done. |
 | UI copy: rename "SOS buttons" to "SOS volume key" | C | Optional. |
 | Website screenshot of the old Triggers screen (`site/img/triggers.webp`) | C (website) | Replace with the new Theft and SOS tabs after v2.5.0 ships. |
-| Silent SOS (v2.6.0) and signal-lost alert (v2.7.0) | C | See [sos-ux-plan.md](sos-ux-plan.md). |
 | Old alerts sent before v2.2.0 link to the dead github.io site | none | Accepted while the repo is private. |
 | Delete merged `wip/*` branches on GitHub | T | `wip/backend-check`, `wip/contacts`, `wip/detection-v1.2.0`, `wip/e2e-pocket-race`, `wip/live-location`, `wip/media`, `wip/play-ready`, `wip/sos`. Claude's proxy can't delete remote branches. Also the old `pocket-guard-build-2` prerelease (optional). |
 | Brevo housekeeping | T | Optional: remove the unused old Gmail sender; rotate the Brevo API key (part of it appeared in a screenshot). |

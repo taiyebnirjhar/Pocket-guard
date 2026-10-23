@@ -385,3 +385,33 @@ Deno.test("deleting the account also removes uploads that were never confirmed",
   assertEquals((await call("/functions/v1/delete-account", t, {})).status, 200);
   assertEquals(await fetch(objectUrl).then((r) => (r.body?.cancel(), r.status)), 404);
 });
+
+Deno.test("the live page knows when the phone last reached the server, on the server's clock", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const first = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assert(first.last_seen_at && first.now, JSON.stringify(first));
+  const opened = new Date(first.last_seen_at).getTime();
+  assert(new Date(first.now).getTime() >= opened);
+
+  await new Promise((r) => setTimeout(r, 1100));
+  // No new location: the phone's check-in (a battery update) is a sign of life.
+  const ping = await call(`/rest/v1/incidents?id=eq.${inc.id}`, t, { battery: 70 }, "PATCH");
+  assertEquals(ping.status, 204, await ping.text());
+  const pinged = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  const afterPing = new Date(pinged.last_seen_at).getTime();
+  assert(afterPing > opened, `check-in didn't count: ${pinged.last_seen_at}`);
+
+  await new Promise((r) => setTimeout(r, 1100));
+  // So is every location, even one taken earlier and sent late.
+  const up = await call("/rest/v1/locations", t, [{
+    incident_id: inc.id,
+    lat: 1,
+    lng: 2,
+    accuracy: 5,
+    recorded_at: new Date(Date.now() - 600_000).toISOString(),
+  }], "POST", { Prefer: "return=minimal" });
+  assertEquals(up.status, 201, await up.text());
+  const located = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assert(new Date(located.last_seen_at).getTime() > afterPing, `location didn't count: ${located.last_seen_at}`);
+});

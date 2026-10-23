@@ -127,10 +127,16 @@ restart during SOS carries on: an alert already sent isn't sent again, and one y
 cancelled. "False alarm" goes only to whoever the alert reached, and a retry still waiting never
 follows it.
 
-**Live location link, video upload and alert emails** (SOS tab, each its own switch, all on by
-default; video upload and emails need the live link):
+**Live location link, video upload and alert emails** (SOS tab, each its own switch; the live
+link and video upload on by default, emails off by default, and on for anyone who approved
+contacts before v2.6.0; video upload and emails need the live link):
 the SMS also carries a private link to a live map (`https://pocket-guard.pages.dev/live/#t=<token>`), and
-contacts with an email address get the alert by email, then "false alarm" if you stop right away.
+with emails on, contacts with an email address get the alert by email, then "false alarm" if you
+stop right away. Emails are kept to the SOS alert itself, since Brevo's free plan is small: "Send
+a test" goes by SMS only. If the phone stops reaching the server for 60 s during SOS (switched
+off, smashed, no signal), the live map says **"The phone has been offline since 21:42"** and shows
+where it was last seen; it updates by itself if the phone comes back. During SOS the phone checks
+in every 15 s even when it has no new location, so standing still never looks like offline.
 With video upload on, the SOS video is recorded at 480p (about 12 MB a minute; 720p, about 30 MB,
 without it) and each one-minute piece is uploaded to
 R2 as it's saved, through a link the server signs for that piece; the live page lists the

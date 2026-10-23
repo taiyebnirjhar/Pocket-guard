@@ -1,4 +1,4 @@
-# SOS and settings UX plan (v2.5.0 to v2.7.0)
+# SOS and settings UX plan (shipped together as v2.6.0)
 
 Agreed with the owner on 2026-10-23. Each step is one PR and one release.
 
@@ -41,14 +41,19 @@ Agreed with the owner on 2026-10-23. Each step is one PR and one release.
 - Limits Android won't let us hide: the green camera/microphone dot (Android 12+), and the phone can
   still be switched off (the power-menu blocker is a separate, GitHub-only question).
 
-## Step 3 · v2.7.0 · Signal-lost alert
+## Step 3 · v2.6.0 (with steps 1 and 2) · Signal lost, on the live map only
 
-- During an active SOS the phone uploads its location every 15 s. If the server gets nothing for
-  **60 s** (4 missed updates), it emails the contacts: "Phone went offline at 21:42, last seen here",
-  once per gap, and again when it comes back.
-- The live page shows "Offline since 21:42" with the last position and the route so far.
-- Switching the phone off or smashing it becomes an alert in itself.
-- Runs on the existing free tier (a Supabase scheduled function every minute).
+- Owner, 2026-10-23: "Keep things in live location as much as possible. Reduce email usage as much
+  as possible… Goal is to keep things 0 infra for life." So no email, no server job.
+- The server keeps `incidents.last_seen_at`: the time of the phone's latest upload (a location, or
+  a check-in with the battery every 15 s when there's no new location). `view_incident` also returns
+  the server's own time, so the viewer's clock doesn't matter.
+- The live page: SOS active and **60 s** without the phone → "The phone has been offline since 21:42
+  (3 min). It may be switched off, broken or out of signal", with the last position and the route
+  (already drawn). It clears by itself when the phone comes back.
+- Fewer emails: "Send a test" is SMS only; the email switch is **off by default** (on for anyone who
+  approved contacts before, so their approval holds). The SOS email and its "false alarm" follow-up
+  stay for those who switch emails on.
 
 ## Not now
 

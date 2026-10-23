@@ -164,7 +164,7 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   Settings → Online (v1.8.0) and the mixed Triggers screen.
 - **Why:** Owner: "I didnt saw anything online / online feature… Its not clarified on the ui", and
   "user may turn on / off: video upload online".
-- **Status:** current. Next: silent SOS (v2.6.0) and the signal-lost alert (v2.7.0), see
+- **Status:** current. Silent SOS and the live-map signal-lost notice shipped in the same release, see
   [../plans/sos-ux-plan.md](../plans/sos-ux-plan.md).
 
 ### Silent SOS on volume down × 4
@@ -180,11 +180,20 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   SOS" does.
 - **Status:** v2.6.0.
 
-### Signal-lost alert after 60 s
-- **Date / version:** 2026-10-23, planned for v2.7.0
-- **Decision:** During SOS, if the server hears nothing for 60 s, it emails the contacts the last
-  position and the live page shows "Offline since".
-- **Why:** Power-off can't be blocked, so being cut off is made an alert itself. Owner wanted it
-  shorter than 2 minutes; 60 s is 4 missed 15 s updates, so a lift or tunnel doesn't set it off.
-- **Status:** planned.
+### Signal lost shown on the live map, no email
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** During SOS, 60 s without the phone reaching the server → the live page says "The
+  phone has been offline since …" with the last place seen. No email and no scheduled server job.
+- **Why:** Power-off can't be blocked, so being cut off is shown instead. Owner: "Keep things in live
+  location as much as possible. Reduce email usage as much as possible… 0 infra for life." 60 s is 4
+  missed 15 s check-ins, so a lift or tunnel doesn't set it off.
+- **Rejected:** emailing contacts from the server (needs their addresses stored during SOS, and uses
+  Brevo's small free plan).
+- **Status:** current.
 
+### Emails kept to the minimum
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** Alert emails off by default (the SMS carries the live link); on for anyone who
+  approved contacts before. "Send a test" goes by SMS only.
+- **Why:** Brevo's free plan is small; the goal is zero running cost for good.
+- **Status:** current.
