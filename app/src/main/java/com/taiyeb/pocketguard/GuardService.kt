@@ -62,6 +62,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         /** Warnings where the owner is likely looking at the phone start this much later. */
         private const val OWNER_SILENT_MS = 1500L
 
+        /** After an alarm ends, its detection log is sent this much later (see [DiagLogs]). */
+        private const val DIAG_AFTER_ALARM_MS = 20_000L
+
         private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
@@ -489,6 +492,7 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
 
     fun disarm() {
         engine?.disarm()
+        DiagLogs.send(this, "disarm")
         stopMonitoring()
         Prefs.setArmed(this, false)
         Prefs.setAlarmActive(this, false)
@@ -896,6 +900,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
                 if (trigger == Trigger.SOS) alerts.stop()
                 setSilentFlag(false)
+                // What happened just after (unlocked, put back) belongs with it.
+                val app = applicationContext
+                handler.postDelayed({ DiagLogs.send(app, "alarm") }, DIAG_AFTER_ALARM_MS)
                 GuardState.unlockStopsAlarm.value = true
                 Prefs.setAlarmUnlockStops(this, true)
             }

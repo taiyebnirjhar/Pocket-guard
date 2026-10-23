@@ -229,6 +229,14 @@ again within 2.5 s of a pocket warning ends it when the phone barely turned (the
 turned once smoothly, as when you sit down or stand up, even if light got in; not if someone looked at
 the screen while it was out.
 
+**Send detection logs** (Settings, off by default): after each alarm (20 s later, so the unlock
+is in it), when the guard is turned off, and on **Send the log now**, the detection log lines not
+sent yet go to Supabase (`diag_logs`) with the phone's make, model, Android version, sensor
+details and Pocket Guard settings. No location, contacts or messages. History asks of each alarm
+**"Was this alarm right?"** (**Yes, or my test** / **False alarm**); the answer is kept and logged
+too. The app can only add rows (30 a day per phone, nothing past 100 MB in all); they're read by
+exporting the table from the Supabase dashboard, and deleted after 30 days or with the account.
+
 **Arming reminders** (both off by default): when chosen earbuds or a watch connect, or when Google
 activity detection sees you board a bus, train or car, a notification asks whether to arm; one tap
 arms it. It never arms by itself on a guess, since that set off alarms nobody expected.

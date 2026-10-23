@@ -341,6 +341,17 @@
     <string name="home_silent_send">Send the alert from the SMS app</string>
     <string name="home_silent_stop">I\'m safe: stop the SOS</string>
     <string name="home_silent_stop_sub">Unlocking doesn\'t stop a silent SOS; this does.</string>
+    <string name="diag_send">Send detection logs</string>
+    <string name="diag_send_sub">Helps fix false alarms on your phone. After each alarm, sends what the guard saw and decided (sensor events and timings), your phone model, Android version and Pocket Guard settings to Pocket Guard\'s server. No location, contacts or messages. Deleted after 30 days.</string>
+    <string name="diag_send_now">Send the log now</string>
+    <string name="diag_sending">Sending…</string>
+    <string name="diag_sent">Sent. Thank you!</string>
+    <string name="diag_failed">Couldn\'t send it now: it goes with the next one.</string>
+    <string name="history_label_question">Was this alarm right?</string>
+    <string name="history_label_right">Yes, or my test</string>
+    <string name="history_label_false">False alarm</string>
+    <string name="history_marked_right">Marked: right (or your test)</string>
+    <string name="history_marked_false">Marked: false alarm</string>
     <string name="sos_step_record">Record video with sound</string>
     <string name="sos_step_record_sub">Saved on this phone; you find it in History.</string>
     <string name="sos_step_sms">Text your contacts where you are</string>

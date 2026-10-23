@@ -162,6 +162,19 @@ object Backend {
         return call(context, "PATCH", "/rest/v1/incidents?id=eq.$incidentId", body, token, "return=minimal").ok
     }
 
+    // --- Detection logs ------------------------------------------------------------------------
+
+    /** One batch of detection log lines (see [DiagLogs]): the HTTP code, or -1 offline. */
+    fun addDiagLog(context: Context, reason: String, appVersion: String, device: JSONObject, lines: String): Int {
+        val token = token(context) ?: return -1
+        val body = JSONObject()
+            .put("reason", reason)
+            .put("app_version", appVersion.take(40))
+            .put("device", device)
+            .put("lines", lines)
+        return call(context, "POST", "/rest/v1/diag_logs", body, token, "return=minimal").code
+    }
+
     // --- Recordings ----------------------------------------------------------------------------
 
     /** Uploads one SOS video piece through a link signed for it: true when it's stored or refused for good. */

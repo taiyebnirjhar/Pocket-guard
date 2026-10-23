@@ -90,6 +90,7 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
 
         SectionLabel(stringResource(R.string.log_title))
         DetectionLogCard()
+        if (Backend.configured(context)) DiagCard()
 
         if (Language.supported) {
             SectionLabel(stringResource(R.string.language_title))
@@ -364,6 +365,35 @@ private fun DetectionLogCard() {
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Send detection logs": off by default; with it on, a button sends what's new right away. */
+@Composable
+private fun DiagCard() {
+    val context = LocalContext.current
+    var on by remember { mutableStateOf(Prefs.sendLogs(context)) }
+    var result by remember { mutableStateOf<Int?>(null) }
+    GlassCard {
+        ToggleRow(R.drawable.ic_science, stringResource(R.string.diag_send), stringResource(R.string.diag_send_sub), on) {
+            on = it
+            Prefs.setSendLogs(context, it)
+            result = null
+        }
+        if (on) {
+            SettingRow(
+                R.drawable.ic_check,
+                stringResource(R.string.diag_send_now),
+                result?.let { stringResource(it) },
+                Modifier.clickable(role = Role.Button) {
+                    result = R.string.diag_sending
+                    val main = android.os.Handler(android.os.Looper.getMainLooper())
+                    DiagLogs.send(context, "manual") { ok ->
+                        main.post { result = if (ok) R.string.diag_sent else R.string.diag_failed }
+                    }
+                },
+            )
         }
     }
 }

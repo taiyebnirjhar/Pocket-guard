@@ -177,6 +177,14 @@ object Prefs {
     fun liveLocation(context: Context) = get(context, "live_location", true)
     fun setLiveLocation(context: Context, value: Boolean) = put(context, "live_location", value)
 
+    /** Send the detection log after alarms, for improving detection (see [DiagLogs]). Off by default. */
+    fun sendLogs(context: Context) = get(context, "send_logs", false)
+    fun setSendLogs(context: Context, value: Boolean) = put(context, "send_logs", value)
+
+    /** The newest [DetectionLog] line already sent (ms). */
+    fun diagSentAt(context: Context) = prefs(context).getLong("diag_sent_at", 0L)
+    fun setDiagSentAt(context: Context, value: Long) = prefs(context).edit().putLong("diag_sent_at", value).apply()
+
     /** With the live link on: upload each SOS video piece as it's saved, for the live page. */
     fun videoUpload(context: Context) = get(context, "video_upload", true)
     fun setVideoUpload(context: Context, value: Boolean) = put(context, "video_upload", value)

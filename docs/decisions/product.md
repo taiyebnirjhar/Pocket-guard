@@ -197,3 +197,17 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   approved contacts before. "Send a test" goes by SMS only.
 - **Why:** Brevo's free plan is small; the goal is zero running cost for good.
 - **Status:** current.
+
+### Detection logs online (opt-in), with alarm labels
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** "Send detection logs" (Settings, off by default) uploads the detection log after
+  each alarm, on disarm and on request, with the phone model, Android version, sensor details and
+  settings, to Supabase `diag_logs` (insert-only for the app; 30 a day per phone; stops at 100 MB;
+  deleted after 30 days). History asks "Was this alarm right?" and the answer is logged.
+- **Why:** Owner: "The first thing we needs to do is make the log online so we can collect and
+  improve", after field tests on OnePlus 11R, Tecno Camon 40 Pro and Redmi Note 14 Pro+ behaved
+  differently. Labels tell real tests from false alarms.
+- **Rejected:** reading logs through a GitHub workflow (its logs and files become public once the
+  repo is public). They're exported from the Supabase dashboard instead.
+- **Status:** current.
+

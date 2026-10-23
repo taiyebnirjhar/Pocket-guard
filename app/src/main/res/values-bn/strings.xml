@@ -325,6 +325,17 @@
     <string name="home_silent_send">SMS অ্যাপ থেকে সতর্কতা পাঠান</string>
     <string name="home_silent_stop">আমি নিরাপদ: SOS থামান</string>
     <string name="home_silent_stop_sub">আনলক করলে নীরব SOS থামে না; এটি থামায়।</string>
+    <string name="diag_send">শনাক্তকরণ লগ পাঠান</string>
+    <string name="diag_send_sub">আপনার ফোনে ভুল অ্যালার্ম ঠিক করতে সাহায্য করে। প্রতিটি অ্যালার্মের পর গার্ড যা দেখেছে ও ঠিক করেছে (সেন্সরের ঘটনা ও সময়), আপনার ফোনের মডেল, Android সংস্করণ আর Pocket Guard-এর সেটিংস Pocket Guard-এর সার্ভারে পাঠায়। অবস্থান, যোগাযোগ বা বার্তা নয়। ৩০ দিন পর মুছে যায়।</string>
+    <string name="diag_send_now">এখনই লগ পাঠান</string>
+    <string name="diag_sending">পাঠানো হচ্ছে…</string>
+    <string name="diag_sent">পাঠানো হয়েছে। ধন্যবাদ!</string>
+    <string name="diag_failed">এখন পাঠানো গেল না: পরেরটির সঙ্গে যাবে।</string>
+    <string name="history_label_question">এই অ্যালার্মটি কি ঠিক ছিল?</string>
+    <string name="history_label_right">হ্যাঁ, বা আমার পরীক্ষা</string>
+    <string name="history_label_false">ভুল অ্যালার্ম</string>
+    <string name="history_marked_right">চিহ্নিত: ঠিক (বা আপনার পরীক্ষা)</string>
+    <string name="history_marked_false">চিহ্নিত: ভুল অ্যালার্ম</string>
     <string name="sos_step_record">শব্দসহ ভিডিও রেকর্ড</string>
     <string name="sos_step_record_sub">এই ফোনেই থাকে; History-তে পাবেন।</string>
     <string name="sos_step_sms">যোগাযোগদের আপনার অবস্থান SMS</string>
