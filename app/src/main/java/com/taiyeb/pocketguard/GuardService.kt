@@ -62,6 +62,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         /** Warnings where the owner is likely looking at the phone start this much later. */
         private const val OWNER_SILENT_MS = 1500L
 
+        /** After an alarm ends, its detection log is sent this much later (see [DiagLogs]). */
+        private const val DIAG_AFTER_ALARM_MS = 20_000L
+
         private const val LOCK_CHECK_DELAY_MS = 1_500L
 
         @Volatile
@@ -95,9 +98,9 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             instance?.updateTheft()
         }
 
-        /** An SOS key gesture ([source] names it, see [SosTaps]). Main thread. */
-        fun onSosTaps(source: String) {
-            instance?.sosTaps(source)
+        /** An SOS key gesture ([source] names it, see [SosTaps]); [silent]: volume down. Main thread. */
+        fun onSosTaps(source: String, silent: Boolean) {
+            instance?.sosTaps(source, silent)
         }
 
         /** Started by the SOS action on the status notification. */
@@ -477,17 +480,24 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         // comes back as one, with its alerts, location and recording.
         if (Prefs.alarmActive(this)) {
             resuming = true
-            if (Prefs.alarmSos(this)) newEngine.onSos() else newEngine.resumeAlarm()
+            if (Prefs.alarmSos(this)) {
+                setSilentFlag(Prefs.alarmSilent(this))
+                newEngine.onSos()
+            } else {
+                newEngine.resumeAlarm()
+            }
             resuming = false
         }
     }
 
     fun disarm() {
         engine?.disarm()
+        DiagLogs.send(this, "disarm")
         stopMonitoring()
         Prefs.setArmed(this, false)
         Prefs.setAlarmActive(this, false)
         Prefs.setAlarmSos(this, false)
+        setSilentFlag(false)
         Prefs.setAutoArmed(this, false)
         GuardState.phase.value = Phase.OFF
         refreshTile()
@@ -534,6 +544,12 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
         // link with it, until she stops it in the app.
         if (GuardState.alarmTrigger.value == Trigger.SOS && alertsMade && alerts.handedOver) {
             Log.i(TAG, "Unlocked to send the alert by hand: SOS carries on")
+            return
+        }
+        // A silent SOS is meant to go unnoticed, so unlocking (perhaps made to) doesn't end it: it is
+        // stopped in the app.
+        if (GuardState.alarmTrigger.value == Trigger.SOS && GuardState.sosSilent.value) {
+            Log.i(TAG, "Unlocked during a silent SOS: it carries on")
             return
         }
         engine.onOwnerUnlocked()
@@ -596,21 +612,47 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
             .notify(Notifications.STATUS_ID, Notifications.status(this, current.phase))
     }
 
-    /** Volume up tapped 4 times: the SOS alarm, if the volume-key SOS is on. */
-    private fun sosTaps(source: String) {
+    /** Volume up (loud) or down ([silent]) tapped 4 times: SOS, if the volume-key SOS is on. */
+    private fun sosTaps(source: String, silent: Boolean) {
         if (!Prefs.sosButtons(this)) return
-        sos(source)
+        sos(source, silent)
     }
 
-    /** The owner called for help: a buzz, then the SOS alarm from any armed state. */
-    private fun sos(source: String): Boolean {
+    /**
+     * The owner called for help: a buzz, then the SOS alarm from any armed state. [silent] (from
+     * the volume keys only): true for no siren or alarm screen, with the alerts, live map and
+     * recording all the same; null from the notification, tile or app (loud, and no switch).
+     */
+    private fun sos(source: String, silent: Boolean? = null): Boolean {
         val current = engine ?: return false
-        // Already calling for help: more taps change nothing (a buzz would stop the SOS vibration).
-        if (current.phase == Phase.SIREN && GuardState.alarmTrigger.value == Trigger.SOS) return true
-        log("SOS: $source")
+        if (current.phase == Phase.SIREN && GuardState.alarmTrigger.value == Trigger.SOS) {
+            // Already calling for help: volume up makes a silent SOS loud. Nothing makes a loud one
+            // silent, since anyone mashing volume down to quiet a screaming phone would; and more
+            // taps change nothing else (a buzz would stop the SOS vibration).
+            if (silent == false && GuardState.sosSilent.value) makeSosLoud()
+            return true
+        }
+        val quiet = silent == true
+        log("SOS: $source" + if (quiet) " (silent)" else "")
         alarm.tick()
+        setSilentFlag(quiet)
         current.onSos()
         return true
+    }
+
+    private fun setSilentFlag(silent: Boolean) {
+        GuardState.sosSilent.value = silent
+        Prefs.setAlarmSilent(this, silent)
+    }
+
+    /** A silent SOS turns loud: the siren, the spoken call for help and the alarm screen start. */
+    private fun makeSosLoud() {
+        log("SOS: loud now (volume up tapped 4 times)")
+        setSilentFlag(false)
+        alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
+        Notifications.showAlarm(this)
+        getSystemService(NotificationManager::class.java)
+            .notify(Notifications.STATUS_ID, Notifications.status(this, Phase.SIREN))
     }
 
     private fun ownerStopSos() {
@@ -823,9 +865,17 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 Prefs.setAlarmSos(this, true)
                 // On top of a theft alarm, the theft alarm's rule stays: if it began on an unlocked
                 // phone, whoever holds it could have pressed SOS, so only the credential stops it.
-                alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
+                // Silent: nothing to see or hear, so a theft warning or siren already sounding stops
+                // too (the owner asked for quiet; the alerts and recording carry on).
+                if (GuardState.sosSilent.value) {
+                    log("SOS: silent, no siren or alarm screen")
+                    alarm.stop()
+                    Notifications.cancelAlarm(this)
+                } else {
+                    alarm.startSos(quiet = Prefs.testMode(this)) { speakSos() }
+                    Notifications.showAlarm(this)
+                }
                 alerts.start(resume = resuming)
-                Notifications.showAlarm(this)
                 recorder.escalate(trigger)
             } else {
                 Prefs.setAlarmActive(this, true)
@@ -849,6 +899,10 @@ class GuardService : LifecycleService(), SensorEventListener, GuardEngine.Host {
                 val flicker = to == Phase.IN_POCKET || to == Phase.ON_TABLE
                 recorder.end(if (flicker) IncidentRecorder.Outcome.FLICKER else IncidentRecorder.Outcome.OWNER_STOPPED)
                 if (trigger == Trigger.SOS) alerts.stop()
+                setSilentFlag(false)
+                // What happened just after (unlocked, put back) belongs with it.
+                val app = applicationContext
+                handler.postDelayed({ DiagLogs.send(app, "alarm") }, DIAG_AFTER_ALARM_MS)
                 GuardState.unlockStopsAlarm.value = true
                 Prefs.setAlarmUnlockStops(this, true)
             }

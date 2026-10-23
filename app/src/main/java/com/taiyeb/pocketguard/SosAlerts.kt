@@ -79,23 +79,18 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             return parts.size
         }
 
-        /** "Send test" in Triggers: the real alert text marked as a test, to the approved people. */
+        /**
+         * "Send test" on the SOS tab: the real alert text marked as a test, to the approved numbers.
+         * By SMS only: the email service's free plan is kept for real alerts.
+         */
         fun sendTest(context: Context): Boolean {
             val numbers = EmergencyContacts.numbers(context)
-            val emails = EmergencyContacts.emails(context)
-            if (numbers.isEmpty() && emails.isEmpty()) return false
+            if (numbers.isEmpty()) return false
             val text = EmergencyContacts.sms(context, R.string.alert_text_test) + "\n" + EmergencyContacts.previewText(context)
-            if (numbers.isNotEmpty()) {
-                if (canSendSms(context)) {
-                    numbers.forEach { runCatching { sendSms(context, it, text) } }
-                } else {
-                    runCatching { context.startActivity(smsIntent(numbers, text)) }
-                }
-            }
-            if (emails.isNotEmpty() && Backend.enabled(context)) {
-                val app = context.applicationContext
-                val name = EmergencyContacts.ownerName(context)
-                Thread { Backend.sendEmail(app, Backend.EmailKind.TEST, emails, null, name, "") }.start()
+            if (canSendSms(context)) {
+                numbers.forEach { runCatching { sendSms(context, it, text) } }
+            } else {
+                runCatching { context.startActivity(smsIntent(numbers, text)) }
             }
             return true
         }
@@ -229,7 +224,8 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
         }
         if (Backend.enabled(context)) {
-            live = LiveShare(context, EmergencyContacts.ownerName(context), EmergencyContacts.emails(context), log)
+            val emails = if (Backend.emailOn(context)) EmergencyContacts.emails(context) else emptyList()
+            live = LiveShare(context, EmergencyContacts.ownerName(context), emails, log)
                 .also { it.start(::onLiveLink, existing) }
         }
         startLocation()

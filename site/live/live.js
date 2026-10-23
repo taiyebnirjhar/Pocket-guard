@@ -17,6 +17,7 @@
     recordings: "রেকর্ডিং (SOS চালু হওয়ার পর থেকে)", video: function (n, t) { return "▶ ভিডিও " + n + " · " + t; },
     photo: function (n, t) { return "ছবি " + n + " · " + t; },
     loading: "খুলছে…", failed: "খোলা গেল না, আবার চাপুন",
+    lost: function (t, m) { return "ফোনটি " + t + " থেকে সংযোগের বাইরে (" + m + " মিনিট)। হয়তো বন্ধ করা হয়েছে, ভেঙে গেছে বা নেটওয়ার্ক নেই। শেষ অবস্থান মানচিত্রে দেখানো হলো। ফিরে এলে পাতাটি নিজেই হালনাগাদ হবে।"; },
   } : {
     title: function (n) { return n + "'s location"; },
     sos: "SOS ACTIVE", ended: "SOS ENDED", safe: "FALSE ALARM, THEY'RE SAFE",
@@ -30,7 +31,11 @@
     recordings: "Recordings (from when SOS started)", video: function (n, t) { return "▶ Video " + n + " · " + t; },
     photo: function (n, t) { return "Photo " + n + " · " + t; },
     loading: "Opening…", failed: "Couldn't open it, tap to try again",
+    lost: function (t, m) { return "The phone has been offline since " + t + " (" + m + " min). It may be switched off, broken or out of signal. The map shows the last place it was seen. This page updates by itself if it comes back."; },
   };
+
+  // The phone reaches the server every 15 s during SOS; this long without it means it's cut off.
+  var LOST_MS = 60000;
   if (bn) document.documentElement.lang = "bn";
 
   var $ = function (id) { return document.getElementById(id); };
@@ -66,6 +71,11 @@
     }
     if (v.battery != null) facts.push(T.battery + " " + v.battery + "%");
     $("facts").textContent = facts.join(" · ");
+    // Measured on the server's clock both ends, so a wrong clock on this device can't fool it.
+    var silent = v.last_seen_at && v.now ? new Date(v.now).getTime() - new Date(v.last_seen_at).getTime() : 0;
+    var lost = v.status === "active" && silent > LOST_MS;
+    show("lost", lost);
+    if (lost) $("lost").textContent = T.lost(time(v.last_seen_at), Math.max(1, Math.round(silent / 60000)));
     $("note").textContent = last ? T.note : T.waiting;
     renderMedia(v.media || []);
 

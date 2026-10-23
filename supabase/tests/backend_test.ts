@@ -385,3 +385,67 @@ Deno.test("deleting the account also removes uploads that were never confirmed",
   assertEquals((await call("/functions/v1/delete-account", t, {})).status, 200);
   assertEquals(await fetch(objectUrl).then((r) => (r.body?.cancel(), r.status)), 404);
 });
+
+Deno.test("the live page knows when the phone last reached the server, on the server's clock", async () => {
+  const t = await signIn();
+  const inc = await openIncident(t);
+  const first = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assert(first.last_seen_at && first.now, JSON.stringify(first));
+  const opened = new Date(first.last_seen_at).getTime();
+  assert(new Date(first.now).getTime() >= opened);
+
+  await new Promise((r) => setTimeout(r, 1100));
+  // No new location: the phone's check-in (a battery update) is a sign of life.
+  const ping = await call(`/rest/v1/incidents?id=eq.${inc.id}`, t, { battery: 70 }, "PATCH");
+  assertEquals(ping.status, 204, await ping.text());
+  const pinged = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  const afterPing = new Date(pinged.last_seen_at).getTime();
+  assert(afterPing > opened, `check-in didn't count: ${pinged.last_seen_at}`);
+
+  await new Promise((r) => setTimeout(r, 1100));
+  // So is every location, even one taken earlier and sent late.
+  const up = await call(
+    "/rest/v1/locations",
+    t,
+    [{
+      incident_id: inc.id,
+      lat: 1,
+      lng: 2,
+      accuracy: 5,
+      recorded_at: new Date(Date.now() - 600_000).toISOString(),
+    }],
+    "POST",
+    { Prefer: "return=minimal" },
+  );
+  assertEquals(up.status, 201, await up.text());
+  const located = await (await call("/rest/v1/rpc/view_incident", null, { token: inc.viewer_token })).json();
+  assert(new Date(located.last_seen_at).getTime() > afterPing, `location didn't count: ${located.last_seen_at}`);
+});
+
+Deno.test("phones can send detection logs but nobody can read them back, and there's a daily cap", async () => {
+  const t = await signIn();
+  const row = { reason: "alarm", app_version: "2.6.0", device: { model: "Test" }, lines: "21:38:06  armed" };
+  const up = await call("/rest/v1/diag_logs", t, row, "POST", { Prefer: "return=minimal" });
+  assertEquals(up.status, 201, await up.text());
+
+  const read = await call("/rest/v1/diag_logs?select=lines", t, undefined, "GET");
+  const body = await read.text();
+  assert(read.status >= 400 || body === "[]", `logs readable: ${read.status} ${body}`);
+  const anon = await call("/rest/v1/diag_logs", null, row, "POST", { Prefer: "return=minimal" });
+  assertDenied(anon.status, await anon.text());
+
+  // Someone else's user id can't be set.
+  const other = await call("/rest/v1/diag_logs", t, { ...row, user_id: crypto.randomUUID() }, "POST", {
+    Prefer: "return=minimal",
+  });
+  assert(other.status >= 400, `user_id accepted: ${other.status}`);
+  await other.body?.cancel();
+
+  let refused = 0;
+  for (let i = 0; i < 31; i++) {
+    const r = await call("/rest/v1/diag_logs", t, row, "POST", { Prefer: "return=minimal" });
+    if (r.status >= 400) refused++;
+    await r.body?.cancel();
+  }
+  assert(refused >= 1, "the daily cap never refused");
+});

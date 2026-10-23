@@ -77,7 +77,8 @@ private val NavClearance = 104.dp
 
 enum class Tab(@DrawableRes val icon: Int, @StringRes val label: Int) {
     HOME(R.drawable.ic_home, R.string.nav_home),
-    TRIGGERS(R.drawable.ic_bolt, R.string.triggers_title),
+    THEFT(R.drawable.ic_shield, R.string.nav_theft),
+    SOS(R.drawable.ic_warning, R.string.nav_sos),
     HISTORY(R.drawable.ic_history, R.string.main_history),
     SETTINGS(R.drawable.ic_tune, R.string.settings_title),
 }
@@ -362,7 +363,7 @@ fun BottomNav(selected: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modif
             .border(1.dp, CardBorder, CircleShape)
             .padding(8.dp)
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Tab.entries.forEach { tab ->
             val isSelected = tab == selected
@@ -370,7 +371,7 @@ fun BottomNav(selected: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modif
             val tint by animateColorAsState(if (isSelected) Color.White else Muted, label = "tabIcon")
             Box(
                 Modifier
-                    .size(54.dp)
+                    .size(50.dp)
                     .clip(CircleShape)
                     .background(background)
                     .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(tab) }),

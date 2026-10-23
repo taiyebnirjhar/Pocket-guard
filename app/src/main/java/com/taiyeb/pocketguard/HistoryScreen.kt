@@ -160,6 +160,51 @@ private fun IncidentCard(incident: Incident) {
         }
         val media = photos + videos
         if (media.isNotEmpty()) MediaButtons(media)
+        if (ended != null) AlarmLabel(incident)
+    }
+}
+
+/**
+ * "Was this alarm right?": the owner's verdict, kept with the alarm and, with "Send detection logs"
+ * on, sent with the log so false alarms on this phone can be found and fixed.
+ */
+@Composable
+private fun AlarmLabel(incident: Incident) {
+    val context = LocalContext.current
+    var label by remember(incident.id) { mutableStateOf(incident.label) }
+    fun mark(value: String) {
+        label = value
+        incident.label = value
+        History.save(context, incident)
+        val at = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(Date(incident.startedAt))
+        DetectionLog.add(
+            "label: the ${incident.trigger} alarm at $at was " +
+                if (value == Incident.LABEL_FALSE) "a FALSE ALARM" else "right (a theft or the owner's test)",
+        )
+        DiagLogs.send(context, "label")
+    }
+    Text(
+        stringResource(
+            when (label) {
+                Incident.LABEL_FALSE -> R.string.history_marked_false
+                Incident.LABEL_RIGHT -> R.string.history_marked_right
+                else -> R.string.history_label_question
+            },
+        ),
+        color = Muted,
+        fontSize = 13.sp,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PillAction(
+            stringResource(R.string.history_label_right),
+            onClick = { mark(Incident.LABEL_RIGHT) },
+            color = if (label == Incident.LABEL_RIGHT) Lavender else Muted,
+        )
+        PillAction(
+            stringResource(R.string.history_label_false),
+            onClick = { mark(Incident.LABEL_FALSE) },
+            color = if (label == Incident.LABEL_FALSE) Amber else Muted,
+        )
     }
 }
 

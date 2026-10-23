@@ -6,7 +6,11 @@ import org.junit.Test
 class SosTapsTest {
 
     private val fired = mutableListOf<String>()
-    private val taps = SosTaps { fired += it }
+    private val silent = mutableListOf<Boolean>()
+    private val taps = SosTaps { gesture, quiet ->
+        fired += gesture
+        silent += quiet
+    }
 
     private fun tapUp(times: Int, gapMs: Long, from: Long = 0L): Long {
         var t = from
@@ -21,6 +25,42 @@ class SosTapsTest {
     fun fourQuickTapsCallForHelpOnce() {
         tapUp(4, 250)
         assertEquals(listOf("volume up tapped 4 times"), fired)
+        assertEquals(listOf(false), silent)
+    }
+
+    private fun tapDown(times: Int, gapMs: Long, from: Long = 0L): Long {
+        var t = from
+        repeat(times) {
+            taps.press(up = false, now = t)
+            t += gapMs
+        }
+        return t
+    }
+
+    @Test
+    fun fourQuickTapsDownCallForHelpSilently() {
+        tapDown(4, 250)
+        assertEquals(listOf("volume down tapped 4 times"), fired)
+        assertEquals(listOf(true), silent)
+    }
+
+    @Test
+    fun mixedKeysAreNot() {
+        // Up, down, up, down: someone adjusting the volume, not a gesture.
+        var t = 0L
+        repeat(4) { i ->
+            taps.press(up = i % 2 == 0, now = t)
+            t += 250
+        }
+        assertEquals(emptyList<String>(), fired)
+    }
+
+    @Test
+    fun volumeUpStartsTheDownCountOver() {
+        val t = tapDown(3, 250)
+        taps.press(up = true, now = t)
+        tapDown(1, 250, from = t + 100)
+        assertEquals(emptyList<String>(), fired)
     }
 
     @Test

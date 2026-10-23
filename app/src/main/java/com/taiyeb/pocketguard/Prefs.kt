@@ -62,6 +62,10 @@ object Prefs {
     fun alarmSos(context: Context) = get(context, "alarm_sos", false)
     fun setAlarmSos(context: Context, value: Boolean) = put(context, "alarm_sos", value)
 
+    /** The running SOS is silent: after a restart it comes back silent too. */
+    fun alarmSilent(context: Context) = get(context, "alarm_silent", false)
+    fun setAlarmSilent(context: Context, value: Boolean) = put(context, "alarm_silent", value)
+
     /**
      * Whether an unlock ends the running alarm (false: it began on an unlocked phone, so only the
      * owner's credential in the app does). Kept so a restart can't turn a thief's swipe into a stop.
@@ -172,6 +176,27 @@ object Prefs {
     /** SOS shares a live location link (and emails) through Pocket Guard's server. */
     fun liveLocation(context: Context) = get(context, "live_location", true)
     fun setLiveLocation(context: Context, value: Boolean) = put(context, "live_location", value)
+
+    /** Send the detection log after alarms, for improving detection (see [DiagLogs]). Off by default. */
+    fun sendLogs(context: Context) = get(context, "send_logs", false)
+    fun setSendLogs(context: Context, value: Boolean) = put(context, "send_logs", value)
+
+    /** The newest [DetectionLog] line already sent (ms). */
+    fun diagSentAt(context: Context) = prefs(context).getLong("diag_sent_at", 0L)
+    fun setDiagSentAt(context: Context, value: Long) = prefs(context).edit().putLong("diag_sent_at", value).apply()
+
+    /** With the live link on: upload each SOS video piece as it's saved, for the live page. */
+    fun videoUpload(context: Context) = get(context, "video_upload", true)
+    fun setVideoUpload(context: Context, value: Boolean) = put(context, "video_upload", value)
+
+    /**
+     * With the live link on: email the SOS alert to contacts who have an address. Off by default,
+     * since the SMS carries the live link and the email service's free plan is small; on for
+     * anyone who approved contacts before this switch existed, so their approval still holds.
+     */
+    fun emailAlerts(context: Context) =
+        if (prefs(context).contains("email_alerts")) get(context, "email_alerts", false) else EmergencyContacts.everApproved(context)
+    fun setEmailAlerts(context: Context, value: Boolean) = put(context, "email_alerts", value)
 
     fun onboarded(context: Context) = get(context, "onboarded", false)
 

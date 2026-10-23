@@ -19,7 +19,14 @@ data class Incident(
     val photos: MutableList<String> = mutableListOf(),
     /** SOS recordings, in order (file names in [History.videosDir]). */
     val videos: MutableList<String> = mutableListOf(),
-)
+    /** The owner's verdict: [LABEL_RIGHT] (a theft, or their own test) or [LABEL_FALSE]; null: none yet. */
+    var label: String? = null,
+) {
+    companion object {
+        const val LABEL_RIGHT = "right"
+        const val LABEL_FALSE = "false"
+    }
+}
 
 /** Theft history, newest first, stored as JSON in app-private storage. */
 object History {
@@ -182,6 +189,7 @@ object History {
         put("flicker", incident.flicker)
         put("photos", JSONArray().apply { incident.photos.forEach { put(it) } })
         put("videos", JSONArray().apply { incident.videos.forEach { put(it) } })
+        incident.label?.let { put("label", it) }
     }
 
     private fun fromJson(json: JSONObject): Incident? {
@@ -198,6 +206,7 @@ object History {
             flicker = json.optBoolean("flicker"),
             photos = (0 until (photos?.length() ?: 0)).map { photos!!.getString(it) }.toMutableList(),
             videos = (0 until (videos?.length() ?: 0)).map { videos!!.getString(it) }.toMutableList(),
+            label = json.optString("label").takeIf { it == Incident.LABEL_RIGHT || it == Incident.LABEL_FALSE },
         )
     }
 }

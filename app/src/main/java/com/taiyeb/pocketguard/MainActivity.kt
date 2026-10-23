@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         /** From the lock warning: start the lock test over and open the lock settings. */
         const val EXTRA_FIX_LOCK = "fix_lock"
 
-        /** Tab to open, by name (home, triggers, history, settings). */
+        /** Tab to open, by name (home, theft, sos, history, settings; triggers is the old name for theft). */
         const val EXTRA_TAB = "tab"
 
         /**
@@ -77,7 +77,8 @@ class MainActivity : ComponentActivity() {
             tabExtra.equals("setup", ignoreCase = true) -> Screen.SETUP
             else -> Screen.MAIN
         }
-        val firstTab = Tab.entries.firstOrNull { it.name.equals(tabExtra, ignoreCase = true) } ?: Tab.HOME
+        val firstTab = if (tabExtra.equals("triggers", ignoreCase = true)) Tab.THEFT
+            else Tab.entries.firstOrNull { it.name.equals(tabExtra, ignoreCase = true) } ?: Tab.HOME
         setContent {
             PocketGuardTheme {
                 var screen by rememberSaveable { mutableStateOf(firstScreen) }
@@ -114,7 +115,7 @@ class MainActivity : ComponentActivity() {
                                 onSkip = leave,
                                 onOpenContacts = {
                                     leave()
-                                    tab = Tab.TRIGGERS
+                                    tab = Tab.SOS
                                 },
                             )
                         }
@@ -145,9 +146,10 @@ class MainActivity : ComponentActivity() {
                     refreshKey = refreshKey.intValue,
                     onOpenGuide = onOpenGuide,
                     onOpenSetup = onOpenSetup,
-                    onOpenTriggers = { onSelect(Tab.TRIGGERS) },
+                    onOpenSos = { onSelect(Tab.SOS) },
                 )
-                Tab.TRIGGERS -> TriggersScreen(refreshKey.intValue)
+                Tab.THEFT -> TheftScreen(refreshKey.intValue)
+                Tab.SOS -> SosScreen(refreshKey.intValue)
                 Tab.HISTORY -> HistoryScreen()
                 Tab.SETTINGS -> SettingsScreen(refreshKey.intValue, onOpenGuide)
             }

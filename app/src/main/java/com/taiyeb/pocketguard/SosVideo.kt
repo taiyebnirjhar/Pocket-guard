@@ -30,7 +30,12 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
 
     companion object {
         const val PIECE_MS = 60_000L
-        const val MAX_PIECES = 15
+
+        /** A silent SOS: shorter pieces, so less is lost if the phone is switched off or smashed. */
+        const val SHORT_PIECE_MS = 30_000L
+
+        /** At most this much is recorded per SOS. */
+        const val MAX_RECORDING_MS = 15 * 60_000L
 
         /** 480p at this rate is about 12 MB a minute with the sound. */
         private const val LOW_RES_BITRATE = 1_500_000
@@ -51,6 +56,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     private var recording: Recording? = null
     private var active = false
     private var pieces = 0
+    private var pieceMs = PIECE_MS
     private var failed = 0
     private lateinit var dir: File
     private lateinit var prefix: String
@@ -66,9 +72,9 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
 
     /**
      * [onPiece] runs on the main thread for every piece saved. [lowRes]: 480p at a modest bitrate,
-     * for pieces that are uploaded while SOS runs.
+     * for pieces that are uploaded while SOS runs. [pieceMs]: how long each piece is.
      */
-    fun start(dir: File, prefix: String, lowRes: Boolean = false, onPiece: (File) -> Unit) {
+    fun start(dir: File, prefix: String, lowRes: Boolean = false, pieceMs: Long = PIECE_MS, onPiece: (File) -> Unit) {
         if (active) return
         if (!granted(Manifest.permission.CAMERA)) {
             Log.w(GuardService.TAG, "SOS video: no camera permission")
@@ -78,6 +84,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
         session++
         val mySession = session
         pieces = 0
+        this.pieceMs = pieceMs
         failed = 0
         this.dir = dir
         this.prefix = prefix
@@ -134,7 +141,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
     @SuppressLint("MissingPermission") // Checked just before.
     private fun record() {
         val output = recorder ?: return
-        if (!active || pieces >= MAX_PIECES || failed >= MAX_FAILED_PIECES) {
+        if (!active || pieces >= MAX_RECORDING_MS / pieceMs || failed >= MAX_FAILED_PIECES) {
             active = false
             release()
             return
@@ -175,7 +182,7 @@ class SosVideo(private val context: Context, private val owner: LifecycleOwner) 
                 }
             }
         }
-        handler.postDelayed(nextPiece, PIECE_MS)
+        handler.postDelayed(nextPiece, pieceMs)
     }
 
     private fun release() {
