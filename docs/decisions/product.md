@@ -157,7 +157,7 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
 - **Status:** current.
 
 ### Theft and SOS tabs; online steps made visible
-- **Date / version:** 2026-10-23, v2.5.0
+- **Date / version:** 2026-10-23, v2.6.0 (planned as v2.5.0; shipped with silent SOS)
 - **Decision:** Five tabs (Home, Theft, SOS, History, Settings). The SOS tab says whether an SOS
   reaches anyone and lists what it does, with separate switches for the live map link, video upload
   and email (the last two need the live map). Supersedes the single "Live location link" switch under

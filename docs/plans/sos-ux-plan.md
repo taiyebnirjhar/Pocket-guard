@@ -11,7 +11,7 @@ Agreed with the owner on 2026-10-23. Each step is one PR and one release.
   Sometimes the user needs SOS to be silent.
 - Theft and SOS settings were mixed on one Triggers screen.
 
-## Step 1 · v2.5.0 · SOS tab and separate online switches
+## Step 1 · v2.6.0 (with step 2) · SOS tab and separate online switches
 
 - Five tabs: **Home · Theft · SOS · History · Settings**.
   - **Theft**: the theft alarm switch and its triggers, unlock delay, arming reminders, schedule,
