@@ -61,6 +61,11 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     val phase by GuardState.phase.collectAsState()
     val armedAt by GuardState.armedAt.collectAsState()
     val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
+    val silent by GuardState.sosSilent.collectAsState()
+    val trigger by GuardState.alarmTrigger.collectAsState()
+    val alert by GuardState.alert.collectAsState()
+    // A silent SOS has no alarm screen: Home is where it is followed and stopped.
+    val silentSos = silent && trigger == Trigger.SOS && phase.isAlarm
     val historyVersion by History.version.collectAsState()
     val left = remember(refreshKey, phase) { missingRequired(context) }
     // Re-read on resume: test mode switches itself off after an hour.
@@ -124,7 +129,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         }
 
         Text(
-            stringResource(phase.titleRes(sosOnly)),
+            stringResource(if (silentSos) R.string.home_silent_title else phase.titleRes(sosOnly)),
             color = TextPrimary,
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -132,7 +137,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            stringResource(phase.hintRes(sosOnly)),
+            stringResource(if (silentSos) R.string.home_silent_sub else phase.hintRes(sosOnly)),
             color = Muted,
             fontSize = 15.sp,
             textAlign = TextAlign.Center,
@@ -167,6 +172,37 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
             Spacer(Modifier.height(12.dp))
             GlassCard(onClick = { GuardService.requestSos("app") }) {
                 SettingRow(R.drawable.ic_warning, stringResource(R.string.home_sos), stringResource(R.string.tile_sos_ready), tint = Red)
+            }
+        }
+        if (silentSos) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard {
+                val countdown = alert?.takeIf { !it.sent && it.secondsLeft > 0 }
+                if (countdown != null) {
+                    SettingRow(
+                        R.drawable.ic_timer,
+                        stringResource(R.string.home_silent_cancel, countdown.secondsLeft),
+                        null,
+                        Modifier.clickable(role = Role.Button) { GuardService.cancelAlerts() },
+                        tint = Amber,
+                    )
+                }
+                if (alert?.needsTap == true || alert?.smsFailed == true) {
+                    SettingRow(
+                        R.drawable.ic_vibration,
+                        stringResource(R.string.home_silent_send),
+                        null,
+                        Modifier.clickable(role = Role.Button) { GuardService.sendAlertsByHand() },
+                        tint = Amber,
+                    )
+                }
+                SettingRow(
+                    R.drawable.ic_check,
+                    stringResource(R.string.home_silent_stop),
+                    stringResource(R.string.home_silent_stop_sub),
+                    Modifier.clickable(role = Role.Button) { GuardService.ownerStopSos() },
+                    tint = Green,
+                )
             }
         }
         HomeScheduleCard(refreshKey)

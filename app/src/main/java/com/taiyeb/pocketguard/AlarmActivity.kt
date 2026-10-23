@@ -63,11 +63,14 @@ class AlarmActivity : ComponentActivity() {
         })
         setContent {
             val phase by GuardState.phase.collectAsState()
-            LaunchedEffect(phase) {
-                if (phase != Phase.SIREN) finish()
+            // Switched to a silent SOS (volume down tapped 4 times): nothing may show any more.
+            val silent by GuardState.sosSilent.collectAsState()
+            val shown = phase == Phase.SIREN && !(silent && GuardState.alarmTrigger.value == Trigger.SOS)
+            LaunchedEffect(shown) {
+                if (!shown) finish()
             }
             // Over: nothing more to show while it closes.
-            if (phase == Phase.SIREN) PocketGuardTheme {
+            if (shown) PocketGuardTheme {
                 AlarmScreen(onOwner = {
                     val keyguard = getSystemService(KeyguardManager::class.java)
                     when {

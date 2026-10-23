@@ -161,7 +161,19 @@ Android shows the volume keys to no app at all, accessibility included; the lock
 enough. One button on purpose: the power key is taken by the phone's own gestures (camera on two
 presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. Taps don't count while music, a video or a call is
 playing (that's someone turning the volume up), fewer than 4 or slower than 2 s don't count, and
-volume down starts the count over.
+a press of the other volume key starts the count over.
+
+**Silent SOS: tap volume down 4 times instead**, for when a siren would make things worse (a
+robbery, being taken somewhere, at home): no whistle, voice, flash or alarm screen, and the
+Pocket Guard notification keeps looking like an ordinary armed guard. A short buzz confirms it.
+The alerts, live map, emails and recording run as for a loud SOS, with 30-second video pieces
+instead of one-minute ones, so less is lost if the phone is switched off or smashed. Unlocking
+doesn't end a silent SOS (someone may make you unlock): Home shows **Silent SOS is on**, with
+cancelling the alerts during the countdown, sending them from the SMS app (Play build), and
+**I'm safe: stop the SOS**. Volume up 4 times during a silent SOS makes it loud; nothing turns a
+loud SOS silent, since anyone mashing volume down to quiet a screaming phone would do that. Over a
+theft warning or siren, a silent SOS stops its sound too. What Android shows anyway: the green
+camera and microphone dot while it records (Android 12+), and the phone can still be switched off.
 
 Harassed with the guard armed: grabbing the phone from the pocket starts the theft warning as
 usual. Wake the screen and tap volume up 4 times, or tap **🆘 I need help** on the alarm screen

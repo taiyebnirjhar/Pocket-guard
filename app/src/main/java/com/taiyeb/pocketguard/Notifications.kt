@@ -43,7 +43,10 @@ object Notifications {
         manager.deleteNotificationChannel("guard_stealth") // Fake shutdown, removed feature.
     }
 
-    fun status(context: Context, phase: Phase): Notification {
+    fun status(context: Context, alarmPhase: Phase): Notification {
+        // A silent SOS looks like an ordinary armed guard to whoever sees the lock screen.
+        val silentSos = alarmPhase.isAlarm && GuardState.sosSilent.value && GuardState.alarmTrigger.value == Trigger.SOS
+        val phase = if (silentSos) Phase.WAITING_FOR_POCKET else alarmPhase
         val open = PendingIntent.getActivity(
             context, 0, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

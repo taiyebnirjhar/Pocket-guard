@@ -30,10 +30,12 @@ Agreed with the owner on 2026-10-23. Each step is one PR and one release.
 
 - **Volume up × 4 = loud SOS** (as now). **Volume down × 4 = silent SOS.**
 - Silent SOS: no siren, voice, flash or alarm screen; the screen stays as it was. One short buzz
-  confirms it (switchable). The 5 s cancel countdown runs silently. The status notification stays
+  confirms it. The 5 s cancel countdown runs silently. The status notification stays
   plain ("Pocket Guard is on"), with no SOS wording on the lock screen.
 - SMS, live map, video recording and upload run as for a loud SOS. Video pieces are shorter
   (30 s), so less is lost if the phone is cut off.
+- Unlocking doesn't end it; Home shows "Silent SOS is on" with cancel, send by SMS app, and "I'm
+  safe: stop the SOS". Volume up × 4 makes it loud; nothing makes a loud SOS silent.
 - The volume keys still change the volume (the key watcher only watches). Not while music, a video
   or a call plays, as for volume up.
 - Limits Android won't let us hide: the green camera/microphone dot (Android 12+), and the phone can

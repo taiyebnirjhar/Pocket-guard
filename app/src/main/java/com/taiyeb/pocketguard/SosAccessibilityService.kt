@@ -18,7 +18,7 @@ class SosAccessibilityService : AccessibilityService() {
             private set
     }
 
-    private val taps = SosTaps { gesture -> GuardService.onSosTaps(gesture) }
+    private val taps = SosTaps { gesture, silent -> GuardService.onSosTaps(gesture, silent) }
 
     override fun onServiceConnected() {
         android.util.Log.i(GuardService.TAG, "SOS key watcher connected")

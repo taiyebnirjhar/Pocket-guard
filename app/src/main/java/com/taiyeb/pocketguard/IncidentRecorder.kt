@@ -54,7 +54,8 @@ class IncidentRecorder(
                 camera.cancel()
                 // Uploaded live: smaller pieces, so they go up quickly over mobile data.
                 val live = LiveShare.current?.takeIf { Backend.videoUploadOn(context) }
-                video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null) { file ->
+                val pieceMs = if (GuardState.sosSilent.value) SosVideo.SHORT_PIECE_MS else SosVideo.PIECE_MS
+                video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null, pieceMs = pieceMs) { file ->
                     incident.videos += file.name
                     History.save(context, incident)
                     live?.addVideo(file)

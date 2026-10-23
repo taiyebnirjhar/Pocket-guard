@@ -46,6 +46,7 @@ screenshots).
 | site | 2026-10-19 | #21 | Website and README fact-checked against the code (three passes). |
 | v2.4.0 | 2026-10-20 | #22 | Fewer false pocket alarms: finger over the sensor in the hand, 2 s settle after going in, 2.5 s re-cover recovery including the sit-down posture shift. Separate Theft alarm switch ("SOS ready" mode). 174 unit tests. |
 | v2.5.0 | (pending merge) | next | Tabs Home · Theft · SOS · History · Settings. SOS tab: readiness line, "On SOS, Pocket Guard will" checklist with separate switches for live map, video upload and email; contacts moved there. Home warns when SOS has no contacts. Plan: [../plans/sos-ux-plan.md](../plans/sos-ux-plan.md). |
+| v2.6.0 | (pending merge) | next | **Silent SOS: volume down tapped 4 times.** No siren, voice, flash or alarm screen; plain notification; 30 s video pieces; unlocking doesn't end it (Home: Silent SOS is on, cancel alerts, send by SMS app, I'm safe: stop). Volume up × 4 makes it loud; loud can't be made silent. |
 
 Website PRs don't bump `VERSION`; they deploy through `pages.yml` on merge and shipped in the next
 app release's notes (#15, #17 with v2.3.1; #19–#21 with v2.4.0).

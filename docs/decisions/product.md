@@ -173,8 +173,12 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   notification; alerts, live map and recording as usual).
 - **Why:** A siren tells an attacker to switch the phone off or smash it; live sharing should be
   stealthy. A gesture each lets the user choose in the moment.
-- **Rejected:** a loud/silent setting (one fixed choice for every situation).
-- **Status:** planned.
+- **Rejected:** a loud/silent setting (one fixed choice for every situation); switching a loud SOS
+  to silent with volume down (anyone mashing volume down to quiet a screaming phone would do it).
+  Only silent → loud (volume up × 4) is allowed.
+- Unlocking doesn't end a silent SOS (the victim may be made to unlock); Home's "I'm safe: stop the
+  SOS" does.
+- **Status:** v2.6.0.
 
 ### Signal-lost alert after 60 s
 - **Date / version:** 2026-10-23, planned for v2.7.0

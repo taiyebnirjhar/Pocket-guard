@@ -62,6 +62,10 @@ object Prefs {
     fun alarmSos(context: Context) = get(context, "alarm_sos", false)
     fun setAlarmSos(context: Context, value: Boolean) = put(context, "alarm_sos", value)
 
+    /** The running SOS is silent: after a restart it comes back silent too. */
+    fun alarmSilent(context: Context) = get(context, "alarm_silent", false)
+    fun setAlarmSilent(context: Context, value: Boolean) = put(context, "alarm_silent", value)
+
     /**
      * Whether an unlock ends the running alarm (false: it began on an unlocked phone, so only the
      * owner's credential in the app does). Kept so a restart can't turn a thief's swipe into a stop.
