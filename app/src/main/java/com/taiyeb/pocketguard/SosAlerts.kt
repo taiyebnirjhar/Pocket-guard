@@ -92,7 +92,7 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
                     runCatching { context.startActivity(smsIntent(numbers, text)) }
                 }
             }
-            if (emails.isNotEmpty() && Backend.enabled(context)) {
+            if (emails.isNotEmpty() && Backend.emailOn(context)) {
                 val app = context.applicationContext
                 val name = EmergencyContacts.ownerName(context)
                 Thread { Backend.sendEmail(app, Backend.EmailKind.TEST, emails, null, name, "") }.start()
@@ -229,7 +229,8 @@ class SosAlerts(private val context: Context, private val log: (String) -> Unit)
             log("SOS alerts: ${contacts.size} contacts in ${AlertPlan.COUNTDOWN_MS / 1000} s unless cancelled")
         }
         if (Backend.enabled(context)) {
-            live = LiveShare(context, EmergencyContacts.ownerName(context), EmergencyContacts.emails(context), log)
+            val emails = if (Backend.emailOn(context)) EmergencyContacts.emails(context) else emptyList()
+            live = LiveShare(context, EmergencyContacts.ownerName(context), emails, log)
                 .also { it.start(::onLiveLink, existing) }
         }
         startLocation()

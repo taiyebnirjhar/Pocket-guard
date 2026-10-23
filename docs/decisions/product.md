@@ -155,3 +155,32 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   for SOS, and Home and the notification say "SOS ready". Both can't be off.
 - **Why:** Owner: "we might not need theft and sos togather".
 - **Status:** current.
+
+### Theft and SOS tabs; online steps made visible
+- **Date / version:** 2026-10-23, v2.5.0
+- **Decision:** Five tabs (Home, Theft, SOS, History, Settings). The SOS tab says whether an SOS
+  reaches anyone and lists what it does, with separate switches for the live map link, video upload
+  and email (the last two need the live map). Supersedes the single "Live location link" switch under
+  Settings → Online (v1.8.0) and the mixed Triggers screen.
+- **Why:** Owner: "I didnt saw anything online / online feature… Its not clarified on the ui", and
+  "user may turn on / off: video upload online".
+- **Status:** current. Next: silent SOS (v2.6.0) and the signal-lost alert (v2.7.0), see
+  [../plans/sos-ux-plan.md](../plans/sos-ux-plan.md).
+
+### Silent SOS on volume down × 4
+- **Date / version:** 2026-10-23, planned for v2.6.0
+- **Decision:** Volume up × 4 = loud SOS, volume down × 4 = silent SOS (no siren, plain screen and
+  notification; alerts, live map and recording as usual).
+- **Why:** A siren tells an attacker to switch the phone off or smash it; live sharing should be
+  stealthy. A gesture each lets the user choose in the moment.
+- **Rejected:** a loud/silent setting (one fixed choice for every situation).
+- **Status:** planned.
+
+### Signal-lost alert after 60 s
+- **Date / version:** 2026-10-23, planned for v2.7.0
+- **Decision:** During SOS, if the server hears nothing for 60 s, it emails the contacts the last
+  position and the live page shows "Offline since".
+- **Why:** Power-off can't be blocked, so being cut off is made an alert itself. Owner wanted it
+  shorter than 2 minutes; 60 s is 4 missed 15 s updates, so a lift or tunnel doesn't set it off.
+- **Status:** planned.
+

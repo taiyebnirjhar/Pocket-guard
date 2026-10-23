@@ -610,8 +610,10 @@ shot 2-onboarding-arm
 write_prefs
 open_tab home
 shot 3-home-off
-open_tab triggers
-shot 5-triggers
+open_tab theft
+shot 5-theft
+open_tab sos
+shot 5b-sos
 open_tab history
 shot 6-history
 open_tab setup
@@ -630,7 +632,7 @@ shot 9-alarm
 sh cmd connectivity airplane-mode disable
 unlock
 SHOTS=$(find "$SCREENS" -name "*.png" -size +10k | wc -l)
-expect_true '[ "$SHOTS" -eq 10 ]' "every screen rendered for a screenshot ($SHOTS of 10)"
+expect_true '[ "$SHOTS" -eq 11 ]' "every screen rendered for a screenshot ($SHOTS of 11)"
 UI_CRASHES=$(adb logcat -d -b crash 2>/dev/null)
 expect_true '! grep -q "$PKG" <<<"$UI_CRASHES"' "no crash opening the onboarding, setup, every tab and the alarm screen"
 sh am force-stop $PKG

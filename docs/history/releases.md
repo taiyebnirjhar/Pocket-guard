@@ -45,6 +45,7 @@ screenshots).
 | site | 2026-10-19 | #20 | Pages always deploys `main`, so a release can't restore an older page. |
 | site | 2026-10-19 | #21 | Website and README fact-checked against the code (three passes). |
 | v2.4.0 | 2026-10-20 | #22 | Fewer false pocket alarms: finger over the sensor in the hand, 2 s settle after going in, 2.5 s re-cover recovery including the sit-down posture shift. Separate Theft alarm switch ("SOS ready" mode). 174 unit tests. |
+| v2.5.0 | (pending merge) | next | Tabs Home · Theft · SOS · History · Settings. SOS tab: readiness line, "On SOS, Pocket Guard will" checklist with separate switches for live map, video upload and email; contacts moved there. Home warns when SOS has no contacts. Plan: [../plans/sos-ux-plan.md](../plans/sos-ux-plan.md). |
 
 Website PRs don't bump `VERSION`; they deploy through `pages.yml` on merge and shipped in the next
 app release's notes (#15, #17 with v2.3.1; #19–#21 with v2.4.0).

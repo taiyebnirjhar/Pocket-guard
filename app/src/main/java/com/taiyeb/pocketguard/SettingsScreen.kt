@@ -71,7 +71,6 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
     TabPage(stringResource(R.string.settings_title)) {
         SectionLabel(stringResource(R.string.settings_alarm))
         GlassCard {
-            UnlockDelay()
             ToggleRow(R.drawable.ic_science, stringResource(R.string.settings_test), stringResource(R.string.settings_test_sub), testMode) {
                 testMode = it
                 Prefs.setTestMode(context, it)
@@ -119,20 +118,14 @@ fun SettingsScreen(refreshKey: Int, onOpenGuide: () -> Unit) {
     }
 }
 
-/** The live location link during SOS, and deleting what was stored online. */
+/** Deleting what was stored online (what is shared during SOS is set on the SOS tab). */
 @Composable
 private fun OnlineSettings() {
     val context = LocalContext.current
-    var live by remember { mutableStateOf(Prefs.liveLocation(context)) }
     var confirming by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<Int?>(null) }
     GlassCard {
-        ToggleRow(R.drawable.ic_shield, stringResource(R.string.online_live), stringResource(R.string.online_live_sub), live) {
-            live = it
-            Prefs.setLiveLocation(context, it)
-            GuardService.refreshForeground()
-        }
         SettingRow(
             R.drawable.ic_delete,
             stringResource(R.string.online_delete),
@@ -173,7 +166,7 @@ private fun OnlineSettings() {
 }
 
 @Composable
-private fun UnlockDelay() {
+fun UnlockDelay() {
     val context = LocalContext.current
     var grace by remember { mutableIntStateOf(Prefs.graceSeconds(context)) }
     SettingRow(

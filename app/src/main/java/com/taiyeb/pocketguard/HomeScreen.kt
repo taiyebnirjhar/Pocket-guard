@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit, onOpenTriggers: () -> Unit) {
+fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit, onOpenSos: () -> Unit) {
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val armedAt by GuardState.armedAt.collectAsState()
@@ -70,6 +70,10 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     // Contacts set up but the message or people changed since approval (or the language, or the
     // live link setting): SOS alerts are off until the owner approves again.
     val alertsOff = remember(refreshKey) { EmergencyContacts.needsReapproval(context) }
+    // SOS on but nobody to tell: it would only sound the siren.
+    val sosAlone = remember(refreshKey) {
+        Prefs.SOS_AVAILABLE && !alertsOff && EmergencyContacts.list(context).isEmpty()
+    }
     // Real alarms only: a warning the pocket's fabric started and ended by itself isn't one.
     val lastAlarm = remember(historyVersion) { History.load(context).filter { it.escalated }.maxOfOrNull { it.startedAt } }
     val confirmTitle = stringResource(R.string.home_confirm_disarm)
@@ -168,11 +172,24 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         HomeScheduleCard(refreshKey)
         if (alertsOff) {
             Spacer(Modifier.height(12.dp))
-            GlassCard(onClick = onOpenTriggers) {
+            GlassCard(onClick = onOpenSos) {
                 SettingRow(
                     R.drawable.ic_warning,
                     stringResource(R.string.home_alerts_off),
                     stringResource(R.string.home_alerts_off_sub),
+                    tint = Amber,
+                ) {
+                    Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
+                }
+            }
+        }
+        if (sosAlone) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard(onClick = onOpenSos) {
+                SettingRow(
+                    R.drawable.ic_warning,
+                    stringResource(R.string.sos_siren_only),
+                    stringResource(R.string.sos_siren_only_sub),
                     tint = Amber,
                 ) {
                     Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)

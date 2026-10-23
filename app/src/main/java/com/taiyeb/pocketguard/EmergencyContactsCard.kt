@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,9 +53,11 @@ import androidx.compose.ui.unit.sp
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EmergencyContactsCard(refreshKey: Int) {
+/** [onChanged]: contacts, the name or the approval changed (the SOS tab's readiness follows). */
+fun EmergencyContactsCard(refreshKey: Int, onChanged: () -> Unit = {}) {
     val context = LocalContext.current
     var version by remember { mutableIntStateOf(0) }
+    LaunchedEffect(version) { if (version > 0) onChanged() }
     val contacts = remember(version) { EmergencyContacts.list(context) }
     val approved = remember(version) { EmergencyContacts.approved(context) }
     val reachable = remember(version) { contacts.filter { EmergencyContacts.reachable(context, it) } }
@@ -253,7 +256,16 @@ fun EmergencyContactsCard(refreshKey: Int) {
                         R.string.contacts_confirm_more,
                         EmergencyContacts.previewUpdateText(context),
                         EmergencyContacts.falseAlarmText(context),
-                    ) + if (Backend.enabled(context)) "\n\n" + stringResource(R.string.contacts_confirm_live) else "",
+                    ) + if (Backend.enabled(context)) {
+                        "\n\n" + listOfNotNull(
+                            stringResource(R.string.contacts_confirm_map),
+                            stringResource(R.string.contacts_confirm_video).takeIf { Backend.videoUploadOn(context) },
+                            stringResource(R.string.contacts_confirm_email).takeIf { Backend.emailOn(context) },
+                            stringResource(R.string.contacts_confirm_keep),
+                        ).joinToString(" ")
+                    } else {
+                        ""
+                    },
                 )
             },
             confirmButton = {
@@ -297,7 +309,7 @@ private fun ContactDialog(
     val phoneOk = EmergencyContacts.canText(phone)
     val emailOk = EmergencyContacts.looksLikeEmail(email)
     // An address only counts when it can be emailed, which needs the online part.
-    val canEmail = Backend.enabled(context)
+    val canEmail = Backend.emailOn(context)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(if (isNew) R.string.contacts_add_number else R.string.contacts_edit)) },

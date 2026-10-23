@@ -173,6 +173,14 @@ object Prefs {
     fun liveLocation(context: Context) = get(context, "live_location", true)
     fun setLiveLocation(context: Context, value: Boolean) = put(context, "live_location", value)
 
+    /** With the live link on: upload each SOS video piece as it's saved, for the live page. */
+    fun videoUpload(context: Context) = get(context, "video_upload", true)
+    fun setVideoUpload(context: Context, value: Boolean) = put(context, "video_upload", value)
+
+    /** With the live link on: email the SOS alert to contacts who have an address. */
+    fun emailAlerts(context: Context) = get(context, "email_alerts", true)
+    fun setEmailAlerts(context: Context, value: Boolean) = put(context, "email_alerts", value)
+
     fun onboarded(context: Context) = get(context, "onboarded", false)
 
     /** A step the app can't check by itself, marked done once the user opened its settings. */

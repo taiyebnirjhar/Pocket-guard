@@ -45,6 +45,12 @@ object Backend {
     /** Online features are on: built in, and the owner hasn't switched them off. */
     fun enabled(context: Context) = configured(context) && Prefs.liveLocation(context)
 
+    /** Alert emails go out: online, and the owner hasn't switched emails off. */
+    fun emailOn(context: Context) = enabled(context) && Prefs.emailAlerts(context)
+
+    /** SOS video pieces are uploaded for the live page as they're saved. */
+    fun videoUploadOn(context: Context) = enabled(context) && Prefs.videoUpload(context)
+
     fun liveLink(context: Context, viewerToken: String): String {
         val page = override(context, "page_override") ?: BuildConfig.LIVE_PAGE_URL
         return "$page#t=$viewerToken"

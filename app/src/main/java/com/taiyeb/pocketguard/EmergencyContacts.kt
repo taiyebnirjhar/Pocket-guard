@@ -57,7 +57,10 @@ object EmergencyContacts {
      */
     private fun fingerprint(context: Context) =
         // The words themselves too (they follow the app's language), so a new language asks again.
-        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${wording(context).hashCode()}|" +
+        // Emails off is marked only then, so approvals made before that switch existed still hold.
+        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}" +
+            (if (Backend.enabled(context) && !Backend.emailOn(context)) "-nomail" else "") +
+            "|${wording(context).hashCode()}|" +
             "${ownerName(context)}|" +
             list(context).joinToString(";") { c ->
                 "${c.name}=${normalize(c.phone)}" + if (c.email.isNotBlank()) "," + c.email.trim().lowercase() else ""
@@ -83,7 +86,7 @@ object EmergencyContacts {
 
     /** Someone an alert reaches: a number to text, or an address while the online part is on. */
     fun reachable(context: Context, contact: EmergencyContact) =
-        canText(contact.phone) || Backend.enabled(context) && looksLikeEmail(contact.email)
+        canText(contact.phone) || Backend.emailOn(context) && looksLikeEmail(contact.email)
 
     /** The numbers to text: contacts without one get email only. */
     fun numbers(context: Context) = list(context).filter { canText(it.phone) }.map { normalize(it.phone) }
