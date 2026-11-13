@@ -190,7 +190,13 @@ class LiveShare(
     private fun upload() {
         val id = incident?.id ?: return
         val batch = synchronized(queue) { ArrayList(queue) }
-        if (batch.isEmpty()) return
+        if (batch.isEmpty()) {
+            // Nothing new to show (indoors, standing still): a check-in with the battery, so the
+            // live page doesn't say the phone went offline (any update counts on the server).
+            val level = battery() ?: return
+            if (!stopped && !Backend.updateIncident(context, id, null, level)) log("Live location: check-in failed")
+            return
+        }
         val code = Backend.addLocations(context, id, batch)
         val ok = code in 200..299
         // Refused for good (a limit, a closed incident): keeping the batch would block every later fix.

@@ -8,7 +8,7 @@ in GitHub settings. Never paste a secret value into chat, commits, docs or logs.
 
 | Service | Used for | Plan | Owner action needed to change |
 |---|---|---|---|
-| GitHub (`taiyebnirjhar/Pocket-guard`, **private**) | Code, PRs, Actions CI/CD, releases | Free (2,000 Actions min/month on private repos) | Owner merges PRs, manages secrets |
+| GitHub (`taiyebnirjhar/Pocket-guard`, **public**) | Code, PRs, Actions CI/CD, releases | Free (unlimited Actions minutes on public repos) | Owner merges PRs, manages secrets |
 | Supabase (project "Pocket Guard", Singapore) | Anonymous auth, Postgres, edge functions, pg_cron | Free (pauses after 7 days idle; daily job keeps it awake) | Owner console |
 | Brevo | Alert emails (API) and Supabase auth email (SMTP) | Free (300 emails/day, Brevo logo) | Owner console |
 | Cloudflare R2 (bucket `pocket-guard-media`) | SOS video pieces, private, 90-day lifecycle | Free (10 GB, free egress) | Owner console |

@@ -1,12 +1,13 @@
 package com.taiyeb.pocketguard
 
 /**
- * The SOS key gesture: volume up tapped [TAPS] times within [WINDOW_MS]. One button, quick, found
- * by feel, and used by nothing else on the phone. The service leaves taps out while music, a video
- * or a call is playing (when people tap volume up to hear better); volume down starts the count
- * over, and holding volume up counts once. Main thread.
+ * The SOS key gestures: volume up tapped [TAPS] times within [WINDOW_MS] is the loud SOS, volume
+ * down tapped the same way the silent one. One button, quick, found by feel, and used by nothing
+ * else on the phone. The service leaves taps out while music, a video or a call is playing (when
+ * people change the volume to hear better); a press of the other key starts the count over, and
+ * holding a key counts once. Main thread.
  */
-class SosTaps(private val onTaps: (gesture: String) -> Unit) {
+class SosTaps(private val onTaps: (gesture: String, silent: Boolean) -> Unit) {
     companion object {
         const val TAPS = 4
         const val WINDOW_MS = 2000L
@@ -14,18 +15,26 @@ class SosTaps(private val onTaps: (gesture: String) -> Unit) {
 
     private val times = ArrayDeque<Long>()
 
-    /** A key went down (not a repeat from holding it) at [now] (ms, any steady clock). */
-    fun press(up: Boolean, now: Long) {
-        if (!up) {
+    /** Which key the taps in [times] are on. */
+    private var countingUp = true
+
+    /**
+     * A key went down (not a repeat from holding it) at [now] (ms, any steady clock). Returns how
+     * many taps of this key are now in the window (0 once they made the gesture).
+     */
+    fun press(up: Boolean, now: Long): Int {
+        if (up != countingUp) {
             times.clear()
-            return
+            countingUp = up
         }
         times.addLast(now)
         while (now - times.first() > WINDOW_MS) times.removeFirst()
         if (times.size >= TAPS) {
             times.clear()
-            onTaps("volume up tapped $TAPS times")
+            onTaps("volume ${if (up) "up" else "down"} tapped $TAPS times", !up)
+            return 0
         }
+        return times.size
     }
 
     fun reset() = times.clear()

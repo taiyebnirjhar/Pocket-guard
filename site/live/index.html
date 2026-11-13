@@ -25,6 +25,8 @@
   #status.safe { background: var(--safe); }
   h1 { font-size: 22px; margin: 8px 0 2px; }
   #facts { color: var(--muted); font-size: 14px; margin: 0; }
+  #lost { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 15px; font-weight: 600;
+          color: #fff; background: #b26a00; }
   #map { flex: 1; min-height: 260px; }
   footer { padding: 10px 16px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   footer a.btn { background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
@@ -46,6 +48,7 @@
   <span id="status"></span>
   <h1 id="title"></h1>
   <p id="facts"></p>
+  <p id="lost" class="hidden" role="alert"></p>
 </header>
 <div id="map" class="hidden"></div>
 <section id="media" class="hidden"><h2 id="media-title"></h2><div id="media-list"></div></section>

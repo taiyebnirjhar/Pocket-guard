@@ -77,6 +77,9 @@ object GuardState {
     /** What the running alarm is for (null when none), so the alarm screen can say the right thing. */
     val alarmTrigger = MutableStateFlow<Trigger?>(null)
 
+    /** The running SOS is silent (volume down × 4): no siren or alarm screen, plain notification. */
+    val sosSilent = MutableStateFlow(false)
+
     /** The SOS alerts to emergency contacts, while SOS runs and they are on (null otherwise). */
     val alert = MutableStateFlow<AlertUi?>(null)
 }

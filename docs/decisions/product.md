@@ -155,3 +155,59 @@ Detection details are in [detection.md](detection.md); SOS and alerts in
   for SOS, and Home and the notification say "SOS ready". Both can't be off.
 - **Why:** Owner: "we might not need theft and sos togather".
 - **Status:** current.
+
+### Theft and SOS tabs; online steps made visible
+- **Date / version:** 2026-10-23, v2.6.0 (planned as v2.5.0; shipped with silent SOS)
+- **Decision:** Five tabs (Home, Theft, SOS, History, Settings). The SOS tab says whether an SOS
+  reaches anyone and lists what it does, with separate switches for the live map link, video upload
+  and email (the last two need the live map). Supersedes the single "Live location link" switch under
+  Settings → Online (v1.8.0) and the mixed Triggers screen.
+- **Why:** Owner: "I didnt saw anything online / online feature… Its not clarified on the ui", and
+  "user may turn on / off: video upload online".
+- **Status:** current. Silent SOS and the live-map signal-lost notice shipped in the same release, see
+  [../plans/sos-ux-plan.md](../plans/sos-ux-plan.md).
+
+### Silent SOS on volume down × 4
+- **Date / version:** 2026-10-23, planned for v2.6.0
+- **Decision:** Volume up × 4 = loud SOS, volume down × 4 = silent SOS (no siren, plain screen and
+  notification; alerts, live map and recording as usual).
+- **Why:** A siren tells an attacker to switch the phone off or smash it; live sharing should be
+  stealthy. A gesture each lets the user choose in the moment.
+- **Rejected:** a loud/silent setting (one fixed choice for every situation); switching a loud SOS
+  to silent with volume down (anyone mashing volume down to quiet a screaming phone would do it).
+  Only silent → loud (volume up × 4) is allowed.
+- Unlocking doesn't end a silent SOS (the victim may be made to unlock); Home's "I'm safe: stop the
+  SOS" does.
+- **Status:** v2.6.0.
+
+### Signal lost shown on the live map, no email
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** During SOS, 60 s without the phone reaching the server → the live page says "The
+  phone has been offline since …" with the last place seen. No email and no scheduled server job.
+- **Why:** Power-off can't be blocked, so being cut off is shown instead. Owner: "Keep things in live
+  location as much as possible. Reduce email usage as much as possible… 0 infra for life." 60 s is 4
+  missed 15 s check-ins, so a lift or tunnel doesn't set it off.
+- **Rejected:** emailing contacts from the server (needs their addresses stored during SOS, and uses
+  Brevo's small free plan).
+- **Status:** current.
+
+### Emails kept to the minimum
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** Alert emails off by default (the SMS carries the live link); on for anyone who
+  approved contacts before. "Send a test" goes by SMS only.
+- **Why:** Brevo's free plan is small; the goal is zero running cost for good.
+- **Status:** current.
+
+### Detection logs online (opt-in), with alarm labels
+- **Date / version:** 2026-10-23, v2.6.0
+- **Decision:** "Send detection logs" (Settings, off by default) uploads the detection log after
+  each alarm, on disarm and on request, with the phone model, Android version, sensor details and
+  settings, to Supabase `diag_logs` (insert-only for the app; 30 a day per phone; stops at 100 MB;
+  deleted after 30 days). History asks "Was this alarm right?" and the answer is logged.
+- **Why:** Owner: "The first thing we needs to do is make the log online so we can collect and
+  improve", after field tests on OnePlus 11R, Tecno Camon 40 Pro and Redmi Note 14 Pro+ behaved
+  differently. Labels tell real tests from false alarms.
+- **Rejected:** reading logs through a GitHub workflow (its logs and files become public once the
+  repo is public). They're exported from the Supabase dashboard instead.
+- **Status:** current.
+

@@ -373,6 +373,10 @@ tap_up() {
   local i
   for i in $(seq 1 "$1"); do hw_key KEY_VOLUMEUP 1; sleep 0.05; hw_key KEY_VOLUMEUP 0; sleep 0.2; done
 }
+tap_down() {
+  local i
+  for i in $(seq 1 "$1"); do hw_key KEY_VOLUMEDOWN 1; sleep 0.05; hw_key KEY_VOLUMEDOWN 0; sleep 0.2; done
+}
 expect_true '[ -n "$KEYDEV" ]' "found the input device with the volume keys ($KEYDEV)"
 reset_log
 sh settings put secure enabled_accessibility_services "$A11Y"
@@ -412,6 +416,30 @@ sleep 3
 reset_log
 unlock
 expect_phase WAITING_FOR_POCKET 6 "unlock stops the SOS alarm"
+sleep 2
+
+log "Scenario 7e3: silent SOS: volume down tapped 4 times, nothing to hear or see; volume up makes it loud"
+screen_off
+sh input keyevent KEYCODE_WAKEUP; sleep 1
+reset_log
+tap_down 4
+expect_log "SOS: volume down tapped 4 times \\(silent\\)" 6 "volume down tapped 4 times on the lock screen starts a silent SOS"
+expect_log "phase=SIREN .*trigger=SOS" 6 "the silent SOS is an SOS (alerts and recording as usual)"
+expect_log "SOS: silent, no siren or alarm screen" 6 "no siren and no alarm screen"
+sleep 2
+expect_true '! grep -q "alarm volume" <<<"$(app_log)"' "the siren never started (the alarm volume wasn't raised)"
+expect_true '! sh dumpsys window | grep "mCurrentFocus" | grep -q AlarmActivity' "the alarm screen isn't showing"
+reset_log
+unlock
+expect_no_phase WAITING_FOR_POCKET 3 "unlocking doesn't stop a silent SOS"
+reset_log
+tap_up 4
+expect_log "SOS: loud now" 6 "volume up tapped 4 times makes the silent SOS loud"
+expect_log "alarm volume" 6 "the siren starts"
+screen_off
+reset_log
+unlock
+expect_phase WAITING_FOR_POCKET 6 "unlock stops it once it is loud"
 sleep 2
 sh settings delete secure enabled_accessibility_services >/dev/null
 sleep 2
@@ -610,8 +638,10 @@ shot 2-onboarding-arm
 write_prefs
 open_tab home
 shot 3-home-off
-open_tab triggers
-shot 5-triggers
+open_tab theft
+shot 5-theft
+open_tab sos
+shot 5b-sos
 open_tab history
 shot 6-history
 open_tab setup
@@ -630,7 +660,7 @@ shot 9-alarm
 sh cmd connectivity airplane-mode disable
 unlock
 SHOTS=$(find "$SCREENS" -name "*.png" -size +10k | wc -l)
-expect_true '[ "$SHOTS" -eq 10 ]' "every screen rendered for a screenshot ($SHOTS of 10)"
+expect_true '[ "$SHOTS" -eq 11 ]' "every screen rendered for a screenshot ($SHOTS of 11)"
 UI_CRASHES=$(adb logcat -d -b crash 2>/dev/null)
 expect_true '! grep -q "$PKG" <<<"$UI_CRASHES"' "no crash opening the onboarding, setup, every tab and the alarm screen"
 sh am force-stop $PKG

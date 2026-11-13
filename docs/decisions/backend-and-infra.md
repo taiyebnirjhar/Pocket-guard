@@ -132,8 +132,17 @@ Repository, CI/CD, releases, Supabase, Brevo and R2. Oldest first. Current setup
 - **Decision:** At 10:36 on 2026-10-17 the owner considered private and said "Leave it". Around 17:23
   the same day he made it **private**. On 2026-10-18: "We will keep it private for now".
 - **Why:** Owner's choice.
-- **Status:** current: **private**. Consequences: GitHub Pages stopped (free plan); release links
-  need login; 2,000 Actions minutes a month; smaller runners. Supersedes "public for open source" (2026-10-16).
+- **Status:** superseded on 2026-10-23 (below). While private: GitHub Pages stopped (free plan);
+  release links needed login; 2,000 Actions minutes a month; smaller runners.
+
+### Repo public again
+- **Date / version:** 2026-10-23
+- **Decision:** The owner made the repository **public** again.
+- **Why:** The private repo's free Actions minutes ran out (CI jobs on PR #24 got no runner), and the
+  code holds no secrets (they are all in GitHub Secrets). Unlimited free CI on public repos.
+- **Consequence:** anything a workflow prints or uploads is public, so detection logs are read from
+  the Supabase dashboard, never through a workflow. Secrets stay masked in logs.
+- **Status:** current.
 
 ### CI fits private-repo runners
 - **Date / version:** 2026-10-17, v2.1.0 (PR #11)

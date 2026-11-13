@@ -63,20 +63,23 @@ This policy explains what the app uses and why.</p>
 </ul>
 
 <h2>Live location link and alert emails (online)</h2>
-<p>When "Live location link" is on (Settings, Online; on by default) and you approve your alert,
+<p>When "Share a live map link" is on (SOS tab; on by default) and you approve your alert,
 the app signs in to Pocket Guard's server with an <b>anonymous account</b> made for this phone, so
 SOS doesn't have to wait for it. The account is a random ID with no email, phone number or
 password, and is not linked to your identity. Starting SOS then also does this:</p>
 <ul>
   <li>It opens an <b>SOS record</b> with the name you entered for alerts, your battery level, and the
     start and end time, and uploads your <b>location</b> (position, accuracy and time) about
-    every 30 seconds while SOS runs.</li>
-  <li>The <b>video</b> recorded during SOS is uploaded in one-minute pieces (480p, with sound) as
-    they are saved, to storage that is not public.</li>
+    every 30 seconds while SOS runs. The server also notes when the phone last reached it, so the
+    live map can show that the phone went offline.</li>
+  <li>When "Upload the video" is on (SOS tab; on by default), the <b>video</b> recorded during SOS
+    is uploaded in one-minute pieces (30-second pieces in a silent SOS; 480p, with sound) as they
+    are saved, to storage that is not public.</li>
   <li>The SMS carries a <b>private link</b> to a live map of that location, with the recordings.
     Anyone with the link can see it, and play a recording through a link that works for
     10 minutes, without signing in, until one day after SOS ends.</li>
-  <li>Emergency contacts who have an <b>email address</b> get the alert by email (in your phone's
+  <li>When "Email contacts" is on (SOS tab; off by default), emergency contacts who have an
+    <b>email address</b> get the alert by email (in your phone's
     language), sent through our email provider. The addresses are used to send that email and are
     not stored on the server: only a one-way hash of each one is kept for 90 days, so that no address
     can be sent too many alerts. Brevo keeps its usual delivery logs.</li>
@@ -84,6 +87,16 @@ password, and is not linked to your identity. Starting SOS then also does this:<
 <p>The server is run on Supabase (database and sign-in, hosted in Singapore), recordings are
 stored on Cloudflare R2 (Asia-Pacific), and emails are sent through Brevo. They process the data only to provide this service. The data is used for nothing
 else: not for advertising, profiling or sale.</p>
+
+<h2>Detection logs (optional, off by default)</h2>
+<p>Only if you turn on <b>Send detection logs</b> (Settings), the app sends its detection log to
+Pocket Guard's server after each alarm, when you turn the guard off, and when you tap "Send the log
+now": what the guard saw and decided (sensor events such as covered or uncovered, motion and their
+timings), your phone's make, model, Android version, sensor details and Pocket Guard settings, and
+whether you marked an alarm in History as right or false. It goes through the same anonymous
+account and holds no location, contacts, messages, photos or recordings. It is used only to fix false
+alarms and missed thefts, is readable only by the developer, and is deleted after 30 days, or at once
+with "Delete my online data". Turn the switch off to stop sending.</p>
 
 <h2>Sharing</h2>
 <p>The app shares only the SOS alert you approved, with the emergency contacts you approved, when

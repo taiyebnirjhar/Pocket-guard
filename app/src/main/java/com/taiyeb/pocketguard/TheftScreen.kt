@@ -27,8 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/** The Theft tab: what sets off the theft siren, how long it waits, and the evidence it keeps. */
 @Composable
-fun TriggersScreen(refreshKey: Int) {
+fun TheftScreen(refreshKey: Int) {
     val context = LocalContext.current
     val setup = remember(refreshKey) { SetupStatus.read(context) }
     var airplane by remember { mutableStateOf(Prefs.airplaneAlarm(context)) }
@@ -38,9 +39,7 @@ fun TriggersScreen(refreshKey: Int) {
     var autoTransit by remember { mutableStateOf(Prefs.autoArmTransit(context)) }
     var photos by remember { mutableStateOf(Prefs.intruderPhotos(context)) }
     var tableGuard by remember { mutableStateOf(Prefs.tableGuard(context)) }
-    var sosButtons by remember { mutableStateOf(Prefs.sosButtons(context)) }
-    var theft by remember { mutableStateOf(Prefs.theftGuard(context)) }
-    val keepOne = { Toast.makeText(context, R.string.triggers_keep_one, Toast.LENGTH_LONG).show() }
+    var theft by remember(refreshKey) { mutableStateOf(Prefs.theftGuard(context)) }
     var camera by remember(refreshKey) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
@@ -52,31 +51,19 @@ fun TriggersScreen(refreshKey: Int) {
         R.string.disclose_activity, arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
     ) { ok -> if (ok && Prefs.autoArmTransit(context)) TransitRecognition.enable(context) }
     val askCamera = rememberDisclosedPermission(R.string.disclose_camera, arrayOf(Manifest.permission.CAMERA)) { camera = it }
-    var microphone by remember(refreshKey) {
-        mutableStateOf(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
-    }
-    val sosKeys = remember(refreshKey) { SosSetup.keysEnabled(context) }
-    val setUpKeys = rememberSosKeysSetup(refreshKey)
-    val askRecord = rememberDisclosedPermission(
-        R.string.disclose_sos_record, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
-    ) {
-        camera = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        microphone = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        // A running guard needs the microphone in its foreground type to record from the lock screen.
-        if (camera || microphone) GuardService.refreshForeground()
-    }
     val askBluetooth = {
         if (Build.VERSION.SDK_INT >= 31 && !setup.bluetoothPermission) {
             askBluetoothPermission()
         }
     }
 
-    TabPage(stringResource(R.string.triggers_title), stringResource(R.string.triggers_sub)) {
+    TabPage(stringResource(R.string.theft_title), stringResource(R.string.theft_sub)) {
         SectionLabel(stringResource(R.string.triggers_alarms))
         GlassCard {
             ToggleRow(R.drawable.ic_shield, stringResource(R.string.triggers_theft), stringResource(R.string.triggers_theft_sub), theft) {
-                if (!it && !sosButtons) {
-                    keepOne()
+                // With SOS off too there would be nothing to arm.
+                if (!it && !Prefs.sosButtons(context)) {
+                    Toast.makeText(context, R.string.triggers_keep_one, Toast.LENGTH_LONG).show()
                     return@ToggleRow
                 }
                 theft = it
@@ -91,26 +78,6 @@ fun TriggersScreen(refreshKey: Int) {
                     tableGuard = it
                     Prefs.setTableGuard(context, it)
                 }
-            }
-            if (Prefs.SOS_AVAILABLE) {
-                ToggleRow(R.drawable.ic_vibration, stringResource(R.string.triggers_sos), stringResource(R.string.triggers_sos_sub), sosButtons) {
-                    if (!it && !theft) {
-                        keepOne()
-                        return@ToggleRow
-                    }
-                    sosButtons = it
-                    Prefs.setSosButtons(context, it)
-                    GuardService.refreshSos()
-                    if (it && (!camera || !microphone)) askRecord() else if (it && !sosKeys) setUpKeys()
-                }
-                if (sosButtons) {
-                    if (!camera || !microphone) PermissionWarning(stringResource(R.string.permission_sos_record)) { askRecord() }
-                    if (!sosKeys) PermissionWarning(stringResource(R.string.sos_keys_off), stringResource(R.string.action_turn_on)) { setUpKeys() }
-                    Text(stringResource(R.string.sos_other_ways), color = Muted, fontSize = 12.sp)
-                    Text(stringResource(R.string.sos_legal), color = Muted, fontSize = 12.sp)
-                }
-            }
-            if (theft) {
                 ToggleRow(R.drawable.ic_flight, stringResource(R.string.triggers_airplane), stringResource(R.string.triggers_airplane_sub), airplane) {
                     airplane = it
                     Prefs.setAirplaneAlarm(context, it)
@@ -127,10 +94,9 @@ fun TriggersScreen(refreshKey: Int) {
             }
         }
 
-
-        if (Prefs.SOS_AVAILABLE) {
-            SectionLabel(stringResource(R.string.contacts_section))
-            GlassCard { EmergencyContactsCard(refreshKey) }
+        if (theft) {
+            SectionLabel(stringResource(R.string.settings_delay))
+            GlassCard { UnlockDelay() }
         }
 
         SectionLabel(stringResource(R.string.triggers_auto))
@@ -180,8 +146,8 @@ fun TriggersScreen(refreshKey: Int) {
         SectionLabel(stringResource(R.string.triggers_schedule_section))
         GlassCard { ScheduleCard(refreshKey) }
 
-        SectionLabel(stringResource(R.string.triggers_evidence))
-        GlassCard {
+        if (theft) SectionLabel(stringResource(R.string.triggers_evidence))
+        if (theft) GlassCard {
             ToggleRow(R.drawable.ic_camera, stringResource(R.string.emergency_photos), stringResource(R.string.emergency_photos_sub), photos) {
                 photos = it
                 Prefs.setIntruderPhotos(context, it)

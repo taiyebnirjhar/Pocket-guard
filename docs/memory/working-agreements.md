@@ -42,7 +42,8 @@ How the owner (Taiyeb) works, and the rules every Claude session follows on this
 - Never put secret values in chat, commits, docs, logs or screenshots. They live only in GitHub
   Secrets (and Supabase's own store). The owner adds them himself ("Don't paste the token here").
 - Never send the owner's private email address to any service.
-- The repository stays **private** unless the owner says otherwise.
+- The repository is **public** (since 2026-10-23). Never print or upload anything private from a
+  workflow: its logs and files are public too.
 - Don't use or change the owner's other Cloudflare tokens or buckets (e.g. Gadget Nation). Scope
   every Pocket Guard credential to the minimum.
 - Production backend changes happen only through `backend.yml` after his merge.
@@ -58,6 +59,8 @@ How the owner (Taiyeb) works, and the rules every Claude session follows on this
 - "What's our status?" → a short table: released, open PRs, what is needed from him, with links.
 - Always send the release link when a release is ready, plus a short phone test list.
 - Admit mistakes plainly.
+- **Every reply ends with a TL;DR in bullets** (owner's rule, 2026-10-23): what was done, what's
+  going on, what's next, and what's needed from him.
 
 ## Testing
 

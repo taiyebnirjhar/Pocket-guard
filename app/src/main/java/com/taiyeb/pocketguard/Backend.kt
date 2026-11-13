@@ -45,6 +45,12 @@ object Backend {
     /** Online features are on: built in, and the owner hasn't switched them off. */
     fun enabled(context: Context) = configured(context) && Prefs.liveLocation(context)
 
+    /** Alert emails go out: online, and the owner hasn't switched emails off. */
+    fun emailOn(context: Context) = enabled(context) && Prefs.emailAlerts(context)
+
+    /** SOS video pieces are uploaded for the live page as they're saved. */
+    fun videoUploadOn(context: Context) = enabled(context) && Prefs.videoUpload(context)
+
     fun liveLink(context: Context, viewerToken: String): String {
         val page = override(context, "page_override") ?: BuildConfig.LIVE_PAGE_URL
         return "$page#t=$viewerToken"
@@ -154,6 +160,19 @@ object Backend {
         if (battery != null) body.put("battery", battery)
         if (body.length() == 0) return true
         return call(context, "PATCH", "/rest/v1/incidents?id=eq.$incidentId", body, token, "return=minimal").ok
+    }
+
+    // --- Detection logs ------------------------------------------------------------------------
+
+    /** One batch of detection log lines (see [DiagLogs]): the HTTP code, or -1 offline. */
+    fun addDiagLog(context: Context, reason: String, appVersion: String, device: JSONObject, lines: String): Int {
+        val token = token(context) ?: return -1
+        val body = JSONObject()
+            .put("reason", reason)
+            .put("app_version", appVersion.take(40))
+            .put("device", device)
+            .put("lines", lines)
+        return call(context, "POST", "/rest/v1/diag_logs", body, token, "return=minimal").code
     }
 
     // --- Recordings ----------------------------------------------------------------------------

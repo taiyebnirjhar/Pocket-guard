@@ -47,3 +47,17 @@ in CI are listed at the end.
 - Intruder photo timeout 8 s → 12 s for slow runners (v2.3.0).
 - Private-runner disk space for the emulator (v2.1.0).
 - e2e key events: `input keyevent` is invisible to accessibility filters → root `sendevent` (v1.5.0).
+
+## 2026-10-23 · Three phones (v2.4.0)
+
+- **OnePlus 11R:** theft protection works (table uncover, pocket removals with no delay). SOS untested.
+- **Tecno Camon 40 Pro 4G:** "not worked at all". The log shows the phone reporting **unlocked in the
+  same second as the pocket uncover** (21:28:55), so the guard took it for the owner, and the motion
+  sensor slowed to **10 samples/s**. Needs this phone's log with device details.
+- **Redmi Note 14 Pro+ 5G:** theft and SOS work, theft "not accurate"; alarms all follow uncovers, so
+  which were false needs labels.
+- **Setup:** giving every permission takes too long; finding the Accessibility switch is hard on
+  some phones; banking apps may refuse to run while an Accessibility service is on.
+- **Response:** online detection logs with device details and alarm labels (v2.6.0), to study each
+  phone before changing the rules. Setup and Accessibility are next.
+

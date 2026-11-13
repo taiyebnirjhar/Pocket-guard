@@ -16,7 +16,7 @@ Snapshot as of **2026-10-21**. Update this at the end of every work session.
 - App v2.4.0 (full build) on the website and GitHub releases; Play AAB attached but not uploaded.
 - Website https://pocket-guard.pages.dev (landing, privacy policy, live map, APK download).
 - Backend on Supabase (Singapore), Brevo email, R2 media; daily keep-alive running.
-- Repo is **private**. No open PRs from Claude as of this snapshot (apart from this docs work).
+- Repo is **public** (since 2026-10-23). No open PRs from Claude as of this snapshot (apart from this docs work).
 
 ## Pending
 

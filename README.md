@@ -15,11 +15,15 @@ A dark theme with a purple glow, set in Manrope. A floating tab bar switches bet
 - **Home**: a power button inside a ring of moving dots. The ring's colour and speed follow the
   guard (grey off, lavender armed, purple protected, amber warning, red siren). Also shows the status, time
   armed, unlock delay, last alarm, how many setup steps are left, and an SOS card while armed.
-- **Triggers**: every alarm and arming-reminder switch, the earbud picker, intruder photos, SOS,
-  emergency contacts and the arming schedule.
+- **Theft**: the theft alarm switch and every theft trigger, the unlock delay, arming reminders,
+  the earbud picker, the arming schedule and intruder photos.
+- **SOS**: whether an SOS reaches anyone ("Ready: alerts go to 3 people", or "Siren only: no
+  emergency contacts yet"), a checklist of what an SOS does (siren, recording, SMS, and the online
+  steps, each with its own switch: live map link, video upload, email), how to start it, and the
+  emergency contacts.
 - **History**: past alarms with their intruder photos and SOS recordings.
-- **Settings**: unlock delay, test mode, the setup checklist, a live sensor check, the detection
-  log, language (Android 13+), Online (live link and deleting your online data; only with the backend built in), the guide, the privacy policy
+- **Settings**: test mode, the setup checklist, a live sensor check, the detection
+  log, language (Android 13+), Online (deleting your online data; only with the backend built in), the guide, the privacy policy
   and the how-to-test list.
 
 CI takes a screenshot of every screen on the emulator and attaches them to each release.
@@ -31,7 +35,7 @@ CI takes a screenshot of every screen on the emulator and attaches them to each 
 2. **Protected**: in a pocket (proximity covered for 0.5 s, screen off or locked), a short buzz
    confirms it; put in the pocket first and locked after, it is protected the moment the screen
    goes black. Lying still with the screen black (face-up on a table, on a seat), two short buzzes
-   mean table protection is on at once (unless table mode is off under Triggers).
+   mean table protection is on at once (unless table mode is off under Theft).
 3. **Taken out while locked**: the proximity sensor uncovered for 0.8 s is enough. Being armed
    is your choice, so once armed it asks for no further proof: a careful thief gives none (no
    jolt, no light, no turn). Fabric flickering over the sensor re-covers it within a second, and
@@ -84,7 +88,7 @@ vibrating, so a phone put back down can tell it is still; a table siren starts v
 can no longer be put back (10 s after the pick-up). Lifted or tilted and put back down flat and
 still within the grace period, the warning stops by itself (3 times per 10 min at most); a slide
 warns until you unlock. With no delay set, a table pick-up still gets these 1.5 s before the
-siren. Table mode can be switched off under Triggers.
+siren. Table mode can be switched off under Theft.
 
 ## SOS: a call for help
 
@@ -103,10 +107,10 @@ Unlock to stop both. The recordings are in History, to play, save to the gallery
 you do, they stay in the app's private storage. Recording people without consent is against the law in
 some places.
 
-**Emergency contacts** (Triggers → Emergency contacts): up to 5 people, picked from your contacts
+**Emergency contacts** (SOS → Emergency contacts): up to 5 people, picked from your contacts
 or typed in, and the name the alert uses. You see the exact messages (the alert, the update
 and "false alarm") and approve them with the list; any change asks again, including a new
-wording or switching the live link, and Home says when alerts are off for that reason. A number
+wording or switching the live link or the emails, and Home says when alerts are off for that reason. A number
 needs at least 6 digits. The email follows the app's language; the SMS doesn't (below). When SOS starts, a 5-second countdown with **Cancel** runs on the alarm
 screen (the alarm and recording don't wait), then each contact gets an SMS: *"Taiyeb needs help!
 SOS from Pocket Guard at 14:05. Location: https://maps.google.com/?q=… (within 10 m)"*. The SMS is
@@ -123,10 +127,17 @@ restart during SOS carries on: an alert already sent isn't sent again, and one y
 cancelled. "False alarm" goes only to whoever the alert reached, and a retry still waiting never
 follows it.
 
-**Live location link and alert emails** (Settings → Online → Live location link, on by default):
+**Live location link, video upload and alert emails** (SOS tab, each its own switch; the live
+link and video upload on by default, emails off by default, and on for anyone who approved
+contacts before v2.6.0; video upload and emails need the live link):
 the SMS also carries a private link to a live map (`https://pocket-guard.pages.dev/live/#t=<token>`), and
-contacts with an email address get the alert by email, then "false alarm" if you stop right away.
-With the live link on, the SOS video is recorded at 480p (about 12 MB a minute; 720p, about 30 MB,
+with emails on, contacts with an email address get the alert by email, then "false alarm" if you
+stop right away. Emails are kept to the SOS alert itself, since Brevo's free plan is small: "Send
+a test" goes by SMS only. If the phone stops reaching the server for 60 s during SOS (switched
+off, smashed, no signal), the live map says **"The phone has been offline since 21:42"** and shows
+where it was last seen; it updates by itself if the phone comes back. During SOS the phone checks
+in every 15 s even when it has no new location, so standing still never looks like offline.
+With video upload on, the SOS video is recorded at 480p (about 12 MB a minute; 720p, about 30 MB,
 without it) and each one-minute piece is uploaded to
 R2 as it's saved, through a link the server signs for that piece; the live page lists the
 recordings and plays one through a 10-minute link. Pieces still uploading when SOS ends carry on
@@ -146,7 +157,7 @@ button on the Pocket Guard notification (on the lock screen, no unlock), the **S
 Quick Settings (swipe down on the lock screen and tap), and the SOS card on Home. Started from an
 unlocked phone, "I'm the owner" on the alarm screen stops it, or lock and unlock.
 
-Setup (asked in the first-run checklist, and in Triggers → SOS): allow Camera and Microphone, and
+Setup (asked in the first-run checklist, and on the SOS tab): allow Camera and Microphone, and
 turn on **Pocket Guard SOS buttons** in Accessibility (the app explains what it sees and asks
 first, then opens the switch itself). Installed outside the Play Store, Android 13+ greys that
 switch out ("restricted setting"); the app then shows the three steps, each with a button to the
@@ -156,7 +167,19 @@ Android shows the volume keys to no app at all, accessibility included; the lock
 enough. One button on purpose: the power key is taken by the phone's own gestures (camera on two
 presses, Emergency SOS on five on many phones), and two-button holds are hard in a hurry. Taps don't count while music, a video or a call is
 playing (that's someone turning the volume up), fewer than 4 or slower than 2 s don't count, and
-volume down starts the count over.
+a press of the other volume key starts the count over.
+
+**Silent SOS: tap volume down 4 times instead**, for when a siren would make things worse (a
+robbery, being taken somewhere, at home): no whistle, voice, flash or alarm screen, and the
+Pocket Guard notification keeps looking like an ordinary armed guard. A short buzz confirms it.
+The alerts, live map, emails and recording run as for a loud SOS, with 30-second video pieces
+instead of one-minute ones, so less is lost if the phone is switched off or smashed. Unlocking
+doesn't end a silent SOS (someone may make you unlock): Home shows **Silent SOS is on**, with
+cancelling the alerts during the countdown, sending them from the SMS app (Play build), and
+**I'm safe: stop the SOS**. Volume up 4 times during a silent SOS makes it loud; nothing turns a
+loud SOS silent, since anyone mashing volume down to quiet a screaming phone would do that. Over a
+theft warning or siren, a silent SOS stops its sound too. What Android shows anyway: the green
+camera and microphone dot while it records (Android 12+), and the phone can still be switched off.
 
 Harassed with the guard armed: grabbing the phone from the pocket starts the theft warning as
 usual. Wake the screen and tap volume up 4 times, or tap **🆘 I need help** on the alarm screen
@@ -194,7 +217,7 @@ test over. To test, let the screen turn off by itself once.
 | Earbuds or watch disconnect while out of pocket and locked | Warning, then siren (in a pocket or on a table: buzz only) | Off | Nearby devices permission |
 | Phone restarted or app killed during an alarm | Alarm resumes, before the first unlock too | Always on | |
 
-**Theft alarm and SOS are separate switches** (Triggers, both on by default). With the theft alarm
+**Theft alarm and SOS are separate switches** (the Theft and SOS tabs, both on by default). With the theft alarm
 off, arming gives SOS only: nothing guards the pocket or table, none of the triggers above warns, and
 Home and the notification say *SOS ready*. With SOS off, the volume keys do nothing. One of the two
 always stays on.
@@ -206,12 +229,20 @@ again within 2.5 s of a pocket warning ends it when the phone barely turned (the
 turned once smoothly, as when you sit down or stand up, even if light got in; not if someone looked at
 the screen while it was out.
 
+**Send detection logs** (Settings, off by default): after each alarm (20 s later, so the unlock
+is in it), when the guard is turned off, and on **Send the log now**, the detection log lines not
+sent yet go to Supabase (`diag_logs`) with the phone's make, model, Android version, sensor
+details and Pocket Guard settings. No location, contacts or messages. History asks of each alarm
+**"Was this alarm right?"** (**Yes, or my test** / **False alarm**); the answer is kept and logged
+too. The app can only add rows (30 a day per phone, nothing past 100 MB in all); they're read by
+exporting the table from the Supabase dashboard, and deleted after 30 days or with the account.
+
 **Arming reminders** (both off by default): when chosen earbuds or a watch connect, or when Google
 activity detection sees you board a bus, train or car, a notification asks whether to arm; one tap
 arms it. It never arms by itself on a guess, since that set off alarms nobody expected.
 Car stereos and speakers never count as earbuds, and you can pick the exact devices that count.
 
-**Schedule** (Triggers → Schedule, off by default): arm by itself at set times, like a Focus mode
+**Schedule** (Theft → Schedule, off by default): arm by itself at set times, like a Focus mode
 schedule. Add up to 5 times, each with days and a start and end (*every day 09:00–18:00*, or
 *Fri 22:00–02:00*, which runs past midnight; equal start and end means the whole day). At the
 start it arms and says until when; at the end it turns off, unless you had armed it yourself
@@ -370,7 +401,7 @@ version are tested but not released.
   10 cm/s aren't measured; any lift or tilt that follows is. For the same reason a car's
   acceleration can look like a tilt: an idling engine or a recognised push pauses the slow
   pick-up rules, but a very quiet (electric) car pulling away hard can occasionally warn. Turn
-  table mode off under Triggers if you leave the phone face-down on a seat while driving.
+  table mode off under Theft if you leave the phone face-down on a seat while driving.
 - On a table that keeps shaking (a bouncing knee, a running engine) the slow pick-up rules pause
   until it is still again; uncovering it, turning it over or pocketing it still warns.
 - A phone laid face-down on a lap while sitting very still may be taken for a table. Wait for

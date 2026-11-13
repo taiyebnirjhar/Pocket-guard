@@ -57,7 +57,10 @@ object EmergencyContacts {
      */
     private fun fingerprint(context: Context) =
         // The words themselves too (they follow the app's language), so a new language asks again.
-        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}|${wording(context).hashCode()}|" +
+        // Emails off is marked only then, so approvals made before that switch existed still hold.
+        "$TEXT_VERSION|${if (Backend.enabled(context)) "live" else "sms"}" +
+            (if (Backend.enabled(context) && !Backend.emailOn(context)) "-nomail" else "") +
+            "|${wording(context).hashCode()}|" +
             "${ownerName(context)}|" +
             list(context).joinToString(";") { c ->
                 "${c.name}=${normalize(c.phone)}" + if (c.email.isNotBlank()) "," + c.email.trim().lowercase() else ""
@@ -74,7 +77,14 @@ object EmergencyContacts {
     /** Approved once, but something it covers has changed since: alerts are off until approved again. */
     fun needsReapproval(context: Context) = prefs(context).getString(KEY_APPROVED, null) != null && !approved(context)
 
-    fun approve(context: Context) = prefs(context).edit().putString(KEY_APPROVED, fingerprint(context)).apply()
+    fun approve(context: Context) {
+        // Pinned first: the emails' default follows whether anything was approved yet.
+        Prefs.setEmailAlerts(context, Prefs.emailAlerts(context))
+        prefs(context).edit().putString(KEY_APPROVED, fingerprint(context)).apply()
+    }
+
+    /** Some list was approved at some point (even if it needs approving again now). */
+    fun everApproved(context: Context) = prefs(context).getString(KEY_APPROVED, null) != null
 
     /** Shortest number an SMS can go to (local numbers included); shorter ones are typos. */
     const val MIN_DIGITS = 6
@@ -83,7 +93,7 @@ object EmergencyContacts {
 
     /** Someone an alert reaches: a number to text, or an address while the online part is on. */
     fun reachable(context: Context, contact: EmergencyContact) =
-        canText(contact.phone) || Backend.enabled(context) && looksLikeEmail(contact.email)
+        canText(contact.phone) || Backend.emailOn(context) && looksLikeEmail(contact.email)
 
     /** The numbers to text: contacts without one get email only. */
     fun numbers(context: Context) = list(context).filter { canText(it.phone) }.map { normalize(it.phone) }

@@ -52,9 +52,10 @@ class IncidentRecorder(
                 sosRecording = true
                 // On top of a theft siren whose photos are still being taken: the video needs the camera.
                 camera.cancel()
-                // Shared live: smaller pieces, so they upload quickly over mobile data.
-                val live = LiveShare.current
-                video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null) { file ->
+                // Uploaded live: smaller pieces, so they go up quickly over mobile data.
+                val live = LiveShare.current?.takeIf { Backend.videoUploadOn(context) }
+                val pieceMs = if (GuardState.sosSilent.value) SosVideo.SHORT_PIECE_MS else SosVideo.PIECE_MS
+                video.start(History.videosDir(context), "s${incident.id}", lowRes = live != null, pieceMs = pieceMs) { file ->
                     incident.videos += file.name
                     History.save(context, incident)
                     live?.addVideo(file)

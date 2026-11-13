@@ -57,6 +57,10 @@ Already confirmed by the owner: pocket sirens fire (field log 2026-10-17); SOS f
 |---|---|---|
 | Schedule on Android 14+: service started by an alarm lacks camera, mic and location until the app opens | C | A notification tells the user. Check whether more can be done. |
 | UI copy: rename "SOS buttons" to "SOS volume key" | C | Optional. |
+| Website screenshot of the old Triggers screen (`site/img/triggers.webp`) | C (website) | Replace with the new Theft and SOS tabs after v2.5.0 ships. |
+| Tecno Camon 40 Pro: "unlocked" reported with the uncover; 10 samples/s | C | Wait for its online log (device details), then fix. |
+| Setup takes too long; Accessibility hard to find; banking apps vs Accessibility | C proposes, T decides | Next after the logs: shorter setup, SOS without Accessibility as the default path. |
+| How to read detection logs | T | Supabase dashboard → Table editor → `diag_logs` → Export CSV, then share it. |
 | Old alerts sent before v2.2.0 link to the dead github.io site | none | Accepted while the repo is private. |
 | Delete merged `wip/*` branches on GitHub | T | `wip/backend-check`, `wip/contacts`, `wip/detection-v1.2.0`, `wip/e2e-pocket-race`, `wip/live-location`, `wip/media`, `wip/play-ready`, `wip/sos`. Claude's proxy can't delete remote branches. Also the old `pocket-guard-build-2` prerelease (optional). |
 | Brevo housekeeping | T | Optional: remove the unused old Gmail sender; rotate the Brevo API key (part of it appeared in a screenshot). |

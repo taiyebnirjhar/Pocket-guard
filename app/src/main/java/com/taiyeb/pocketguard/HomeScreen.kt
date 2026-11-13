@@ -56,11 +56,16 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit, onOpenTriggers: () -> Unit) {
+fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter: Boolean) -> Unit, onOpenSos: () -> Unit) {
     val context = LocalContext.current
     val phase by GuardState.phase.collectAsState()
     val armedAt by GuardState.armedAt.collectAsState()
     val unlockStops by GuardState.unlockStopsAlarm.collectAsState()
+    val silent by GuardState.sosSilent.collectAsState()
+    val trigger by GuardState.alarmTrigger.collectAsState()
+    val alert by GuardState.alert.collectAsState()
+    // A silent SOS has no alarm screen: Home is where it is followed and stopped.
+    val silentSos = silent && trigger == Trigger.SOS && phase.isAlarm
     val historyVersion by History.version.collectAsState()
     val left = remember(refreshKey, phase) { missingRequired(context) }
     // Re-read on resume: test mode switches itself off after an hour.
@@ -70,6 +75,10 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
     // Contacts set up but the message or people changed since approval (or the language, or the
     // live link setting): SOS alerts are off until the owner approves again.
     val alertsOff = remember(refreshKey) { EmergencyContacts.needsReapproval(context) }
+    // SOS on but nobody to tell: it would only sound the siren.
+    val sosAlone = remember(refreshKey) {
+        Prefs.SOS_AVAILABLE && !alertsOff && EmergencyContacts.list(context).isEmpty()
+    }
     // Real alarms only: a warning the pocket's fabric started and ended by itself isn't one.
     val lastAlarm = remember(historyVersion) { History.load(context).filter { it.escalated }.maxOfOrNull { it.startedAt } }
     val confirmTitle = stringResource(R.string.home_confirm_disarm)
@@ -120,7 +129,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         }
 
         Text(
-            stringResource(phase.titleRes(sosOnly)),
+            stringResource(if (silentSos) R.string.home_silent_title else phase.titleRes(sosOnly)),
             color = TextPrimary,
             fontSize = 26.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -128,7 +137,7 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            stringResource(phase.hintRes(sosOnly)),
+            stringResource(if (silentSos) R.string.home_silent_sub else phase.hintRes(sosOnly)),
             color = Muted,
             fontSize = 15.sp,
             textAlign = TextAlign.Center,
@@ -165,14 +174,58 @@ fun HomeScreen(refreshKey: Int, onOpenGuide: () -> Unit, onOpenSetup: (armAfter:
                 SettingRow(R.drawable.ic_warning, stringResource(R.string.home_sos), stringResource(R.string.tile_sos_ready), tint = Red)
             }
         }
+        if (silentSos) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard {
+                val countdown = alert?.takeIf { !it.sent && it.secondsLeft > 0 }
+                if (countdown != null) {
+                    SettingRow(
+                        R.drawable.ic_timer,
+                        stringResource(R.string.home_silent_cancel, countdown.secondsLeft),
+                        null,
+                        Modifier.clickable(role = Role.Button) { GuardService.cancelAlerts() },
+                        tint = Amber,
+                    )
+                }
+                if (alert?.needsTap == true || alert?.smsFailed == true) {
+                    SettingRow(
+                        R.drawable.ic_vibration,
+                        stringResource(R.string.home_silent_send),
+                        null,
+                        Modifier.clickable(role = Role.Button) { GuardService.sendAlertsByHand() },
+                        tint = Amber,
+                    )
+                }
+                SettingRow(
+                    R.drawable.ic_check,
+                    stringResource(R.string.home_silent_stop),
+                    stringResource(R.string.home_silent_stop_sub),
+                    Modifier.clickable(role = Role.Button) { GuardService.ownerStopSos() },
+                    tint = Green,
+                )
+            }
+        }
         HomeScheduleCard(refreshKey)
         if (alertsOff) {
             Spacer(Modifier.height(12.dp))
-            GlassCard(onClick = onOpenTriggers) {
+            GlassCard(onClick = onOpenSos) {
                 SettingRow(
                     R.drawable.ic_warning,
                     stringResource(R.string.home_alerts_off),
                     stringResource(R.string.home_alerts_off_sub),
+                    tint = Amber,
+                ) {
+                    Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
+                }
+            }
+        }
+        if (sosAlone) {
+            Spacer(Modifier.height(12.dp))
+            GlassCard(onClick = onOpenSos) {
+                SettingRow(
+                    R.drawable.ic_warning,
+                    stringResource(R.string.sos_siren_only),
+                    stringResource(R.string.sos_siren_only_sub),
                     tint = Amber,
                 ) {
                     Icon(painterResource(R.drawable.ic_chevron), contentDescription = null, tint = Muted)
